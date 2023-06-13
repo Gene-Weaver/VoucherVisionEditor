@@ -31,6 +31,8 @@ parser = argparse.ArgumentParser(description='Define save location of edited fil
 # Add parser argument for save directory
 parser.add_argument('--save-dir', type=str, default=".",
                     help='Directory to save output files')
+parser.add_argument('--base-path', type=str, default=".",
+                    help='New base path to replace the existing one up to "/Transcription"')
 
 # Parse the arguments
 try:
@@ -43,6 +45,7 @@ except SystemExit as e:
 
 # Get the save directory from the parsed arguments
 save_dir = args.save_dir
+base_path = args.base_path
 
 
 # Use save_dir where needed
@@ -78,6 +81,19 @@ def load_data():
             st.session_state.data = pd.read_excel(uploaded_file, dtype=str)
             st.session_state.file_name = uploaded_file.name.split('.')[0] + '_edited.xlsx'
         st.session_state.data = st.session_state.data.fillna('')  # Move this line here
+def replace_base_path(old_path, new_base_path):
+    """Replace the base path of the old_path with the new_base_path."""
+    # Split the path into parts
+    parts = old_path.split('/')
+    # Find the index of the 'Transcription' part
+    transcription_index = parts.index('Transcription') if 'Transcription' in parts else None
+    if transcription_index is not None:
+        # Replace the base path up to 'Transcription' with the new_base_path
+        new_path = os.path.join(new_base_path, *parts[transcription_index+1:])
+        return new_path
+    else:
+        return old_path  # Return the old_path unchanged if 'Transcription' is not in the path
+
 
 # Define pastel colors
 color_map = {
@@ -107,6 +123,11 @@ st.title('VoucherVision Editor')
 
 if st.session_state.data is None:
     load_data()
+    if st.session_state.data is not None:
+        st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, base_path))
+        st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, base_path))
+        st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, base_path))
+
 
 if st.session_state.data is not None:
     # Define the four columns
