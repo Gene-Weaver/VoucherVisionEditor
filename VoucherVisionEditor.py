@@ -86,8 +86,8 @@ def load_data():
         st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, base_path, 'json'))
 
 def replace_base_path(old_path, new_base_path, opt):
-    print(f"old = {old_path}")
-    print(f"new = {new_base_path}")
+    # print(f"old = {old_path}")
+    # print(f"new = {new_base_path}")
     # Replace the base path of the old_path with the new_base_path.
     # Split the path into parts
     parts = old_path.split(os.path.sep)
