@@ -6,7 +6,7 @@ Table of Contents
 =================
 
 * [Table of Contents](#table-of-contents)
-* [Installing VoucherVision](#installing-VoucherVisionEditor)
+* [Installing VoucherVisionEditor](#installing-VoucherVisionEditor)
    * [Prerequisites](#prerequisites)
    * [Installation - Cloning the VoucherVisionEditor Repository](#installation---cloning-the-VoucherVisionEditor-repository)
    * [About Python Virtual Environments](#about-python-virtual-environments)
