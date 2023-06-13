@@ -86,7 +86,7 @@ def replace_base_path(old_path, new_base_path):
     # Split the path into parts
     parts = old_path.split('/')
     # Find the index of the 'Transcription' part
-    transcription_index = parts.index('Transcription') if 'Transcription' in parts else None
+    transcription_index = parts.index('Cropped_Images') if 'Cropped_Images' in parts else None
     if transcription_index is not None:
         # Replace the base path up to 'Transcription' with the new_base_path
         new_path = os.path.join(new_base_path, *parts[transcription_index+1:])
