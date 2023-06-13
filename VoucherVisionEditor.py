@@ -81,7 +81,6 @@ def load_data():
             st.session_state.data = pd.read_excel(uploaded_file, dtype=str)
             st.session_state.file_name = uploaded_file.name.split('.')[0] + '_edited.xlsx'
         st.session_state.data = st.session_state.data.fillna('')  # Move this line here
-        
         st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, base_path))
         st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, base_path))
         st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, base_path))
