@@ -27,7 +27,7 @@ Table of Contents
 - Python 3.8 or later 
 
 ## Installation - Cloning the VoucherVisionEditor Repository
-1. First, install Python 3.8.10, or greater, on your machine of choice.
+1. First, install Python 3.8.10, or greater, on your machine of choice. We have validated up to Python 3.11.
     - Make sure that you can use `pip` to install packages on your machine, or at least inside of a virtual environment.
     - Simply type `pip` into your terminal or PowerShell. If you see a list of options, you are all set. Otherwise, see
     either this [PIP Documentation](https://pip.pypa.io/en/stable/installation/) or [this help page](https://www.geeksforgeeks.org/how-to-install-pip-on-windows/)
