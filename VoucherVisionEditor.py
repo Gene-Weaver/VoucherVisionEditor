@@ -129,7 +129,7 @@ grouping = {
     "COLLECTING": ["Datum","Cultivated","Habitat","Collectors","Collector Number", "Verbatim Date","Date", "End Date",],
 }
         
-st.title('VoucherVision Editor')
+st.title(':eyeglasses: VoucherVision Editor')
 
 if st.session_state.data is None:
     load_data()
