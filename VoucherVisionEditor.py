@@ -85,14 +85,18 @@ def load_data():
         st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, base_path))
         st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, base_path))
 
-def replace_base_path(old_path, new_base_path):
+def replace_base_path(old_path, new_base_path, opt):
     print(f"old = {old_path}")
     print(f"new = {new_base_path}")
     # Replace the base path of the old_path with the new_base_path.
     # Split the path into parts
     parts = old_path.split(os.path.sep)
     # Find the index of the 'Transcription' part
-    transcription_index = parts.index('Cropped_Images') if 'Cropped_Images' in parts else None
+    if opt == 'crop':
+        transcription_index = parts.index('Cropped_Images') if 'Cropped_Images' in parts else None
+    elif opt == 'json':
+        transcription_index = parts.index('Transcription') if 'Transcription' in parts else None
+
     if transcription_index is not None:
         # Replace the base path up to 'Transcription' with the new_base_path
         new_path = os.path.join(new_base_path, *parts[transcription_index+1:])
