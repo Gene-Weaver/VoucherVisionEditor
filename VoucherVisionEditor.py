@@ -31,7 +31,7 @@ parser = argparse.ArgumentParser(description='Define save location of edited fil
 # Add parser argument for save directory
 parser.add_argument('--save-dir', type=str, default=".",
                     help='Directory to save output files')
-parser.add_argument('--base-path', type=str, default=".",
+parser.add_argument('--base-path', type=str, default='',
                     help='New base path to replace the existing one up to "/Transcription"')
 
 # Parse the arguments
@@ -81,9 +81,11 @@ def load_data():
             st.session_state.data = pd.read_excel(uploaded_file, dtype=str)
             st.session_state.file_name = uploaded_file.name.split('.')[0] + '_edited.xlsx'
         st.session_state.data = st.session_state.data.fillna('')  # Move this line here
-        st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, base_path, 'crop'))
-        st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, base_path, 'json'))
-        st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, base_path, 'json'))
+
+        if base_path != '':
+            st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, base_path, 'crop'))
+            st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, base_path, 'json'))
+            st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, base_path, 'json'))
 
 def replace_base_path(old_path, new_base_path, opt):
     # print(f"old = {old_path}")
@@ -139,6 +141,7 @@ if st.session_state.data is not None:
     # Define the four columns
     c1, c2, c3, c4 = st.columns(4)
     view_option = c1.selectbox("Choose a View", ["Form View", "Data Editor"])
+    group_option = c2.selectbox("Choose a Category", list(grouping.keys()) + ["ALL"])
 
     form_col, json_col, image_col = st.columns([1, 1, 2])  
 
@@ -161,7 +164,9 @@ if st.session_state.data is not None:
                 n_rows = len(st.session_state.data)
                 st.write(f"**Editing row {st.session_state.row_to_edit + 1} / {n_rows}**")
 
-                for col in st.session_state.data.columns:
+                # for col in st.session_state.data.columns:
+                columns_to_show = st.session_state.data.columns if group_option == "ALL" else grouping[group_option]
+                for col in columns_to_show:
                     # Find the corresponding group and color
                     for group, fields in grouping.items():
                         if col in fields:
@@ -212,6 +217,9 @@ if st.session_state.data is not None:
     with json_col:
         if st.session_state['last_row_to_edit'] != st.session_state.row_to_edit:
             JSON_path = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_helper"]
+            print(f"JSON_path === {st.session_state.row_to_edit}")
+
+            print(f"JSON_path === {JSON_path}")
             if JSON_path:
                 with open(JSON_path, "r") as file:
                     print('LOADING JSON')
@@ -221,11 +229,18 @@ if st.session_state.data is not None:
         if 'json_dict' in st.session_state:
             json_dict = st.session_state['json_dict']
 
+            print(group_option)
             for key, value in json_dict.items():
-                color = color_map_json.get(key, "black")  # Default to black if key is not in color_map
-                st.markdown(f"<h4 style='color: {color};'>{key}</h4>", unsafe_allow_html=True)
-                for val in value:
-                    st.markdown(f"<p style='font-family:times new roman; font-size:20px;'>{val}</p>", unsafe_allow_html=True)  # Use HTML and CSS to style the text
+                if group_option == 'ALL':
+                    color = color_map_json.get(key, "black")  # Default to black if key is not in color_map
+                    st.markdown(f"<h4 style='color: {color};'>{key}</h4>", unsafe_allow_html=True)
+                    for val in value:
+                        st.markdown(f"<p style='font-family:times new roman; font-size:20px;'>{val}</p>", unsafe_allow_html=True)  # Use HTML and CSS to style the text
+                elif (key == group_option) or (key == 'MISCELLANEOUS'):
+                    color = color_map_json.get(key, "black")  # Default to black if key is not in color_map
+                    st.markdown(f"<h4 style='color: {color};'>{key}</h4>", unsafe_allow_html=True)
+                    for val in value:
+                        st.markdown(f"<p style='font-family:times new roman; font-size:20px;'>{val}</p>", unsafe_allow_html=True)  # Use HTML and CSS to style the text
 
 
     # Only load image if row has changed
