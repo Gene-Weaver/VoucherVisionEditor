@@ -99,7 +99,7 @@ def replace_base_path(old_path, new_base_path, opt):
 
     if transcription_index is not None:
         # Replace the base path up to 'Transcription' with the new_base_path
-        new_path = os.path.join(new_base_path, *parts[transcription_index+1:])
+        new_path = os.path.join(new_base_path, *parts[transcription_index:])
         return new_path
     else:
         return old_path  # Return the old_path unchanged if 'Transcription' is not in the path
