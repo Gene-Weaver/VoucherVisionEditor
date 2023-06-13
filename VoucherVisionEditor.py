@@ -146,41 +146,20 @@ if st.session_state.data is not None:
     if view_option == "Form View":
 
         # Next and previous buttons in first row of form_col
-        # with form_col:
-        #     col1, col2 = st.columns(2)
-        #     with col1:
-        #         if st.button("Previous"):
-        #             st.session_state.row_to_edit = max(st.session_state.row_to_edit - 1, st.session_state.data.index[0])
-        #     with col2:
-        #         if st.button("Next"):
-        #             st.session_state.row_to_edit = min(st.session_state.row_to_edit + 1, st.session_state.data.index[-1])
         with form_col:
-            # Add scrollable style
-            st.markdown("""
-                <style>
-                .scrollable {
-                    max-height: 600px;
-                    overflow: auto;
-                }
-                </style>
-                """, unsafe_allow_html=True)
-            
-            with st.container() as cont:
-                # Next and previous buttons in first row of form_col
-                col1, col2 = cont.columns(2)
-                with col1:
-                    if cont.button("Previous"):
-                        st.session_state.row_to_edit = max(st.session_state.row_to_edit - 1, st.session_state.data.index[0])
-                with col2:
-                    if cont.button("Next"):
-                        st.session_state.row_to_edit = min(st.session_state.row_to_edit + 1, st.session_state.data.index[-1])
-                
-                # Create a new row for the form
-                # with st.container():
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Previous"):
+                    st.session_state.row_to_edit = max(st.session_state.row_to_edit - 1, st.session_state.data.index[0])
+            with col2:
+                if st.button("Next"):
+                    st.session_state.row_to_edit = min(st.session_state.row_to_edit + 1, st.session_state.data.index[-1])
+
+            # Create a new row for the form
+            with st.container():
                 # Display the current row
                 n_rows = len(st.session_state.data)
-                cont.write(f"**Editing row {st.session_state.row_to_edit + 1} / {n_rows}**")
-                # st.write(f"**Editing row {st.session_state.row_to_edit + 1} / {n_rows}**")
+                st.write(f"**Editing row {st.session_state.row_to_edit + 1} / {n_rows}**")
 
                 for col in st.session_state.data.columns:
                     # Find the corresponding group and color
@@ -197,8 +176,8 @@ if st.session_state.data is not None:
                         st.session_state.data.loc[st.session_state.row_to_edit, col] = st.session_state.user_input[col]
                         save_data()
 
+            
         
-    
     elif view_option == "Data Editor":
         # Create two columns for the data editor and the image
         # data_editor_col, image_col = st.columns([1, 1])  # Divide the space equally between the two columns
@@ -231,34 +210,22 @@ if st.session_state.data is not None:
 
     # Only load JSON if row has changed
     with json_col:
-        # Add scrollable style
-        st.markdown("""
-            <style>
-            .scrollable {
-                max-height: 600px;
-                overflow: auto;
-            }
-            </style>
-            """, unsafe_allow_html=True)
+        if st.session_state['last_row_to_edit'] != st.session_state.row_to_edit:
+            JSON_path = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_helper"]
+            if JSON_path:
+                with open(JSON_path, "r") as file:
+                    print('LOADING JSON')
+                    st.session_state['json_dict'] = json.load(file)
+                    
+        # Display JSON
+        if 'json_dict' in st.session_state:
+            json_dict = st.session_state['json_dict']
 
-        with st.container() as cont:
-        # with json_col:
-            if st.session_state['last_row_to_edit'] != st.session_state.row_to_edit:
-                JSON_path = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_helper"]
-                if JSON_path:
-                    with open(JSON_path, "r") as file:
-                        print('LOADING JSON')
-                        st.session_state['json_dict'] = json.load(file)
-                        
-            # Display JSON
-            if 'json_dict' in st.session_state:
-                json_dict = st.session_state['json_dict']
-
-                for key, value in json_dict.items():
-                    color = color_map_json.get(key, "black")  # Default to black if key is not in color_map
-                    st.markdown(f"<h4 style='color: {color};'>{key}</h4>", unsafe_allow_html=True)
-                    for val in value:
-                        st.markdown(f"<p style='font-family:times new roman; font-size:20px;'>{val}</p>", unsafe_allow_html=True)  # Use HTML and CSS to style the text
+            for key, value in json_dict.items():
+                color = color_map_json.get(key, "black")  # Default to black if key is not in color_map
+                st.markdown(f"<h4 style='color: {color};'>{key}</h4>", unsafe_allow_html=True)
+                for val in value:
+                    st.markdown(f"<p style='font-family:times new roman; font-size:20px;'>{val}</p>", unsafe_allow_html=True)  # Use HTML and CSS to style the text
 
 
     # Only load image if row has changed
