@@ -82,9 +82,11 @@ def load_data():
             st.session_state.file_name = uploaded_file.name.split('.')[0] + '_edited.xlsx'
         st.session_state.data = st.session_state.data.fillna('')  # Move this line here
 def replace_base_path(old_path, new_base_path):
-    """Replace the base path of the old_path with the new_base_path."""
+    print(f"old = {old_path}")
+    print(f"new = {new_base_path}")
+    # Replace the base path of the old_path with the new_base_path.
     # Split the path into parts
-    parts = old_path.split('/')
+    parts = old_path.split(os.path.sep)
     # Find the index of the 'Transcription' part
     transcription_index = parts.index('Cropped_Images') if 'Cropped_Images' in parts else None
     if transcription_index is not None:
