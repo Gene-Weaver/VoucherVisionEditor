@@ -169,10 +169,17 @@ if st.session_state.data is not None:
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Previous"):
-                    st.session_state.row_to_edit = max(st.session_state.row_to_edit - 1, st.session_state.data.index[0])
+                    if st.session_state.row_to_edit == st.session_state.data.index[0]:
+                        st.session_state.row_to_edit = st.session_state.data.index[-1]
+                    else:
+                        st.session_state.row_to_edit -= 1
             with col2:
                 if st.button("Next"):
-                    st.session_state.row_to_edit = min(st.session_state.row_to_edit + 1, st.session_state.data.index[-1])
+                    if st.session_state.row_to_edit == st.session_state.data.index[-1]:
+                        st.session_state.row_to_edit = st.session_state.data.index[0]
+                    else:
+                        st.session_state.row_to_edit += 1
+
 
             # Create a new row for the form
             with st.container():
