@@ -6,6 +6,7 @@ Table of Contents
 =================
 
 * [Table of Contents](#table-of-contents)
+* [VoucherVisionEditor](#vouchervisioneditor-user-interface-for-vouchervision)
 * [Installing VoucherVisionEditor](#installing-VoucherVisionEditor)
    * [Prerequisites](#prerequisites)
    * [Installation - Cloning the VoucherVisionEditor Repository](#installation---cloning-the-VoucherVisionEditor-repository)
@@ -17,7 +18,19 @@ Table of Contents
       * [Virtual Environment](#virtual-environment-1)
       * [Installing Packages](#installing-packages-1)
 
+---
 
+# VoucherVisionEditor: User Interface for VoucherVision
+This application serves as a dedicated user interface designed to efficiently edit and manage the automatically generated label transcriptions by VoucherVision. VoucherVision, a significant module of LeafMachine2, leverages cutting-edge Natural Language Processing (NLP) technologies to transcribe labels attached to natural history collection specimens, including those found on herbarium vouchers.
+
+## Powered by Large Language Models
+At its core, VoucherVision employs several Large Language Models (LLMs) such as OpenAI's ChatGPT, Google's PaLM, and other locally-hosted LLMs that have been fine-tuned on transcription groundtruth datasets and GBIF records. This selection of potent models ensures optimal transcription quality across diverse datasets and provides flexibility in terms of cost and computational requirements. 
+
+## Comprehensive Error Correction
+To guarantee the generation of valid responses, VoucherVision integrates robust error correction procedures that enhance the reliability of the LLMs. This way, we ensure the integrity and accuracy of the transcriptions and support high-quality data management.
+
+## Customization
+Both VoucherVision and VoucherVisionEditor are built with adaptability in mind. They can be easily customized to accommodate varying digitization requirements - from basic to advanced, including full Darwin Core Archive fields. This adaptability makes our software suitable for a wide range of digitization efforts.
 
 ---
 
