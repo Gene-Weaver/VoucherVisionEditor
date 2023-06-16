@@ -7,6 +7,7 @@ Table of Contents
 
 * [Table of Contents](#table-of-contents)
 * [VoucherVisionEditor](#vouchervisioneditor-user-interface-for-vouchervision)
+* [Try our public demo!](#try-our-public-demo)
 * [Installing VoucherVisionEditor](#installing-VoucherVisionEditor)
    * [Prerequisites](#prerequisites)
    * [Installation - Cloning the VoucherVisionEditor Repository](#installation---cloning-the-VoucherVisionEditor-repository)
@@ -32,6 +33,7 @@ To guarantee the generation of valid responses, VoucherVision integrates robust 
 ## Customization
 Both VoucherVision and VoucherVisionEditor are built with adaptability in mind. They can be easily customized to accommodate varying digitization requirements - from basic to advanced, including full Darwin Core Archive fields. This adaptability makes our software suitable for a wide range of digitization efforts.
 
+---
 
 # Try our public demo!
 Our public demo, while lacking several quality control and reliability features found in the full VoucherVision module, provides an exciting glimpse into its capabilities. Feel free to upload your herbarium specimen and see what happens! We make frequent updates, so don't forget to revisit!
