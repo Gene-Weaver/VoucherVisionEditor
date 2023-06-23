@@ -12,17 +12,19 @@ __pycache__/
 *.so
 
 # Image files
-!img/*.jpg
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.svg
-*.bmp
-*.webp
-*.ico
-*.tif
-*.tiff
+# !img
+# !img/*.jpg
+# !img/*.ico
+# *.png
+# *.jpg
+# *.jpeg
+# *.gif
+# *.svg
+# *.bmp
+# *.webp
+# *.ico
+# *.tif
+# *.tiff
 
 
 # Distribution / packaging
