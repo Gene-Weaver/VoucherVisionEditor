@@ -1,14 +1,19 @@
 import streamlit as st
 import pandas as pd
 from PIL import Image
-import json, os, argparse
-
+import json, os, argparse, shutil, re, toml
+from utils import *
 # pip install streamlit pandas Pillow openpyxl tk
 # Windows
 # streamlit run your_script.py -- --save_dir /path/to/save/dir
 # Linux
 # export SAVE_DIR=/path/to/save/dir && streamlit run your_script.py
 
+
+### To run:
+# streamlit run VoucherVisionEditor.py -- 
+# --save-dir D:/Dropbox/LM2_Env/VoucherVision_Output/Compare_Set/chatGPT_prompt-V1_2023_06_12__18-11-40/Transcription
+# --base-path C:/Users/uname/new_location
 
 st.set_page_config(layout="wide")
 
@@ -32,7 +37,7 @@ parser = argparse.ArgumentParser(description='Define save location of edited fil
 parser.add_argument('--save-dir', type=str, default=".",
                     help='Directory to save output files')
 parser.add_argument('--base-path', type=str, default='',
-                    help='New base path to replace the existing one up to "/Transcription"')
+                    help='New base path to replace the existing one, up to "/Transcription"')
 
 # Parse the arguments
 try:
@@ -47,6 +52,54 @@ except SystemExit as e:
 save_dir = args.save_dir
 base_path = args.base_path
 
+def setup_streamlit_config(mapbox_key):
+    # Define the directory path and filename
+    dir_path = ".streamlit"
+    file_path = os.path.join(dir_path, "config.toml")
+
+    # Check if directory exists, if not create it
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+    # Create or modify the file with the provided content
+    config_content = f"""
+    [theme]
+    base = "dark"
+    primaryColor = "#00ff00"
+
+    [server]
+    enableStaticServing = true
+    runOnSave = true
+    port = 8523
+
+    [mapbox]
+    token = "{mapbox_key}"
+    """
+
+    with open(file_path, "w") as f:
+        f.write(config_content.strip())
+
+def prompt_for_mapbox_key():
+    # Define the directory path and filename
+    dir_path = ".streamlit"
+    file_path = os.path.join(dir_path, "config.toml")
+
+    # Check if directory exists, if not create it
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+    # Check if config file exists and has a Mapbox key
+    if os.path.exists(file_path):
+        config_data = toml.load(file_path)
+        if config_data.get('mapbox', {}).get('token'):
+            return
+
+    # Ask the user for their Mapbox key
+    mapbox_key = st.text_input('Enter your Mapbox key here')
+
+    # If the key was provided, use it to setup the config file
+    if mapbox_key:
+        setup_streamlit_config(mapbox_key)
 
 # Use save_dir where needed
 def save_data():
@@ -61,6 +114,7 @@ def save_data():
         st.success('Saved (XLSX)')
     else:
         st.error('Unknown file format.')
+
 def save_data_editor():
     # Check the file extension and save to the appropriate format
     if st.session_state.file_name.endswith('.csv'):
@@ -71,6 +125,7 @@ def save_data_editor():
         st.session_state.data.to_excel(file_path, index=False)
     else:
         st.error('Unknown file format.')
+
 def load_data():
     uploaded_file = st.file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
     if uploaded_file is not None:
@@ -84,28 +139,9 @@ def load_data():
 
         if base_path != '':
             st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, base_path, 'crop'))
+            st.session_state.data['path_to_original'] = st.session_state.data['path_to_original'].apply(lambda old_path: replace_base_path(old_path, base_path, 'original'))
             st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, base_path, 'json'))
             st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, base_path, 'json'))
-
-def replace_base_path(old_path, new_base_path, opt):
-    # print(f"old = {old_path}")
-    # print(f"new = {new_base_path}")
-    # Replace the base path of the old_path with the new_base_path.
-    # Split the path into parts
-    parts = old_path.split(os.path.sep)
-    # Find the index of the 'Transcription' part
-    if opt == 'crop':
-        transcription_index = parts.index('Cropped_Images') if 'Cropped_Images' in parts else None
-    elif opt == 'json':
-        transcription_index = parts.index('Transcription') if 'Transcription' in parts else None
-
-    if transcription_index is not None:
-        # Replace the base path up to 'Transcription' with the new_base_path
-        new_path = os.path.join(new_base_path, *parts[transcription_index:])
-        return new_path
-    else:
-        return old_path  # Return the old_path unchanged if 'Transcription' is not in the path
-
 
 # Define pastel colors
 color_map = {
@@ -114,6 +150,7 @@ color_map = {
     "LOCALITY": 'green',
     "COLLECTING": 'violet', 
     "MISCELLANEOUS": 'red', 
+    "OCR": 'white', 
 }
 
 color_map_json = {
@@ -134,10 +171,20 @@ grouping = {
 st.title(':herb: VoucherVision Editor')
 
 if st.session_state.data is None:
+    prompt_for_mapbox_key()
     load_data()
 
 
 if st.session_state.data is not None:
+    # Get the directory of the current file 
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Create the path to the new 'static' directory
+    static_folder_path = os.path.join(current_dir, 'static')
+
+    # Create 'static' directory
+    os.makedirs(static_folder_path, exist_ok=True)
+
     # Define the four columns
     c1, c3, c4, c5 = st.columns([4,2,1,1])
     # group_option = c1.selectbox("Choose a Category", list(grouping.keys()) + ["ALL"])
@@ -203,31 +250,46 @@ if st.session_state.data is not None:
                     if st.session_state.user_input[col] != st.session_state.data.loc[st.session_state.row_to_edit, col]:
                         st.session_state.data.loc[st.session_state.row_to_edit, col] = st.session_state.user_input[col]
                         save_data()
+            verbatim_coordinates = st.session_state.data.loc[st.session_state.row_to_edit, 'Verbatim Coordinates']
+            if verbatim_coordinates:
+                try:
+                    do_warn = check_for_sep(verbatim_coordinates)
+                    if do_warn:
+                        st.warning("Possibly invalid GPS coordinates! Lacks separator , - | ")
+
+                    # Split latitude and longitude from the verbatim_coordinates using regex
+                    verbatim_coordinates = verbatim_coordinates.strip()
+                    coords = re.split(',|-\s', verbatim_coordinates)
+                    print(len(coords))
+                    # Check if we have two separate coordinates
+                    if len(coords) != 2:
+                        st.warning("Possibly invalid GPS coordinates! Exactly two coordinate values not found.")
+                    
+                    lat, lon = coords
+
+                    # Parse the coordinates
+                    lat, lon = parse_coordinate(lat.strip()), parse_coordinate(lon.strip())
+
+                    # Check if the coordinates are within the valid ranges
+                    if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+                        st.warning("Invalid GPS coordinates! Values are out of bounds.")
+                    else:
+                        # Create a dataframe with latitude and longitude
+                        map_data = pd.DataFrame({
+                            'lat': [lat],
+                            'lon': [lon]
+                        })
+
+                        # Create a map with the coordinates
+                        st.map(map_data, zoom=3)
+                except ValueError:
+                    st.error("Invalid GPS coordinates!\nIncorrect OR unsupported coordinate format.")
+                    pass
+
 
             
         
     elif view_option == "Data Editor":
-        # Create two columns for the data editor and the image
-        # data_editor_col, image_col = st.columns([1, 1])  # Divide the space equally between the two columns
-
-        # with form_col:
-        #     edited_data = st.data_editor(st.session_state.data)
-
-        #     if st.button("Save Edits"):
-        #         # Save the edited data back to the session state data
-        #         st.session_state.data = edited_data
-        #         save_data_editor()
-
-        #     # Slider or number input to select the row
-        #     slider_value = st.slider("Select a row to display its image", min_value=st.session_state.data.index[0], max_value=st.session_state.data.index[-1], value=st.session_state.row_to_edit)
-            
-        #     # Only update the row_to_edit if slider value changes
-        #     if slider_value != st.session_state.row_to_edit:
-        #         st.session_state.row_to_edit = slider_value
-
-        #     # Display the current row
-        #     n_rows = len(st.session_state.data)-1
-        #     st.write(f"**Editing row {st.session_state.row_to_edit} / {n_rows}**")
         # If the view option is "Data Editor", create a new full-width container for the editor
         with st.container():
             edited_data = st.data_editor(st.session_state.data)
@@ -293,45 +355,84 @@ if st.session_state.data is not None:
                     if isinstance(main_value, dict):
                         for sub_key, sub_value in main_value.items():
                             if sub_value:
-                                st.markdown(f"<b style='font-size:20px;'>{sub_key}: <br></b> {sub_value}<br>", unsafe_allow_html=True)
+                                sub_value_show = remove_number_lines(sub_value)
+                                sub_value_show = sub_value_show.replace('\n', '<br/>')
+                                st.markdown(f"<b style='font-size:20px;'>{sub_key}: <br></b> {sub_value_show}<br>", unsafe_allow_html=True)
 
-
-
-    # # Only load image if row has changed
-    # with image_col:
-    #     if st.session_state['last_row_to_edit'] != st.session_state.row_to_edit:
-    #         st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_original"]
-    #         st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_crop"]
-    #         if pd.notnull(st.session_state['image_path']):
-    #             print('LOADING IMAGE')
-    #             st.session_state['image'] = Image.open(st.session_state['image_path'])
+        
+        # After displaying the first JSON...
+        if st.session_state['last_row_to_edit'] != st.session_state.row_to_edit:
+            # Load second JSON (OCR)
+            original_JSON_path = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_helper"]
+            print(original_JSON_path)
+            
+            if original_JSON_path:
+                # Breakdown the path into parts
+                path_parts = original_JSON_path.split(os.path.sep)
                 
-    #     # Display image
-    #     if 'image' in st.session_state and 'image_path' in st.session_state:
-    #         image = st.session_state['image']
-    #         st.image(image, caption=st.session_state['image_path'])
-    # Only load image if row has changed
+                # Change the last directory name to 'Individual_OCR'
+                path_parts[-2] = 'Individual_OCR'
+                
+                # Combine the parts back together
+                OCR_JSON_path = os.path.sep.join(path_parts)
+                print(OCR_JSON_path)
+                
+                # Check if the file exists
+                if os.path.isfile(OCR_JSON_path):
+                    with open(OCR_JSON_path, "r") as file:
+                        st.session_state['OCR_JSON'] = json.load(file)  # Save JSON data, not the path
+
+        # Display OCR JSON
+        if 'OCR_JSON' in st.session_state:
+            OCR_JSON = st.session_state['OCR_JSON']
+            # print(OCR_JSON)
+            # Assuming the JSON structure is like { "OCR": "Some Text" }
+            color = color_map.get('OCR', "#FFFFFF") 
+            st.markdown(f"<h4 style='color: {color};'>All OCR Text</h4><br>", unsafe_allow_html=True)
+            cleaned_OCR_text = remove_number_lines(OCR_JSON['OCR'])
+            OCR_show = cleaned_OCR_text.replace('\n', '<br/>')
+            st.markdown(f"""<p style='font-size:20px;'>{OCR_show}</p><br>""", unsafe_allow_html=True)
+
+
+
+
     with image_col:
-
-        # Add a selectbox for the image selection
-
         if st.session_state['last_row_to_edit'] != st.session_state.row_to_edit or 'last_image_option' not in st.session_state or st.session_state['last_image_option'] != image_option:
             if image_option == 'Original':
                 st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_original"]
             elif image_option == 'Cropped':
                 st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_crop"]
-
             if pd.notnull(st.session_state['image_path']):
                 print('LOADING IMAGE')
                 st.session_state['image'] = Image.open(st.session_state['image_path'])
-                
             # Remember the selected image option
             st.session_state['last_image_option'] = image_option
 
-        # Display image
-        if 'image' in st.session_state and 'image_path' in st.session_state:
+        if 'image' in st.session_state and 'last_image_option' in st.session_state:            
+            # Define directories for original and cropped images
+            static_folder_path_o = os.path.join(static_folder_path, "static_og")
+            static_folder_path_c = os.path.join(static_folder_path, "static_cr")
+            
+            # Create directories if they do not exist
+            os.makedirs(static_folder_path_o, exist_ok=True)
+            os.makedirs(static_folder_path_c, exist_ok=True)
+            
+            if st.session_state['last_image_option'] == 'Original':
+                static_image_path = os.path.join(static_folder_path_o, os.path.basename(st.session_state['image_path']))
+            elif st.session_state['last_image_option'] == 'Cropped':
+                static_image_path = os.path.join(static_folder_path_c, os.path.basename(st.session_state['image_path']))
+            
+            shutil.copy(st.session_state["image_path"], static_image_path)
+
+            # Create the HTML hyperlink with the image
+            relative_path_to_static = os.path.relpath(static_image_path, current_dir).replace('\\', '/')
+            st.markdown(f'[**Zoom**](/app/{relative_path_to_static})', unsafe_allow_html=True)
+
+            # Display the image
             image = st.session_state['image']
             st.image(image, caption=st.session_state['image_path'])
+
+
 
 
 

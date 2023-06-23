@@ -118,3 +118,20 @@ For more information about virtual environments, please see [Creation of virtual
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 
 ---
+
+# Running VoucherVisionEditor
+
+1. In the terminal, move into the VoucherVisionEditor directory.
+2. Make sure that your local version is updated by running `git pull` (you might need to use the Git Bash terminal).
+3. We will launch VVE from the terminal. There are two primary flags for the launch command.
+---
+`--save-dir` defines where the edited file will be saved. VVE never overwrites the original transcription file. This must be the full file path to where 
+the edited transcription.xlsx should be saved. If you need to pause an editing run and resume it at a later time, then the last "edited" file becomes the new input file, but `--save-dir` can remain the same because it will simply increment after each saved 
+
+---
+`--base-path` reroutes the file paths in the original transcription file is the files have been moved. The original transcription file saves the fill paths to the transcription JSON files, cropped labels images, and the original full specimen images. If the computerwhere VVE is running has access to these files and those file locations have not changed, then the `--base-path` option is not needed. But in the even that the original file paths are broken, this will rebuild the file paths to the new locations. 
+### Example:
+Say that you process images with VoucherVision and the output files are saved to `C:/user/documents/Project_1/Run_1`. The folder `Run_1` contains the main output directories, including the `Original_Images` and `Transcription` folders. To make the output portable, we would copy and move everything inside of the `Project_1` folder. Now the new location might be something like `E:/usr/home/Project_1/Run_1`. So for the `--base=path` option we would include eveerything in the new file path up to the `Transcription` like this:
+`--base-path E:/usr/home/Project_1/Run_1`
+<pre><code class="language-python">python3 LeafMachine2.py</code></pre>
+<button class="btn" data-clipboard-target="#code-snippet"></button>

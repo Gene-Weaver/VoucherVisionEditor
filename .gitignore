@@ -1,5 +1,6 @@
 venv_*/
-
+static/
+.streamlit*/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
