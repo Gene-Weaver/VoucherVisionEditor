@@ -86,7 +86,7 @@ For more information about virtual environments, please see [Creation of virtual
 ### Installing Packages
 
 1. Install the required libraries to use VoucherVisionEditor 
-    <pre><code class="language-python">pip install streamlit pandas openpyxl Pillow</code></pre>
+    <pre><code class="language-python">pip install streamlit pandas openpyxl Pillow pywin32</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 
 ---
@@ -126,7 +126,8 @@ For more information about virtual environments, please see [Creation of virtual
 3. We will launch VVE from the terminal. There are two primary flags for the launch command.
 ---
 `--save-dir` defines where the edited file will be saved. VVE never overwrites the original transcription file. This must be the full file path to where 
-the edited transcription.xlsx should be saved. If you need to pause an editing run and resume it at a later time, then the last "edited" file becomes the new input file, but `--save-dir` can remain the same because it will simply increment after each saved 
+the edited transcription.xlsx should be saved. If you need to pause an editing run and resume it at a later time, then the last "edited" file becomes the 
+new input file, but `--save-dir` can remain the same because it will simply increment after each session. 
 
 ---
 `--base-path` reroutes the file paths in the original transcription file is the files have been moved. The original transcription file saves the fill paths to the transcription JSON files, cropped labels images, and the original full specimen images. If the computerwhere VVE is running has access to these files and those file locations have not changed, then the `--base-path` option is not needed. But in the even that the original file paths are broken, this will rebuild the file paths to the new locations. 

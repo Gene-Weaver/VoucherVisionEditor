@@ -1,11 +1,13 @@
 import streamlit as st
 import pandas as pd
 from PIL import Image
-import json, os, argparse, shutil, re, toml
+import json, os, argparse, shutil, re, toml, ctypes, sys
+import subprocess
+import threading
 from utils import *
 # pip install streamlit pandas Pillow openpyxl tk
 # Windows
-# streamlit run your_script.py -- --save_dir /path/to/save/dir
+# streamlit run your_script.py -- --SAVE_DIR /path/to/save/dir
 # Linux
 # export SAVE_DIR=/path/to/save/dir && streamlit run your_script.py
 
@@ -14,7 +16,7 @@ from utils import *
 # streamlit run VoucherVisionEditor.py -- 
 # --save-dir D:/Dropbox/LM2_Env/VoucherVision_Output/Compare_Set/chatGPT_prompt-V1_2023_06_12__18-11-40/Transcription
 # --base-path C:/Users/uname/new_location
-
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
 st.set_page_config(layout="wide")
 
 
@@ -34,7 +36,7 @@ if "user_input" not in st.session_state:
 parser = argparse.ArgumentParser(description='Define save location of edited file.')
 
 # Add parser argument for save directory
-parser.add_argument('--save-dir', type=str, default=".",
+parser.add_argument('--save-dir', type=str, default=None,
                     help='Directory to save output files')
 parser.add_argument('--base-path', type=str, default='',
                     help='New base path to replace the existing one, up to "/Transcription"')
@@ -49,8 +51,8 @@ except SystemExit as e:
     os._exit(e.code)
 
 # Get the save directory from the parsed arguments
-save_dir = args.save_dir
-base_path = args.base_path
+# SAVE_DIR = args.save_dir
+# BASE_PATH = args.base_path
 
 def setup_streamlit_config(mapbox_key):
     # Define the directory path and filename
@@ -101,15 +103,15 @@ def prompt_for_mapbox_key():
     if mapbox_key:
         setup_streamlit_config(mapbox_key)
 
-# Use save_dir where needed
+# Use SAVE_DIR where needed
 def save_data():
     # Check the file extension and save to the appropriate format
     if st.session_state.file_name.endswith('.csv'):
-        file_path = os.path.join(save_dir, st.session_state.file_name)
+        file_path = os.path.join(SAVE_DIR, st.session_state.file_name)
         st.session_state.data.to_csv(file_path, index=False)
         st.success('Saved (CSV)')
     elif st.session_state.file_name.endswith('.xlsx'):
-        file_path = os.path.join(save_dir, st.session_state.file_name)
+        file_path = os.path.join(SAVE_DIR, st.session_state.file_name)
         st.session_state.data.to_excel(file_path, index=False)
         st.success('Saved (XLSX)')
     else:
@@ -118,10 +120,10 @@ def save_data():
 def save_data_editor():
     # Check the file extension and save to the appropriate format
     if st.session_state.file_name.endswith('.csv'):
-        file_path = os.path.join(save_dir, st.session_state.file_name)
+        file_path = os.path.join(SAVE_DIR, st.session_state.file_name)
         st.session_state.data.to_csv(file_path, index=False)
     elif st.session_state.file_name.endswith('.xlsx'):
-        file_path = os.path.join(save_dir, st.session_state.file_name)
+        file_path = os.path.join(SAVE_DIR, st.session_state.file_name)
         st.session_state.data.to_excel(file_path, index=False)
     else:
         st.error('Unknown file format.')
@@ -137,11 +139,79 @@ def load_data():
             st.session_state.file_name = uploaded_file.name.split('.')[0] + '_edited.xlsx'
         st.session_state.data = st.session_state.data.fillna('')  # Move this line here
 
-        if base_path != '':
-            st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, base_path, 'crop'))
-            st.session_state.data['path_to_original'] = st.session_state.data['path_to_original'].apply(lambda old_path: replace_base_path(old_path, base_path, 'original'))
-            st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, base_path, 'json'))
-            st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, base_path, 'json'))
+        if BASE_PATH != '':
+            st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'crop'))
+            st.session_state.data['path_to_original'] = st.session_state.data['path_to_original'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'original'))
+            st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'json'))
+            st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'json'))
+
+def start_server():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # Create the path to the new 'static' directory
+    static_folder_path = os.path.join(current_dir, 'static')
+    # Create 'static' directory
+    os.makedirs(static_folder_path, exist_ok=True)
+    clear_directory(static_folder_path)
+    # Ensure the server is run in a separate thread so it doesn't block the Streamlit app
+    def target():
+        subprocess.run(["python", "-m", "http.server"], cwd=static_folder_path)
+
+    threading.Thread(target=target).start()
+
+def clear_directory(directory_path):
+    for root, dirs, files in os.walk(directory_path):
+        for file in files:
+            file_path = os.path.join(root, file)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)  # remove file or symbolic link
+            except Exception as e:
+                print(f'Failed to delete {file_path}. Reason: {e}')
+
+
+def get_directory_paths(args):
+    save_dir_help = """
+    Defines where the edited file will be saved. 
+    VVE never overwrites the original transcription file. 
+    This must be the full file path to where the edited transcription.xlsx should be saved. 
+    If you need to pause an editing run and resume it at a later time, 
+    then the last "edited" file becomes the new input file, 
+    but --save-dir can remain the same because it will simply increment after each session.
+    """
+    
+    base_path_help = """
+    Reroutes the file paths in the original transcription file if the files have been moved. 
+    The original transcription file saves the full paths to the transcription JSON files, 
+    cropped labels images, and the original full specimen images. 
+    If the computer where VVE is running has access to these files and those file locations have not changed, 
+    then the --base-path option is not needed. 
+    But in the event that the original file paths are broken, this will rebuild the file paths to the new locations.
+    
+    For example, if the old path in your file is: 'C:/Users/old_user/Documents/Project/Transcription/File.json'
+    
+    and the new base path you enter is: 'D:/New_Project_Location/'
+    
+    then the new path for the file will become: 'D:/New_Project_Location/Transcription/File.json'.
+    """
+    bp_text = '''
+    #### Save Directory and Base Path Configuration
+    When launching the VoucherVision Editor (VVE) from the command line, two optional arguments can be specified: `--save-dir` and `--base-path`. 
+
+    - `--save-dir` defines where the edited file will be saved. VVE never overwrites the original transcription file. This must be the full file path to where the edited transcription.xlsx should be saved. If you need to pause an editing run and resume it at a later time, then the last "edited" file becomes the new input file, but `--save-dir` can remain the same because it will simply increment after each save.
+
+    - `--base-path` optional. Reroutes the file paths in the original transcription file ***if the files have been moved***. The original transcription file saves the full paths to the transcription JSON files, cropped labels images, and the original full specimen images. If the computer where VVE is running has access to these files and those file locations have not changed, then the `--base-path` option is not needed. But in the event that the original file paths are broken, this will rebuild the file paths to the new locations.
+
+    If `--save-dir` and `--base-path` are not provided in the command line arguments, you can specify them below.
+    '''
+    st.markdown(bp_text)
+
+    # Get the save directory and base path from the parsed arguments or use the Streamlit input
+    st.markdown("""#### Save Directory""")
+    SAVE_DIR = args.save_dir if args.save_dir else st.text_input('Enter the directory to save output files', help=save_dir_help)
+    st.markdown("""#### Base Path""")
+    BASE_PATH = args.base_path if args.base_path else st.text_input('Include the full path to the folder that contains "/Transcription", but do not include "/Transcription" in the path', help=base_path_help)
+    
+    return SAVE_DIR, BASE_PATH
 
 # Define pastel colors
 color_map = {
@@ -150,7 +220,7 @@ color_map = {
     "LOCALITY": 'green',
     "COLLECTING": 'violet', 
     "MISCELLANEOUS": 'red', 
-    "OCR": 'white', 
+    "OCR": '#7fbfff', 
 }
 
 color_map_json = {
@@ -171,19 +241,24 @@ grouping = {
 st.title(':herb: VoucherVision Editor')
 
 if st.session_state.data is None:
+    SAVE_DIR, BASE_PATH = get_directory_paths(args)
     prompt_for_mapbox_key()
     load_data()
+    start_server()
 
 
 if st.session_state.data is not None:
     # Get the directory of the current file 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-
     # Create the path to the new 'static' directory
     static_folder_path = os.path.join(current_dir, 'static')
-
     # Create 'static' directory
     os.makedirs(static_folder_path, exist_ok=True)
+    static_folder_path_o = os.path.join(static_folder_path, "static_og")
+    static_folder_path_c = os.path.join(static_folder_path, "static_cr")
+    os.makedirs(static_folder_path_o, exist_ok=True)
+    os.makedirs(static_folder_path_c, exist_ok=True)
+
 
     # Define the four columns
     c1, c3, c4, c5 = st.columns([4,2,1,1])
@@ -260,7 +335,7 @@ if st.session_state.data is not None:
                     # Split latitude and longitude from the verbatim_coordinates using regex
                     verbatim_coordinates = verbatim_coordinates.strip()
                     coords = re.split(',|-\s', verbatim_coordinates)
-                    print(len(coords))
+                    # print(len(coords))
                     # Check if we have two separate coordinates
                     if len(coords) != 2:
                         st.warning("Possibly invalid GPS coordinates! Exactly two coordinate values not found.")
@@ -329,12 +404,12 @@ if st.session_state.data is not None:
     with json_col:
         if st.session_state['last_row_to_edit'] != st.session_state.row_to_edit:
             JSON_path = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_helper"]
-            print(f"JSON_path === {st.session_state.row_to_edit}")
+            # print(f"JSON_path === {st.session_state.row_to_edit}")
 
-            print(f"JSON_path === {JSON_path}")
+            # print(f"JSON_path === {JSON_path}")
             if JSON_path:
                 with open(JSON_path, "r") as file:
-                    print('LOADING JSON')
+                    # print('LOADING JSON')
                     st.session_state['json_dict'] = json.load(file)
                     
         # Display JSON
@@ -364,7 +439,7 @@ if st.session_state.data is not None:
         if st.session_state['last_row_to_edit'] != st.session_state.row_to_edit:
             # Load second JSON (OCR)
             original_JSON_path = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_helper"]
-            print(original_JSON_path)
+            # print(original_JSON_path)
             
             if original_JSON_path:
                 # Breakdown the path into parts
@@ -375,7 +450,7 @@ if st.session_state.data is not None:
                 
                 # Combine the parts back together
                 OCR_JSON_path = os.path.sep.join(path_parts)
-                print(OCR_JSON_path)
+                # print(OCR_JSON_path)
                 
                 # Check if the file exists
                 if os.path.isfile(OCR_JSON_path):
@@ -408,29 +483,53 @@ if st.session_state.data is not None:
             # Remember the selected image option
             st.session_state['last_image_option'] = image_option
 
+        ### FOR VS CODE
+        # if 'image' in st.session_state and 'last_image_option' in st.session_state:            
+                    
+            # if st.session_state['last_image_option'] == 'Original':
+            #     static_image_path = os.path.join(static_folder_path_o, os.path.basename(st.session_state['image_path']))
+            # elif st.session_state['last_image_option'] == 'Cropped':
+            #     static_image_path = os.path.join(static_folder_path_c, os.path.basename(st.session_state['image_path']))
+            
+            # shutil.copy(st.session_state["image_path"], static_image_path)
+
+            # # Create the HTML hyperlink with the image
+            # relative_path_to_static = os.path.relpath(static_image_path, current_dir).replace('\\', '/')
+            # print(relative_path_to_static)
+            # st.markdown(f'[**Zoom**](/app/{os.path.join(current_dir, relative_path_to_static)})', unsafe_allow_html=True)
+
+
+            # # Display the image
+            # image = st.session_state['image']
+            # st.image(image, caption=st.session_state['image_path'])
+        ### FOR TERMINAL
         if 'image' in st.session_state and 'last_image_option' in st.session_state:            
-            # Define directories for original and cropped images
-            static_folder_path_o = os.path.join(static_folder_path, "static_og")
-            static_folder_path_c = os.path.join(static_folder_path, "static_cr")
-            
-            # Create directories if they do not exist
-            os.makedirs(static_folder_path_o, exist_ok=True)
-            os.makedirs(static_folder_path_c, exist_ok=True)
-            
+            # static_folder_path = os.path.join(current_dir, 'static')
+
             if st.session_state['last_image_option'] == 'Original':
-                static_image_path = os.path.join(static_folder_path_o, os.path.basename(st.session_state['image_path']))
+                static_image_path = os.path.join('static_og', os.path.basename(st.session_state['image_path']))
+                shutil.copy(st.session_state["image_path"], os.path.join(static_folder_path_o, os.path.basename(st.session_state['image_path'])))
             elif st.session_state['last_image_option'] == 'Cropped':
-                static_image_path = os.path.join(static_folder_path_c, os.path.basename(st.session_state['image_path']))
+                static_image_path = os.path.join('static_cr', os.path.basename(st.session_state['image_path']))
+                shutil.copy(st.session_state["image_path"], os.path.join(static_folder_path_c, os.path.basename(st.session_state['image_path'])))
             
-            shutil.copy(st.session_state["image_path"], static_image_path)
+            
+            # if st.session_state['last_image_option'] == 'Original':
+            #     static_image_path = os.path.join('static_og', os.path.basename(st.session_state['image_path']))
+            # elif st.session_state['last_image_option'] == 'Cropped':
+            #     static_image_path = os.path.join('static_cr', os.path.basename(st.session_state['image_path']))
+            
+            # shutil.copy(st.session_state["image_path"], static_image_path)
 
             # Create the HTML hyperlink with the image
             relative_path_to_static = os.path.relpath(static_image_path, current_dir).replace('\\', '/')
-            st.markdown(f'[**Zoom**](/app/{relative_path_to_static})', unsafe_allow_html=True)
+            print(relative_path_to_static)
+            st.markdown(f'[**Zoom**](http://localhost:8000/{relative_path_to_static})', unsafe_allow_html=True)
 
             # Display the image
             image = st.session_state['image']
             st.image(image, caption=st.session_state['image_path'])
+
 
 
 
