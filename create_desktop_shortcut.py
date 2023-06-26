@@ -3,11 +3,11 @@ import sys
 import win32com.client
 import tkinter as tk
 from tkinter import filedialog
-from PIL import Image
+from PIL import Image, ImageEnhance
 
 def create_shortcut():
     # Request user's confirmation
-    confirmation = input("Do you want to create a shortcut for this application? (y/n): ")
+    confirmation = input("Do you want to create a shortcut for the VoucherVision Editor? (y/n): ")
 
     if confirmation.lower() != "y":
         print("Okay, no shortcut will be created.")
@@ -21,8 +21,10 @@ def create_shortcut():
     # Path to the icon file
     icon_path = os.path.join(script_dir, 'img', 'icon.jpg')
     img = Image.open(icon_path)  
-    img.save(os.path.join(script_dir, 'img', 'icon.ico'), format='ICO', sizes=[(256,256)])
-    icon_path = os.path.join(script_dir, 'img', 'icon.ico')
+    enhancer = ImageEnhance.Color(img)
+    img_enhanced = enhancer.enhance(1.5) 
+    img_enhanced.save(os.path.join(script_dir, 'img', 'icon.ico'), format='ICO', sizes=[(256,256)])
+    icon_path_ico = os.path.join(script_dir, 'img', 'icon.ico')
 
     # Construct the path to the static folder
     static_dir = os.path.join(script_dir, "static")
@@ -53,7 +55,7 @@ def create_shortcut():
     # shortcut.Arguments = f'/K "{activate_path} & cd /D {static_dir} & start cmd /c python -m http.server & cd /D {script_dir} & streamlit run VoucherVisionEditor.py"'
     shortcut.Arguments = f'/K "{activate_path} & cd /D {script_dir} & streamlit run VoucherVisionEditor.py"'
     # Set the icon of the shortcut
-    shortcut.IconLocation = icon_path
+    shortcut.IconLocation = icon_path_ico
 
     shortcut.save()
 

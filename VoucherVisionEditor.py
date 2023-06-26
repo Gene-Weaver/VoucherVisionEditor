@@ -1,11 +1,12 @@
 import streamlit as st
 import pandas as pd
-from PIL import Image
 import json, os, argparse, shutil, re, toml, ctypes, sys
 import subprocess
 import threading
+from PIL import Image
+from st_aggrid import AgGrid, GridOptionsBuilder
 from utils import *
-# pip install streamlit pandas Pillow openpyxl tk
+# pip install streamlit pandas Pillow openpyxl streamlit-aggrid
 # Windows
 # streamlit run your_script.py -- --SAVE_DIR /path/to/save/dir
 # Linux
@@ -17,7 +18,7 @@ from utils import *
 # --save-dir D:/Dropbox/LM2_Env/VoucherVision_Output/Compare_Set/chatGPT_prompt-V1_2023_06_12__18-11-40/Transcription
 # --base-path C:/Users/uname/new_location
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", page_icon='img/icon.ico', page_title='VoucherVision Editor')
 
 
 # Initialize Streamlit Session State if it hasn't been initialized yet
@@ -50,9 +51,7 @@ except SystemExit as e:
     # so we have to do a hard exit.
     os._exit(e.code)
 
-# Get the save directory from the parsed arguments
-# SAVE_DIR = args.save_dir
-# BASE_PATH = args.base_path
+
 
 def setup_streamlit_config(mapbox_key):
     # Define the directory path and filename
@@ -107,30 +106,23 @@ def prompt_for_mapbox_key():
 def save_data():
     # Check the file extension and save to the appropriate format
     if st.session_state.file_name.endswith('.csv'):
-        file_path = os.path.join(SAVE_DIR, st.session_state.file_name)
+        file_path = os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name)
         st.session_state.data.to_csv(file_path, index=False)
         st.success('Saved (CSV)')
+        print(f"Saved (CSV) {file_path}")
     elif st.session_state.file_name.endswith('.xlsx'):
-        file_path = os.path.join(SAVE_DIR, st.session_state.file_name)
+        file_path = os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name)
         st.session_state.data.to_excel(file_path, index=False)
         st.success('Saved (XLSX)')
-    else:
-        st.error('Unknown file format.')
-
-def save_data_editor():
-    # Check the file extension and save to the appropriate format
-    if st.session_state.file_name.endswith('.csv'):
-        file_path = os.path.join(SAVE_DIR, st.session_state.file_name)
-        st.session_state.data.to_csv(file_path, index=False)
-    elif st.session_state.file_name.endswith('.xlsx'):
-        file_path = os.path.join(SAVE_DIR, st.session_state.file_name)
-        st.session_state.data.to_excel(file_path, index=False)
+        print(f"Saved (XLSX) {file_path}")
     else:
         st.error('Unknown file format.')
 
 def load_data():
     uploaded_file = st.file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
+    
     if uploaded_file is not None:
+
         if uploaded_file.type == "text/csv":
             st.session_state.data = pd.read_csv(uploaded_file, dtype=str)
             st.session_state.file_name = uploaded_file.name.split('.')[0] + '_edited.csv'
@@ -138,12 +130,56 @@ def load_data():
             st.session_state.data = pd.read_excel(uploaded_file, dtype=str)
             st.session_state.file_name = uploaded_file.name.split('.')[0] + '_edited.xlsx'
         st.session_state.data = st.session_state.data.fillna('')  # Move this line here
+        
+        # If BASE_PATH is provided, replace old base paths in the dataframe
+        if st.session_state.BASE_PATH != '':
+            st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'crop'))
+            st.session_state.data['path_to_original'] = st.session_state.data['path_to_original'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'original'))
+            st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'json'))
+            st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'json'))
+        
+        # Determine SAVE_DIR from the 'path_to_content' column
+        first_path_to_content = st.session_state.data['path_to_content'][0]
+        print("")
+        print(first_path_to_content)
+        print("")
+        parts = first_path_to_content.split(os.path.sep)
+        transcription_index = parts.index('Transcription') if 'Transcription' in parts else None
+        print("")
+        print(parts)
+        print("")
+        if transcription_index is not None:
+            # add a slash after the drive letter if it is missing
+            if len(parts[0]) == 2 and parts[0][1] == ":":
+                parts[0] += os.path.sep
+            st.session_state.SAVE_DIR = os.path.join(*parts[:transcription_index+1])
+            print(f"Saving edited file to {st.session_state.SAVE_DIR}")
+            if not os.path.exists(st.session_state.SAVE_DIR):
+                print("UH OH! new dir created but it should not be")
+                os.makedirs(st.session_state.SAVE_DIR)
 
-        if BASE_PATH != '':
-            st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'crop'))
-            st.session_state.data['path_to_original'] = st.session_state.data['path_to_original'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'original'))
-            st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'json'))
-            st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'json'))
+# def load_data(SAVE_DIR):
+#     uploaded_file = st.file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
+    
+#     if uploaded_file is not None:
+#         # Assume the uploaded file's name is 'your_dir/your_file.txt'
+#         # Then the following line will set SAVE_DIR to 'your_dir'
+#         SAVE_DIR = os.path.dirname(uploaded_file.name)
+#         print(f"Saving to edited file to {SAVE_DIR}")
+
+#         if uploaded_file.type == "text/csv":
+#             st.session_state.data = pd.read_csv(uploaded_file, dtype=str)
+#             st.session_state.file_name = uploaded_file.name.split('.')[0] + '_edited.csv'
+#         elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+#             st.session_state.data = pd.read_excel(uploaded_file, dtype=str)
+#             st.session_state.file_name = uploaded_file.name.split('.')[0] + '_edited.xlsx'
+#         st.session_state.data = st.session_state.data.fillna('')  # Move this line here
+
+#         if BASE_PATH != '':
+#             st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'crop'))
+#             st.session_state.data['path_to_original'] = st.session_state.data['path_to_original'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'original'))
+#             st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'json'))
+#             st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'json'))
 
 def start_server():
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -207,11 +243,9 @@ def get_directory_paths(args):
 
     # Get the save directory and base path from the parsed arguments or use the Streamlit input
     st.markdown("""#### Save Directory""")
-    SAVE_DIR = args.save_dir if args.save_dir else st.text_input('Enter the directory to save output files', help=save_dir_help)
+    st.session_state.SAVE_DIR = args.save_dir if args.save_dir else st.text_input('Enter the directory to save output files', help=save_dir_help)
     st.markdown("""#### Base Path""")
-    BASE_PATH = args.base_path if args.base_path else st.text_input('Include the full path to the folder that contains "/Transcription", but do not include "/Transcription" in the path', help=base_path_help)
-    
-    return SAVE_DIR, BASE_PATH
+    st.session_state.BASE_PATH = args.base_path if args.base_path else st.text_input('Include the full path to the folder that contains "/Transcription", but do not include "/Transcription" in the path', help=base_path_help)
 
 # Define pastel colors
 color_map = {
@@ -241,13 +275,14 @@ grouping = {
 st.title(':herb: VoucherVision Editor')
 
 if st.session_state.data is None:
-    SAVE_DIR, BASE_PATH = get_directory_paths(args)
+    get_directory_paths(args)
     prompt_for_mapbox_key()
     load_data()
     start_server()
 
 
 if st.session_state.data is not None:
+    print(f"HERE: {st.session_state.SAVE_DIR}")
     # Get the directory of the current file 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     # Create the path to the new 'static' directory
@@ -362,17 +397,17 @@ if st.session_state.data is not None:
                     pass
 
 
-            
-        
     elif view_option == "Data Editor":
         # If the view option is "Data Editor", create a new full-width container for the editor
         with st.container():
             edited_data = st.data_editor(st.session_state.data)
-
-            if st.button("Save Edits"):
+            b_color = "black"
+            b_text = "Save Edits"
+            b_label = f":{b_color}[{b_text}]"
+            if st.button(label=b_label, type="primary", use_container_width=True):
                 # Save the edited data back to the session state data
                 st.session_state.data = edited_data
-                save_data_editor()
+                save_data()
 
             # Slider or number input to select the row
             # Only display the slider if there are 2 or more rows
@@ -385,9 +420,8 @@ if st.session_state.data is not None:
 
             # Display the current row
             n_rows = len(st.session_state.data)-1
-            st.write(f"**Editing row {st.session_state.row_to_edit} / {n_rows}**")
+            st.write(f"**Showing image for row {st.session_state.row_to_edit} / {n_rows}**")
 
-            
         # Create separate columns for image and JSON as they are below the editor in this case
         if img_loc == 'Middle':
             image_col, json_col  = st.columns([1, 1])  
