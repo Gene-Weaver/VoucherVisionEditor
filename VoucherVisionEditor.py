@@ -414,6 +414,7 @@ if st.session_state.data is not None:
                 columns_to_show = st.session_state.data.columns if group_option == "ALL" else grouping[group_option]
                 for col in columns_to_show:
                     # Find the corresponding group and color
+                    unique_key = f"{st.session_state.row_to_edit}_{col}"
                     for group, fields in grouping.items():
                         if col in fields:
                             color = color_map.get(group, "#FFFFFF")  # default to white color
@@ -422,10 +423,11 @@ if st.session_state.data is not None:
                         color = color_map.get("MISCELLANEOUS", "#FFFFFF")  # default to white color
 
                     colored_label = f":{color}[{col}]"
-                    st.session_state.user_input[col] = st.text_input(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=col)
+                    st.session_state.user_input[col] = st.text_input(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key)
                     if st.session_state.user_input[col] != st.session_state.data.loc[st.session_state.row_to_edit, col]:
                         st.session_state.data.loc[st.session_state.row_to_edit, col] = st.session_state.user_input[col]
                         save_data()
+
             verbatim_coordinates = st.session_state.data.loc[st.session_state.row_to_edit, 'Verbatim Coordinates']
             if verbatim_coordinates:
                 try:
