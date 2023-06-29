@@ -1,5 +1,4 @@
-import os
-import sys
+import os, sys
 import win32com.client
 import tkinter as tk
 from tkinter import filedialog

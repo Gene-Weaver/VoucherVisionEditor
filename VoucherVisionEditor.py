@@ -1,10 +1,9 @@
 import streamlit as st
 import pandas as pd
-import json, os, argparse, shutil, re, toml, ctypes, sys
+import json, os, argparse, shutil, re, toml
 import subprocess
 import threading
 from PIL import Image
-from st_aggrid import AgGrid, GridOptionsBuilder
 from utils import *
 # pip install streamlit pandas Pillow openpyxl streamlit-aggrid
 # Windows
@@ -25,7 +24,7 @@ st.set_page_config(layout="wide", page_icon='img/icon.ico', page_title='VoucherV
 if "row_to_edit" not in st.session_state:
     st.session_state.row_to_edit = 0
 
-if "data" not in st.session_state:
+if 'data' not in st.session_state:
     st.session_state.data = None
 
 if "file_name" not in st.session_state:
@@ -52,8 +51,7 @@ except SystemExit as e:
     os._exit(e.code)
 
 
-
-def setup_streamlit_config(mapbox_key):
+def setup_streamlit_config(mapbox_key=''):
     # Define the directory path and filename
     dir_path = ".streamlit"
     file_path = os.path.join(dir_path, "config.toml")
@@ -62,6 +60,14 @@ def setup_streamlit_config(mapbox_key):
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
 
+    # If the mapbox_key is empty, and the config file already has a mapbox key, don't overwrite the file
+    if mapbox_key == '':
+        if os.path.exists(file_path):
+            config_data = toml.load(file_path)
+            existing_key = config_data.get('mapbox', {}).get('token', None)
+            if existing_key is not None and existing_key != '':
+                return
+    
     # Create or modify the file with the provided content
     config_content = f"""
     [theme]
@@ -72,13 +78,17 @@ def setup_streamlit_config(mapbox_key):
     enableStaticServing = true
     runOnSave = true
     port = 8523
-
-    [mapbox]
-    token = "{mapbox_key}"
     """
+
+    if mapbox_key != '':
+        config_content += f"""
+        [mapbox]
+        token = "{mapbox_key}"
+        """
 
     with open(file_path, "w") as f:
         f.write(config_content.strip())
+
 
 def prompt_for_mapbox_key():
     # Define the directory path and filename
@@ -89,18 +99,25 @@ def prompt_for_mapbox_key():
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
 
-    # Check if config file exists and has a Mapbox key
+    # If config file exists, load existing Mapbox key, if any
+    existing_key = None
     if os.path.exists(file_path):
         config_data = toml.load(file_path)
-        if config_data.get('mapbox', {}).get('token'):
-            return
+        existing_key = config_data.get('mapbox', {}).get('token', None)
 
-    # Ask the user for their Mapbox key
-    mapbox_key = st.text_input('Enter your Mapbox key here')
+    # Ask the user for their Mapbox key (pre-fill with existing key if available)
+    st.markdown("""#### Mapbox Key""")
+    st.markdown("""VVE will display the location of valid GPS coordinates on a map to aid with review. We use the Mapbox API for this service. Providing no key will rely on the free
+    public API, which may meet your needs. If maps no longer display, or if you have a Mapbox key, then enter it below. The key will only be stored locally on your device in the `VoucherVisionEditor/.streamlit/config.toml` file. These files are created on first startup.""")
+    st.markdown("""You may update the key at any time. To remove an existing key, delete the `config.toml` file.""")
 
-    # If the key was provided, use it to setup the config file
-    if mapbox_key:
-        setup_streamlit_config(mapbox_key)
+    if existing_key is not None and existing_key != '':
+        st.info("Mapbox key present in the /.streamlit/config.toml file!")
+    
+    mapbox_key = st.text_input('Enter your Mapbox key here:', '')
+
+    return mapbox_key
+
 
 # Use SAVE_DIR where needed
 def save_data():
@@ -118,10 +135,16 @@ def save_data():
     else:
         st.error('Unknown file format.')
 
-def load_data():
-    uploaded_file = st.file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
-    
+def load_data(mapbox_key):
+    if 'data' not in st.session_state or st.session_state.data is None:
+        uploaded_file = st.file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
+    else:
+        uploaded_file = None
+
     if uploaded_file is not None:
+        # After uploading and processing the data, setup the config
+        setup_streamlit_config(mapbox_key)
+
 
         if uploaded_file.type == "text/csv":
             st.session_state.data = pd.read_csv(uploaded_file, dtype=str)
@@ -158,28 +181,6 @@ def load_data():
                 print("UH OH! new dir created but it should not be")
                 os.makedirs(st.session_state.SAVE_DIR)
 
-# def load_data(SAVE_DIR):
-#     uploaded_file = st.file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
-    
-#     if uploaded_file is not None:
-#         # Assume the uploaded file's name is 'your_dir/your_file.txt'
-#         # Then the following line will set SAVE_DIR to 'your_dir'
-#         SAVE_DIR = os.path.dirname(uploaded_file.name)
-#         print(f"Saving to edited file to {SAVE_DIR}")
-
-#         if uploaded_file.type == "text/csv":
-#             st.session_state.data = pd.read_csv(uploaded_file, dtype=str)
-#             st.session_state.file_name = uploaded_file.name.split('.')[0] + '_edited.csv'
-#         elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-#             st.session_state.data = pd.read_excel(uploaded_file, dtype=str)
-#             st.session_state.file_name = uploaded_file.name.split('.')[0] + '_edited.xlsx'
-#         st.session_state.data = st.session_state.data.fillna('')  # Move this line here
-
-#         if BASE_PATH != '':
-#             st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'crop'))
-#             st.session_state.data['path_to_original'] = st.session_state.data['path_to_original'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'original'))
-#             st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'json'))
-#             st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, BASE_PATH, 'json'))
 
 def start_server():
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -190,9 +191,10 @@ def start_server():
     clear_directory(static_folder_path)
     # Ensure the server is run in a separate thread so it doesn't block the Streamlit app
     def target():
-        subprocess.run(["python", "-m", "http.server"], cwd=static_folder_path)
+        subprocess.run(["python", "-m", "http.server"], cwd=static_folder_path, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     threading.Thread(target=target).start()
+
 
 def clear_directory(directory_path):
     for root, dirs, files in os.walk(directory_path):
@@ -271,18 +273,42 @@ grouping = {
     "LOCALITY": ["Locality Name", "Min Elevation", "Max Elevation", "Elevation Units",],
     "COLLECTING": ["Datum","Cultivated","Habitat","Collectors","Collector Number", "Verbatim Date","Date", "End Date",],
 }
-        
-st.title(':herb: VoucherVision Editor')
+
+#### Welcome Page
+
+if 'data' not in st.session_state:
+    st.session_state.data = None
 
 if st.session_state.data is None:
+    # Create three columns
+    h1, h2, h3 = st.columns([2,1,2])
+    # Use the second (middle) column for the logo
+    with h2:
+        st.image("img/logo.png", use_column_width=True)
+    # Use markdown with HTML to center text
+    st.markdown("<h1 style='text-align: center;'>VoucherVision Editor</h1>", unsafe_allow_html=True)
+
     get_directory_paths(args)
-    prompt_for_mapbox_key()
-    load_data()
+    mapbox_key = prompt_for_mapbox_key()
+    load_data(mapbox_key)
     start_server()
 
+    if st.session_state.data is not None:
+        st.experimental_rerun()
 
+### Main App
 if st.session_state.data is not None:
-    print(f"HERE: {st.session_state.SAVE_DIR}")
+    # Create two columns for the logo and the title
+    h1, h2, h3 = st.columns([2,3,1])
+
+    # Use the first column for the logo and the second for the title
+    with h1:
+        st.image("img/logo.png", width=200)  # adjust width as needed
+
+    with h2:
+        st.title('VoucherVision Editor')
+
+    # print(f"HERE: {st.session_state.SAVE_DIR}")
     # Get the directory of the current file 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     # Create the path to the new 'static' directory
@@ -512,8 +538,10 @@ if st.session_state.data is not None:
             elif image_option == 'Cropped':
                 st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_crop"]
             if pd.notnull(st.session_state['image_path']):
-                print('LOADING IMAGE')
-                st.session_state['image'] = Image.open(st.session_state['image_path'])
+                new_img_path = st.session_state['image_path']
+                new_img_path_fname = os.path.basename(new_img_path)
+                print(f'LOADING IMAGE: {new_img_path_fname}')
+                st.session_state['image'] = Image.open(new_img_path)
             # Remember the selected image option
             st.session_state['last_image_option'] = image_option
 
@@ -557,7 +585,7 @@ if st.session_state.data is not None:
 
             # Create the HTML hyperlink with the image
             relative_path_to_static = os.path.relpath(static_image_path, current_dir).replace('\\', '/')
-            print(relative_path_to_static)
+            print(f"Adding to Zoom image sever: {relative_path_to_static}")
             st.markdown(f'[**Zoom**](http://localhost:8000/{relative_path_to_static})', unsafe_allow_html=True)
 
             # Display the image

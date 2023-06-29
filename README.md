@@ -52,7 +52,9 @@ Our public demo, while lacking several quality control and reliability features 
     - Simply type `pip` into your terminal or PowerShell. If you see a list of options, you are all set. Otherwise, see
     either this [PIP Documentation](https://pip.pypa.io/en/stable/installation/) or [this help page](https://www.geeksforgeeks.org/how-to-install-pip-on-windows/)
 2. Open a terminal window and `cd` into the directory where you want to install VoucherVisionEditor.
-3. Clone the VoucherVisionEditor repository from GitHub by running `git clone https://github.com/Gene-Weaver/VoucherVisionEditor.git` in the terminal.
+3. In the [Git BASH terminal](https://gitforwindows.org/), clone the VoucherVisionEditor repository from GitHub by running the command:
+    <pre><code class="language-python">git clone https://github.com/Gene-Weaver/VoucherVisionEditor.git</code></pre>
+    <button class="btn" data-clipboard-target="#code-snippet"></button>
 4. Move into the VoucherVisionEditor directory by running `cd VoucherVisionEditor` in the terminal.
 5. To run VoucherVisionEditor we need to install its dependencies inside of a python virtual environmnet. Follow the instructions below for your operating system. 
 
@@ -114,7 +116,7 @@ For more information about virtual environments, please see [Creation of virtual
 ### Installing Packages
 
 1. Install the required dependencies to use VoucherVisionEditor  
-    <pre><code class="language-python">pip install streamlit pandas openpyxl Pillow</code></pre>
+    <pre><code class="language-python">pip install streamlit pandas openpyxl Pillow pywin32</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 
 ---
