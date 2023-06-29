@@ -33,6 +33,9 @@ if "file_name" not in st.session_state:
 if "user_input" not in st.session_state:
     st.session_state.user_input = {}
 
+if "clear_count" not in st.session_state:
+    st.session_state.clear_count = 0
+
 parser = argparse.ArgumentParser(description='Define save location of edited file.')
 
 # Add parser argument for save directory
@@ -184,27 +187,55 @@ def load_data(mapbox_key):
 
 def start_server():
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    # Create the path to the new 'static' directory
+        # Create the path to the new 'static' directory
     static_folder_path = os.path.join(current_dir, 'static')
-    # Create 'static' directory
+        # Create 'static' directory
     os.makedirs(static_folder_path, exist_ok=True)
-    clear_directory(static_folder_path)
     # Ensure the server is run in a separate thread so it doesn't block the Streamlit app
     def target():
         subprocess.run(["python", "-m", "http.server"], cwd=static_folder_path, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     threading.Thread(target=target).start()
 
+    # print(f"HERE: {st.session_state.SAVE_DIR}")
+    # Get the directory of the current file 
+    st.session_state.current_dir = os.path.dirname(os.path.abspath(__file__))
+    # Create the path to the new 'static' directory
+    st.session_state.static_folder_path = os.path.join(st.session_state.current_dir, 'static')
+    # Create 'static' directory
+    os.makedirs(st.session_state.static_folder_path, exist_ok=True)
+    st.session_state.static_folder_path_o = os.path.join(st.session_state.static_folder_path, "static_og")
+    st.session_state.static_folder_path_c = os.path.join(st.session_state.static_folder_path, "static_cr")
+    os.makedirs(st.session_state.static_folder_path_o, exist_ok=True)
+    os.makedirs(st.session_state.static_folder_path_c, exist_ok=True)
 
-def clear_directory(directory_path):
-    for root, dirs, files in os.walk(directory_path):
-        for file in files:
-            file_path = os.path.join(root, file)
-            try:
-                if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.unlink(file_path)  # remove file or symbolic link
-            except Exception as e:
-                print(f'Failed to delete {file_path}. Reason: {e}')
+    logo_path = os.path.join(st.session_state.static_folder_path_c, 'logo.png')
+    shutil.copy("img/logo.png", logo_path)
+
+    relative_path_to_logo = os.path.relpath(logo_path, st.session_state.current_dir).replace('\\', '/')
+    split_path = relative_path_to_logo.split('/')
+    relative_path_to_logo = os.path.sep.join(split_path[1:])
+    st.session_state.logo_path = relative_path_to_logo.replace('\\', '/')
+
+
+
+def clear_directory():
+    st.session_state.clear_count += 1
+    if st.session_state.clear_count == 1:
+        print("All Zoom files from previous session have been deleted")
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # Create the path to the new 'static' directory
+        static_folder_path = os.path.join(current_dir, 'static')
+        # Create 'static' directory
+        os.makedirs(static_folder_path, exist_ok=True)
+        for root, dirs, files in os.walk(static_folder_path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                try:
+                    if os.path.isfile(file_path) or os.path.islink(file_path):
+                        os.unlink(file_path)  # remove file or symbolic link
+                except Exception as e:
+                    print(f'Failed to delete {file_path}. Reason: {e}')
 
 
 def get_directory_paths(args):
@@ -249,6 +280,40 @@ def get_directory_paths(args):
     st.markdown("""#### Base Path""")
     st.session_state.BASE_PATH = args.base_path if args.base_path else st.text_input('Include the full path to the folder that contains "/Transcription", but do not include "/Transcription" in the path', help=base_path_help)
 
+def show_header_welcome():
+    # Create three columns
+    h1, h2, h3 = st.columns([2,1,2])
+    # Use the second (middle) column for the logo
+    with h2:
+        # st.image("img/logo.png", use_column_width=True)
+        st.markdown(f'<a href="https://github.com/Gene-Weaver/VoucherVisionEditor"><img src="http://localhost:8000/{st.session_state.logo_path}" width="200"></a>', unsafe_allow_html=True)
+        hide_img_fs = '''
+        <style>
+        button[title="View fullscreen"]{
+            visibility: hidden;}
+        </style>
+        '''
+        st.markdown(hide_img_fs, unsafe_allow_html=True)
+
+def show_header_main():
+    # Create two columns for the logo and the title
+    h1, h2, h3 = st.columns([2,3,1])
+
+    # Use the first column for the logo and the second for the title
+    with h1:
+        # st.image("img/logo.png", width=200)  # adjust width as needed
+        st.markdown(f'<a href="https://github.com/Gene-Weaver/VoucherVisionEditor"><img src="http://localhost:8000/{st.session_state.logo_path}" width="200"></a>', unsafe_allow_html=True)
+
+        hide_img_fs = '''
+        <style>
+        button[title="View fullscreen"]{
+            visibility: hidden;}
+        </style>
+        '''
+        st.markdown(hide_img_fs, unsafe_allow_html=True)
+    with h2:
+        st.title('VoucherVision Editor',anchor=False)
+
 # Define pastel colors
 color_map = {
     "TAXONOMY": 'blue', 
@@ -278,47 +343,22 @@ grouping = {
 
 if 'data' not in st.session_state:
     st.session_state.data = None
-
 if st.session_state.data is None:
-    # Create three columns
-    h1, h2, h3 = st.columns([2,1,2])
-    # Use the second (middle) column for the logo
-    with h2:
-        st.image("img/logo.png", use_column_width=True)
-    # Use markdown with HTML to center text
-    st.markdown("<h1 style='text-align: center;'>VoucherVision Editor</h1>", unsafe_allow_html=True)
+    clear_directory()
+    start_server()
+
+    show_header_welcome()
 
     get_directory_paths(args)
     mapbox_key = prompt_for_mapbox_key()
     load_data(mapbox_key)
-    start_server()
 
     if st.session_state.data is not None:
         st.experimental_rerun()
 
 ### Main App
 if st.session_state.data is not None:
-    # Create two columns for the logo and the title
-    h1, h2, h3 = st.columns([2,3,1])
-
-    # Use the first column for the logo and the second for the title
-    with h1:
-        st.image("img/logo.png", width=200)  # adjust width as needed
-
-    with h2:
-        st.title('VoucherVision Editor')
-
-    # print(f"HERE: {st.session_state.SAVE_DIR}")
-    # Get the directory of the current file 
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    # Create the path to the new 'static' directory
-    static_folder_path = os.path.join(current_dir, 'static')
-    # Create 'static' directory
-    os.makedirs(static_folder_path, exist_ok=True)
-    static_folder_path_o = os.path.join(static_folder_path, "static_og")
-    static_folder_path_c = os.path.join(static_folder_path, "static_cr")
-    os.makedirs(static_folder_path_o, exist_ok=True)
-    os.makedirs(static_folder_path_c, exist_ok=True)
+    show_header_main()
 
 
     # Define the four columns
@@ -570,10 +610,10 @@ if st.session_state.data is not None:
 
             if st.session_state['last_image_option'] == 'Original':
                 static_image_path = os.path.join('static_og', os.path.basename(st.session_state['image_path']))
-                shutil.copy(st.session_state["image_path"], os.path.join(static_folder_path_o, os.path.basename(st.session_state['image_path'])))
+                shutil.copy(st.session_state["image_path"], os.path.join(st.session_state.static_folder_path_o, os.path.basename(st.session_state['image_path'])))
             elif st.session_state['last_image_option'] == 'Cropped':
                 static_image_path = os.path.join('static_cr', os.path.basename(st.session_state['image_path']))
-                shutil.copy(st.session_state["image_path"], os.path.join(static_folder_path_c, os.path.basename(st.session_state['image_path'])))
+                shutil.copy(st.session_state["image_path"], os.path.join(st.session_state.static_folder_path_c, os.path.basename(st.session_state['image_path'])))
             
             
             # if st.session_state['last_image_option'] == 'Original':
@@ -584,7 +624,7 @@ if st.session_state.data is not None:
             # shutil.copy(st.session_state["image_path"], static_image_path)
 
             # Create the HTML hyperlink with the image
-            relative_path_to_static = os.path.relpath(static_image_path, current_dir).replace('\\', '/')
+            relative_path_to_static = os.path.relpath(static_image_path, st.session_state.current_dir).replace('\\', '/')
             print(f"Adding to Zoom image sever: {relative_path_to_static}")
             st.markdown(f'[**Zoom**](http://localhost:8000/{relative_path_to_static})', unsafe_allow_html=True)
 
