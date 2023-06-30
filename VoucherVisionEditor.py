@@ -5,6 +5,8 @@ import subprocess
 import threading
 from PIL import Image
 from utils import *
+import webbrowser
+
 # pip install streamlit pandas Pillow openpyxl streamlit-aggrid
 # Windows
 # streamlit run your_script.py -- --SAVE_DIR /path/to/save/dir
@@ -35,6 +37,34 @@ if "user_input" not in st.session_state:
 
 if "clear_count" not in st.session_state:
     st.session_state.clear_count = 0
+
+if "track_edits" not in st.session_state:
+    st.session_state.track_edits = []
+
+if "current_options" not in st.session_state:
+    st.session_state.setdefault('current_options', [] if st.session_state.track_edits else [])
+
+if "progress_counter" not in st.session_state:
+    st.session_state.progress_counter = 0
+
+if "progress_counter_overall" not in st.session_state:
+    st.session_state.progress_counter_overall = 0
+
+if "access_option" not in st.session_state:
+    st.session_state.access_option = 'Label'
+
+# Store the previous value of st.session_state.access_option
+if 'previous_access_option' not in st.session_state:
+    st.session_state.previous_access_option = 'Label'
+
+if 'image_option' not in st.session_state:
+    st.session_state.image_option = 'Original'
+
+if 'default_to_original' not in st.session_state:
+    st.session_state.default_to_original = True
+
+
+
 
 parser = argparse.ArgumentParser(description='Define save location of edited file.')
 
@@ -145,17 +175,23 @@ def load_data(mapbox_key):
         uploaded_file = None
 
     if uploaded_file is not None:
-        # After uploading and processing the data, setup the config
         setup_streamlit_config(mapbox_key)
 
-
         if uploaded_file.type == "text/csv":
-            st.session_state.data = pd.read_csv(uploaded_file, dtype=str)
-            st.session_state.file_name = uploaded_file.name.split('.')[0] + '_edited.csv'
+            data = pd.read_csv(uploaded_file, dtype=str)
         elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-            st.session_state.data = pd.read_excel(uploaded_file, dtype=str)
-            st.session_state.file_name = uploaded_file.name.split('.')[0] + '_edited.xlsx'
-        st.session_state.data = st.session_state.data.fillna('')  # Move this line here
+            data = pd.read_excel(uploaded_file, dtype=str)
+
+        if "track_view" not in data.columns:
+            data["track_view"] = 'False'
+        if 'track_edit' not in data.columns:
+            data["track_edit"] = ["" for _ in range(len(data))]
+
+        st.session_state.data = data.fillna('')
+        file_extension = "csv" if uploaded_file.type == "text/csv" else "xlsx"
+        st.session_state.file_name = f"{uploaded_file.name.split('.')[0]}_edited.{file_extension}"
+
+
         
         # If BASE_PATH is provided, replace old base paths in the dataframe
         if st.session_state.BASE_PATH != '':
@@ -313,6 +349,79 @@ def show_header_main():
         st.markdown(hide_img_fs, unsafe_allow_html=True)
     with h2:
         st.title('VoucherVision Editor',anchor=False)
+def add_default_option_if_not_present():
+    # Add default option if "track_edit" is empty and doesn't contain the default option already
+    if group_options[0] not in st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"].split(","):
+        if st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"]:
+            st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] += "," + group_options[0]
+        else:
+            st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] = group_options[0]
+def update_progress_bar():
+    # Split the "track_edit" field into a list of options
+    current_options = st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"].split(",")
+
+    # Count how many of the options are in group_options
+    progress = len([option for option in current_options if option in group_options])
+
+    # Update the progress counter
+    if progress > st.session_state.progress_counter:
+        st.session_state.progress_counter = progress
+
+    # Calculate the progress as a fraction of the total number of options
+    progress_fraction = min(progress / len(group_options), 1.0)
+
+    # Display the progress bar with text
+    st.progress(progress_fraction)
+    # st.write(f"{int(st.session_state.progress_counter)}/{len(group_options)} Groups")
+    return progress
+
+def update_progress_bar_overall():
+    # Get the index of the last True value in "track_view"
+    last_true_index = st.session_state.data[st.session_state.data["track_view"] == 'True'].index.max()
+
+    # Get total number of rows
+    total_rows = len(st.session_state.data)
+
+    # # Calculate the progress as the current row index divided by total number of rows
+    # if pd.isnull(last_true_index):
+    #     progress_overall = 0
+    # else:
+    #     progress_overall = last_true_index / total_rows
+    # Find the last row where "track_edit" has all group options
+    last_full_view_index = st.session_state.data[st.session_state.data["track_edit"].apply(lambda x: set(group_options).issubset(set(x.split(','))))].index.max()
+    # Handle NaN last_full_view_index
+    if pd.isnull(last_full_view_index):
+        last_full_view_index = 0
+
+    # Calculate the progress_overall as a fraction
+    progress_overall_fraction = min(last_full_view_index / total_rows, 1.0)
+    print(progress_overall_fraction)
+    # Display the progress_overall information
+    st.write(f"When 'Admin' is enabled, the following progress metrics will not update, but edits can still  be made.")
+    st.write(f"Last viewed: {last_true_index}")
+    st.write(f"Last fully viewed: {last_full_view_index}")
+    # Display the progress bar with text
+    st.progress(progress_overall_fraction)
+    return last_true_index, last_full_view_index
+
+def get_columns_based_on_img_loc(img_loc):
+    """
+    Get the column structure based on the image location.
+    
+    Parameters:
+    img_loc (str): The image location, should be either 'Middle' or 'Right'.
+    
+    Returns:
+    Tuple[streamlit.delta_generator.DeltaGenerator, streamlit.delta_generator.DeltaGenerator, streamlit.delta_generator.DeltaGenerator]: 
+    A tuple of columns.
+    """
+    if img_loc == 'Middle':
+        form_col, image_col, json_col  = st.columns([1, 2, 1])  
+    elif img_loc == 'Right':
+        form_col, json_col, image_col  = st.columns([1, 1, 2])  
+
+    return form_col, image_col, json_col
+
 
 # Define pastel colors
 color_map = {
@@ -360,73 +469,159 @@ if st.session_state.data is None:
 if st.session_state.data is not None:
     show_header_main()
 
-
+    # Initialize previous_row_to_edit if it's not already in session_state
+    st.session_state.setdefault('previous_row_to_edit', None)
     # Define the four columns
-    c1, c3, c4, c5 = st.columns([4,2,1,1])
+    c1, c2,c3, c4, c5, __ = st.columns([8,1,2,2,2,1])
     # group_option = c1.selectbox("Choose a Category", list(grouping.keys()) + ["ALL"])
     group_options = list(grouping.keys()) + ["ALL"]
     group_option = st.session_state.get("group_option", group_options[0])
 
     group_option_cols = c1.columns(len(group_options))
-
+    
     for i, option in enumerate(group_options):
-        if group_option_cols[i].button(option):
+        if group_option_cols[i].button(option, use_container_width=True):
             st.session_state["group_option"] = option
             group_option = option
 
-    image_option = c3.selectbox('Choose an Image', ['Cropped', 'Original'])
-    view_option = c4.selectbox("Choose a View", ["Form View", "Data Editor"])
-    img_loc = c5.selectbox("Image Position", ["Right", "Middle"])
+            if "track_edit" not in st.session_state.data.columns:
+                st.session_state.data["track_edit"] = [[group_options[0]] if group_options[0] else [] for _ in range(len(st.session_state.data))]
 
-    if img_loc == 'Middle':
-        form_col, image_col, json_col  = st.columns([1, 2, 1])  
-    elif img_loc == 'Right':
-        form_col, json_col, image_col  = st.columns([1, 1, 2])  
+            if st.session_state.access_option != 'Admin': 
+                if option not in st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"].split(","):
+                    current_edit_track = st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"]
+                    if current_edit_track:
+                        new_edit_track = current_edit_track + "," + option
+                    else:
+                        new_edit_track = option
+                    st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] = new_edit_track
+
+                    add_default_option_if_not_present()
 
 
+
+    col_pg_1, col_pg_2 = st.columns([4,4])
+    with col_pg_1:
+        # Display a progress bar showing how many of the group_options are present in track_edit
+        progress = update_progress_bar()
+
+
+
+    # if 'image_option' not in st.session_state:
+    #     st.session_state.image_option = c2.selectbox('Choose an Image', ['Original', 'Cropped'])
+    
+    view_option = c3.selectbox("Choose a View", ["Form View", "Data Editor"])
+    img_loc = c4.selectbox("Image Position", ["Right", "Middle"])
+    st.session_state.access_option = c5.selectbox("Access", ["Label", "Admin"])
+    # Check if st.session_state.access_option has changed from 'Admin' to 'Label'
+    if st.session_state.access_option == 'Label' and st.session_state['previous_access_option'] == 'Admin':
+        # Get the last fully viewed index
+        last_full_view_index = st.session_state.data[st.session_state.data["track_edit"].apply(lambda x: set(group_options).issubset(set(x.split(','))))].index.max()
+
+        # If it's NaN, set it to 0
+        if pd.isnull(last_full_view_index):
+            last_full_view_index = 0
+
+        # Set the current row to edit to the last fully viewed index
+        st.session_state.row_to_edit = last_full_view_index
+
+    # Update the previous value of st.session_state.access_option
+    st.session_state['previous_access_option'] = st.session_state.access_option
+
+
+
+
+    form_col, image_col, json_col = get_columns_based_on_img_loc(img_loc)
 
     if view_option == "Form View":
 
         # Next and previous buttons in first row of form_col
         with form_col:
             col1, col2 = st.columns(2)
+
+            if (progress == 0) and group_options[0] not in st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"]: 
+                # Add default option if "track_edit" is empty and doesn't contain the default option already
+                add_default_option_if_not_present()
+                st.experimental_rerun()
+
+
             with col1:
-                if st.button("Previous"):
+                
+                if st.button("Previous", use_container_width=True):
+                    st.session_state.progress_counter = 0
+                    if st.session_state.current_options:
+                        # Store current options as a list in "track_edit" column
+                        st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] = st.session_state.current_options
+                    # Add default option if "track_edit" is empty and doesn't contain the default option already
+                    add_default_option_if_not_present()
+
+
                     if st.session_state.row_to_edit == st.session_state.data.index[0]:
-                        st.session_state.row_to_edit = st.session_state.data.index[-1]
+                        if st.session_state.access_option == 'Admin':
+                            st.session_state.row_to_edit = st.session_state.data.index[-1]
                     else:
                         st.session_state.row_to_edit -= 1
+
+                    # st.session_state["group_option"] = group_options[0]  # Reset the group_option
+                    if st.session_state.default_to_original:
+                        st.session_state.image_option = 'Original'
+                    st.experimental_rerun()
             with col2:
-                if st.button("Next"):
-                    if st.session_state.row_to_edit == st.session_state.data.index[-1]:
-                        st.session_state.row_to_edit = st.session_state.data.index[0]
-                    else:
-                        st.session_state.row_to_edit += 1
+                # Count the number of group options that have been selected
+                # print(progress)
+                # Only enable the 'Next' button if all group options have been selected
+                if progress == len(group_options) or st.session_state.access_option == 'Admin':
+                    if st.button("Next", type="primary", use_container_width=True):
+                        st.session_state.progress_counter = 0
+                        if st.session_state.current_options:
+                            # Store current options as a list in "track_edit" column
+                            st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] = st.session_state.current_options
+                        # Add default option if "track_edit" is empty and doesn't contain the default option already
+                        add_default_option_if_not_present()
+
+                        if st.session_state.row_to_edit == st.session_state.data.index[-1]:
+                            st.session_state.row_to_edit = st.session_state.data.index[0]
+                        else:
+                            st.session_state.row_to_edit += 1
+
+                        st.session_state["group_option"] = group_options[0]  # Reset the group_option
+                        if st.session_state.default_to_original:
+                            st.session_state.image_option = 'Original'
+                        st.experimental_rerun()
+                else:
+                    st.info("Please view all group options before moving to the next image.")
 
 
             # Create a new row for the form
             with st.container():
                 # Display the current row
+                col_info_1, col_info_2 = st.columns([1,1])
                 n_rows = len(st.session_state.data)
-                st.write(f"**Editing row {st.session_state.row_to_edit + 1} / {n_rows}**")
+                with col_info_1:
+                    st.write(f"**Editing row {st.session_state.row_to_edit} / {n_rows-1}**")
+                with col_info_2:
+                    if st.button('Skip to last *fully* viewed image',key=f"Skip_to_last_fully_viewed2", use_container_width=True):
+                        st.session_state.row_to_edit = int(st.session_state['last_fully_viewed'])
+                        st.experimental_rerun()
 
                 # for col in st.session_state.data.columns:
                 columns_to_show = st.session_state.data.columns if group_option == "ALL" else grouping[group_option]
                 for col in columns_to_show:
-                    # Find the corresponding group and color
-                    unique_key = f"{st.session_state.row_to_edit}_{col}"
-                    for group, fields in grouping.items():
-                        if col in fields:
-                            color = color_map.get(group, "#FFFFFF")  # default to white color
-                            break
-                    else:
-                        color = color_map.get("MISCELLANEOUS", "#FFFFFF")  # default to white color
+                    if col not in ['track_view','track_edit']:
+                        # Find the corresponding group and color
+                        unique_key = f"{st.session_state.row_to_edit}_{col}"
+                        for group, fields in grouping.items():
+                            if col in fields:
+                                color = color_map.get(group, "#FFFFFF")  # default to white color
+                                break
+                        else:
+                            color = color_map.get("MISCELLANEOUS", "#FFFFFF")  # default to white color
 
-                    colored_label = f":{color}[{col}]"
-                    st.session_state.user_input[col] = st.text_input(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key)
-                    if st.session_state.user_input[col] != st.session_state.data.loc[st.session_state.row_to_edit, col]:
-                        st.session_state.data.loc[st.session_state.row_to_edit, col] = st.session_state.user_input[col]
-                        save_data()
+                        colored_label = f":{color}[{col}]"
+                        st.session_state.user_input[col] = st.text_input(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key)
+                        if st.session_state.user_input[col] != st.session_state.data.loc[st.session_state.row_to_edit, col]:
+                            st.session_state.data.loc[st.session_state.row_to_edit, col] = st.session_state.user_input[col]
+                            save_data()
 
             verbatim_coordinates = st.session_state.data.loc[st.session_state.row_to_edit, 'Verbatim Coordinates']
             if verbatim_coordinates:
@@ -463,9 +658,19 @@ if st.session_state.data is not None:
                 except ValueError:
                     st.error("Invalid GPS coordinates!\nIncorrect OR unsupported coordinate format.")
                     pass
+        # Update the track_view column for the current row
+        if st.session_state.access_option != 'Admin': # ONLY add views if in the label tab
+            st.session_state.data.loc[st.session_state.row_to_edit, "track_view"] = 'True'
+        save_data()
 
 
     elif view_option == "Data Editor":
+        st.write("Skipping ahead (editing in the 'Form View' out of order) will cause issues if all 5 groups are selected while skipping ahead.")
+        st.write("If skipping ahead, only use the 'ALL' option until returning to sequential editing.")
+        # Reorder the columns to have "track_view" and "track_edit" at the beginning
+        reordered_columns = ['track_view', 'track_edit'] + [col for col in st.session_state.data.columns if col not in ['track_view', 'track_edit']]
+        st.session_state.data = st.session_state.data[reordered_columns]
+
         # If the view option is "Data Editor", create a new full-width container for the editor
         with st.container():
             edited_data = st.data_editor(st.session_state.data)
@@ -480,7 +685,7 @@ if st.session_state.data is not None:
             # Slider or number input to select the row
             # Only display the slider if there are 2 or more rows
             if len(st.session_state.data) >= 2:
-                slider_value = st.slider("Select a row to display its image", min_value=st.session_state.data.index[0], max_value=st.session_state.data.index[-1], value=st.session_state.row_to_edit)
+                slider_value = st.slider("Select a row to display its image", min_value=st.session_state.data.index[0], max_value=st.session_state.data.index[-1], value=int(st.session_state.row_to_edit))
 
                 # Only update the row_to_edit if slider value changes
                 if slider_value != st.session_state.row_to_edit:
@@ -490,6 +695,11 @@ if st.session_state.data is not None:
             n_rows = len(st.session_state.data)-1
             st.write(f"**Showing image for row {st.session_state.row_to_edit} / {n_rows}**")
 
+        # Update the track_view column for the current row
+        # if st.session_state.access_option != 'Admin': # ONLY add views if in the label tab # This is diabled with the goal to promot going through the whole batch in order
+        #     st.session_state.data.loc[st.session_state.row_to_edit, "track_view"] = 'True'
+        save_data()
+
         # Create separate columns for image and JSON as they are below the editor in this case
         if img_loc == 'Middle':
             image_col, json_col  = st.columns([1, 1])  
@@ -497,9 +707,15 @@ if st.session_state.data is not None:
             json_col, image_col  = st.columns([1, 1]) 
 
 
+
     # check if the row_to_edit has changed
     if 'last_row_to_edit' not in st.session_state:
         st.session_state['last_row_to_edit'] = None
+
+    # check if the row_to_edit has changed
+    if st.session_state.row_to_edit != st.session_state.previous_row_to_edit:
+        st.session_state.current_options = []
+        st.session_state.previous_row_to_edit = st.session_state.row_to_edit
 
 
     # Only load JSON if row has changed
@@ -574,10 +790,10 @@ if st.session_state.data is not None:
 
 
     with image_col:
-        if st.session_state['last_row_to_edit'] != st.session_state.row_to_edit or 'last_image_option' not in st.session_state or st.session_state['last_image_option'] != image_option:
-            if image_option == 'Original':
+        if st.session_state['last_row_to_edit'] != st.session_state.row_to_edit or 'last_image_option' not in st.session_state or st.session_state['last_image_option'] != st.session_state.image_option:
+            if st.session_state.image_option == 'Original':
                 st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_original"]
-            elif image_option == 'Cropped':
+            elif st.session_state.image_option == 'Cropped':
                 st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_crop"]
             if pd.notnull(st.session_state['image_path']):
                 new_img_path = st.session_state['image_path']
@@ -585,62 +801,66 @@ if st.session_state.data is not None:
                 print(f'LOADING IMAGE: {new_img_path_fname}')
                 st.session_state['image'] = Image.open(new_img_path)
             # Remember the selected image option
-            st.session_state['last_image_option'] = image_option
+            st.session_state['last_image_option'] = st.session_state.image_option
 
-        ### FOR VS CODE
-        # if 'image' in st.session_state and 'last_image_option' in st.session_state:            
-                    
-            # if st.session_state['last_image_option'] == 'Original':
-            #     static_image_path = os.path.join(static_folder_path_o, os.path.basename(st.session_state['image_path']))
-            # elif st.session_state['last_image_option'] == 'Cropped':
-            #     static_image_path = os.path.join(static_folder_path_c, os.path.basename(st.session_state['image_path']))
-            
-            # shutil.copy(st.session_state["image_path"], static_image_path)
-
-            # # Create the HTML hyperlink with the image
-            # relative_path_to_static = os.path.relpath(static_image_path, current_dir).replace('\\', '/')
-            # print(relative_path_to_static)
-            # st.markdown(f'[**Zoom**](/app/{os.path.join(current_dir, relative_path_to_static)})', unsafe_allow_html=True)
-
-
-            # # Display the image
-            # image = st.session_state['image']
-            # st.image(image, caption=st.session_state['image_path'])
-        ### FOR TERMINAL
         if 'image' in st.session_state and 'last_image_option' in st.session_state:            
             # static_folder_path = os.path.join(current_dir, 'static')
 
-            if st.session_state['last_image_option'] == 'Original':
+            if st.session_state.image_option == 'Original':
                 static_image_path = os.path.join('static_og', os.path.basename(st.session_state['image_path']))
                 shutil.copy(st.session_state["image_path"], os.path.join(st.session_state.static_folder_path_o, os.path.basename(st.session_state['image_path'])))
-            elif st.session_state['last_image_option'] == 'Cropped':
+            elif st.session_state.image_option == 'Cropped':
                 static_image_path = os.path.join('static_cr', os.path.basename(st.session_state['image_path']))
                 shutil.copy(st.session_state["image_path"], os.path.join(st.session_state.static_folder_path_c, os.path.basename(st.session_state['image_path'])))
-            
-            
-            # if st.session_state['last_image_option'] == 'Original':
-            #     static_image_path = os.path.join('static_og', os.path.basename(st.session_state['image_path']))
-            # elif st.session_state['last_image_option'] == 'Cropped':
-            #     static_image_path = os.path.join('static_cr', os.path.basename(st.session_state['image_path']))
-            
-            # shutil.copy(st.session_state["image_path"], static_image_path)
 
             # Create the HTML hyperlink with the image
             relative_path_to_static = os.path.relpath(static_image_path, st.session_state.current_dir).replace('\\', '/')
             print(f"Adding to Zoom image sever: {relative_path_to_static}")
-            st.markdown(f'[**Zoom**](http://localhost:8000/{relative_path_to_static})', unsafe_allow_html=True)
+            _, zoom_1, zoom_2, zoom_3, __ = st.columns([1,2,2,2,1])
+            # with zoom_1:
+            #     st.markdown(f'[**Zoom**](http://localhost:8000/{relative_path_to_static})', unsafe_allow_html=True)
+            with zoom_1:
+                if st.button('Show Original Image', use_container_width=True):
+                    st.session_state.image_option = 'Original'
+                    st.experimental_rerun()
+            with zoom_2:
+                link = f'http://localhost:8000/{relative_path_to_static}'
+                if st.button('Zoom', use_container_width=True):
+                    webbrowser.open_new_tab(link)
+            with zoom_3:
+                if st.button('Show Cropped Image', use_container_width=True):
+                    st.session_state.image_option = 'Cropped'
+                    st.experimental_rerun()
+
 
             # Display the image
             image = st.session_state['image']
             st.image(image, caption=st.session_state['image_path'])
 
+    
 
+    st.header('Tracking')
 
-
-
-
+    col_low_1, col_low_2, col_low_3, col_low_4, col_low_5, col_low_6, col_low_7, col_low_8,  = st.columns([1,1,1,1,1,1,1,1])
+    last_true_index, last_fully_viewed = update_progress_bar_overall()
+    st.session_state['last_fully_viewed'] = last_fully_viewed
     # update the 'last_row_to_edit' in the session state to the current 'row_to_edit'
     st.session_state['last_row_to_edit'] = st.session_state.row_to_edit
 
-    if st.button('Save Data'):
-        save_data()
+    with col_low_1:
+        if st.button('Skip to last **fully** viewed',key=f"Skip_to_last_fully_viewed1"):
+            st.session_state.row_to_edit = int(last_fully_viewed)
+            st.experimental_rerun()
+
+    with col_low_2:
+        if st.button('Skip to last viewed',key=f"Skip_to_last_viewed1"):
+            st.session_state.row_to_edit = int(last_true_index)
+            st.experimental_rerun()
+
+    with col_low_3:
+        if st.button('Save Data'):
+            save_data()
+
+    st.header('Options',help='Visible as Admin')
+    if st.session_state.access_option == 'Admin':
+        st.session_state.default_to_original = st.checkbox("Default to 'Original' image each time 'Next' or 'Previous' is pressed.", value=True)
