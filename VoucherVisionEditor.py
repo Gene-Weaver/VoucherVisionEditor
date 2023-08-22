@@ -796,68 +796,6 @@ if st.session_state.data is not None:
                     # print('LOADING JSON')
                     st.session_state['json_dict'] = json.load(file)
 
-        # Display JSON
-        if 'json_dict' in st.session_state:
-            ### Button to toggle extra helper text
-            form_pre_text = st.empty()
-            with form_pre_text.container():
-                if st.button('Show Predicted Text',key=f"Show_help2", use_container_width=True, type="secondary"):
-                    if st.session_state.show_helper_text == True:
-                        st.session_state.show_helper_text = False
-                    elif st.session_state.show_helper_text == False:
-                        st.session_state.show_helper_text = True
-                    st.experimental_rerun()
-            
-            if st.session_state.show_helper_text:
-                json_dict = st.session_state['json_dict']
-
-                tab1, tab2, tab3 = st.tabs([group_option, "Misc", "OCR"])
-
-
-                for main_key, main_value in json_dict.items():
-                    if group_option == 'ALL':
-                        with tab1:
-                            color = color_map_json.get(main_key, "black")  # Default to black if key is not in color_map
-                            st.markdown(f"<h4 style='color: {color};'>{main_key}</h4><br>", unsafe_allow_html=True)
-                            if isinstance(main_value, dict):
-                                for sub_key, sub_value in main_value.items():
-                                    if sub_value:
-                                        st.markdown(f"<b style='font-size:20px;'>{sub_key}: <br></b> {sub_value}<br>", unsafe_allow_html=True)
-                    elif main_key == 'MISCELLANEOUS':
-                        with tab2:
-                            color = color_map_json.get(main_key, "black")  # Default to black if key is not in color_map
-                            st.markdown(f"<h4 style='color: {color};'>{main_key}</h4><br>", unsafe_allow_html=True)
-                            if isinstance(main_value, dict):
-                                for sub_key, sub_value in main_value.items():
-                                    if sub_value:
-                                        sub_value_show = remove_number_lines(sub_value)
-                                        sub_value_show = sub_value_show.replace('\n', '<br/>')
-                                        st.markdown(f"<b style='font-size:20px;'>{sub_key}: <br></b> {sub_value_show}<br>", unsafe_allow_html=True)
-                    elif ((main_key == group_option) and (main_key != 'MISCELLANEOUS')):
-                        with tab1:# if st.session_state.show_helper_text:
-                            color = color_map_json.get(main_key, "black")  # Default to black if key is not in color_map
-                            st.markdown(f"<h4 style='color: {color};'>{main_key}</h4><br>", unsafe_allow_html=True)
-                            if isinstance(main_value, dict):
-                                for sub_key, sub_value in main_value.items():
-                                    if sub_value:
-                                        sub_value_show = remove_number_lines(sub_value)
-                                        sub_value_show = sub_value_show.replace('\n', '<br/>')
-                                        st.markdown(f"<b style='font-size:20px;'>{sub_key}: <br></b> {sub_value_show}<br>", unsafe_allow_html=True)
-
-                with tab3:
-                    if 'OCR_JSON' in st.session_state:
-                        OCR_JSON = st.session_state['OCR_JSON']
-                        # print(OCR_JSON)
-                        # Assuming the JSON structure is like { "OCR": "Some Text" }
-                        color = color_map.get('OCR', "#FFFFFF") 
-                        st.markdown(f"<h4 style='color: {color};'>All OCR Text</h4><br>", unsafe_allow_html=True)
-                        cleaned_OCR_text = remove_number_lines(OCR_JSON['OCR'])
-                        OCR_show = cleaned_OCR_text.replace('\n', '<br/>')
-                        st.markdown(f"""<p style='font-size:20px;'>{OCR_show}</p><br>""", unsafe_allow_html=True)
-
-        
-        # After displaying the first JSON...
-        if st.session_state['last_row_to_edit'] != st.session_state.row_to_edit:
             # Load second JSON (OCR)
             original_JSON_path = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_helper"]
             # print(original_JSON_path)
@@ -878,17 +816,67 @@ if st.session_state.data is not None:
                     with open(OCR_JSON_path, "r") as file:
                         st.session_state['OCR_JSON'] = json.load(file)  # Save JSON data, not the path
 
-        # Display OCR JSON
-        # if st.session_state.show_helper_text:
-        #     if 'OCR_JSON' in st.session_state:
-        #         OCR_JSON = st.session_state['OCR_JSON']
-        #         # print(OCR_JSON)
-        #         # Assuming the JSON structure is like { "OCR": "Some Text" }
-        #         color = color_map.get('OCR', "#FFFFFF") 
-        #         st.markdown(f"<h4 style='color: {color};'>All OCR Text</h4><br>", unsafe_allow_html=True)
-        #         cleaned_OCR_text = remove_number_lines(OCR_JSON['OCR'])
-        #         OCR_show = cleaned_OCR_text.replace('\n', '<br/>')
-        #         st.markdown(f"""<p style='font-size:20px;'>{OCR_show}</p><br>""", unsafe_allow_html=True)
+        # Display JSON
+        if 'json_dict' in st.session_state:
+            ### Button to toggle extra helper text
+            form_pre_text = st.empty()
+            with form_pre_text.container():
+                if st.button('Show Predicted Text',key=f"Show_help2", use_container_width=True, type="secondary"):
+                    if st.session_state.show_helper_text == True:
+                        st.session_state.show_helper_text = False
+                    elif st.session_state.show_helper_text == False:
+                        st.session_state.show_helper_text = True
+                    st.experimental_rerun()
+            
+            if st.session_state.show_helper_text:
+                json_dict = st.session_state['json_dict']
+                if 'OCR_JSON' in st.session_state:
+                    OCR_JSON = st.session_state['OCR_JSON']
+
+                con_tabs = st.empty()
+                with con_tabs.container():
+                    tab1, tab2, tab3 = st.tabs([group_option, "Misc", "OCR"])
+
+                    for main_key, main_value in json_dict.items():
+                        if group_option == 'ALL':
+                            with tab1:
+                                color = color_map_json.get(main_key, "black")  # Default to black if key is not in color_map
+                                st.markdown(f"<h4 style='color: {color};'>{main_key}</h4><br>", unsafe_allow_html=True)
+                                if isinstance(main_value, dict):
+                                    for sub_key, sub_value in main_value.items():
+                                        if sub_value:
+                                            st.markdown(f"<b style='font-size:20px;'>{sub_key}: <br></b> {sub_value}<br>", unsafe_allow_html=True)
+                        elif main_key == 'MISCELLANEOUS':
+                            with tab2:
+                                color = color_map_json.get(main_key, "black")  # Default to black if key is not in color_map
+                                st.markdown(f"<h4 style='color: {color};'>{main_key}</h4><br>", unsafe_allow_html=True)
+                                if isinstance(main_value, dict):
+                                    for sub_key, sub_value in main_value.items():
+                                        if sub_value:
+                                            sub_value_show = remove_number_lines(sub_value)
+                                            sub_value_show = sub_value_show.replace('\n', '<br/>')
+                                            st.markdown(f"<b style='font-size:20px;'>{sub_key}: <br></b> {sub_value_show}<br>", unsafe_allow_html=True)
+                        elif ((main_key == group_option) and (main_key != 'MISCELLANEOUS')):
+                            with tab1:# if st.session_state.show_helper_text:
+                                color = color_map_json.get(main_key, "black")  # Default to black if key is not in color_map
+                                st.markdown(f"<h4 style='color: {color};'>{main_key}</h4><br>", unsafe_allow_html=True)
+                                if isinstance(main_value, dict):
+                                    for sub_key, sub_value in main_value.items():
+                                        if sub_value:
+                                            sub_value_show = remove_number_lines(sub_value)
+                                            sub_value_show = sub_value_show.replace('\n', '<br/>')
+                                            st.markdown(f"<b style='font-size:20px;'>{sub_key}: <br></b> {sub_value_show}<br>", unsafe_allow_html=True)
+
+                    with tab3:
+                        # Assuming the JSON structure is like { "OCR": "Some Text" }
+                        color = color_map.get('OCR', "#FFFFFF") 
+                        st.markdown(f"<h4 style='color: {color};'>All OCR Text</h4><br>", unsafe_allow_html=True)
+                        cleaned_OCR_text = remove_number_lines(OCR_JSON['OCR'])
+                        OCR_show = cleaned_OCR_text.replace('\n', '<br/>')
+                        st.markdown(f"""<p style='font-size:20px;'>{OCR_show}</p><br>""", unsafe_allow_html=True)
+
+        
+            
 
 
 
