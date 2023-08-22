@@ -373,12 +373,12 @@ def show_header_main():
             # st.markdown(f'<a href="https://github.com/Gene-Weaver/VoucherVisionEditor"><img src="http://localhost:8000/{st.session_state.logo_path}" width="100"></a>', unsafe_allow_html=True)
             st.markdown("<h1 style='text-align: center;'>VoucherVision Editor</h1>", unsafe_allow_html=True)
         with st.container():
-            st.session_state.set_image_size = st.sidebar.selectbox("Image Size", ["Auto Width", "Custom", "Large", "Medium", "Small"]) 
+            st.session_state.set_image_size = st.sidebar.selectbox("Image Size", ["Large", "Medium", "Small", "Custom", "Auto Width"]) 
             if st.session_state.set_image_size == "Custom":
-                image_sizes = list(range(200, 2700, 100))
+                image_sizes = list(range(200, 2600, 100))
                 st.session_state.set_image_size_px = st.select_slider(
                     'Set Image Width',
-                    options=image_sizes,value=1100)
+                    options=image_sizes,value=1500)
                 
             if st.session_state.set_image_size != "Auto Width":
                 image_sizes = list(range(20, 200, 5))
