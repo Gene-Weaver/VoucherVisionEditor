@@ -324,7 +324,7 @@ def start_server():
     st.session_state.logo_path = relative_path_to_logo.replace('\\', '/')
 
 def do_rerun():
-    st.experimental_rerun()
+    st.rerun()
 
 def clear_directory():
     st.session_state.clear_count += 1
@@ -589,7 +589,7 @@ def on_press_previous():
         # st.session_state["group_option"] = group_options[0]  # Reset the group_option
         if st.session_state.default_to_original:
             st.session_state.image_option = 'Original'
-        st.experimental_rerun()
+        st.rerun()
 
 def on_press_next(group_options):
     """
@@ -613,7 +613,7 @@ def on_press_next(group_options):
             st.session_state["group_option"] = group_options[0]  # Reset the group_option
             if st.session_state.default_to_original:
                 st.session_state.image_option = 'Original'
-            st.experimental_rerun()
+            st.rerun()
     else:
         st.info("Please confirm all categories.")
 
@@ -621,7 +621,7 @@ def on_press_skip_to_bookmark():
     if st.button('Skip to last viewed image',key=f"Skip_to_last_viewed2", use_container_width=True):
         last_true_index, last_fully_viewed = update_progress_bar_overall()
         st.session_state.row_to_edit = int(last_true_index)
-        st.experimental_rerun()
+        st.rerun()
 
 def on_press_confirm_content():
     if st.button('Confirm Content',key=f"Confirm_Content1", use_container_width=True, type="primary"):
@@ -649,7 +649,7 @@ def on_press_confirm_content():
         with c_form:
             save_data()
         con_form.empty()
-        st.experimental_rerun()
+        st.rerun()
 
 
 ###############################################################
@@ -757,7 +757,7 @@ def on_press_show_helper_text():
             st.session_state.show_helper_text = False
         elif st.session_state.show_helper_text == False:
             st.session_state.show_helper_text = True
-        st.experimental_rerun()
+        st.rerun()
 
 
 ###############################################################
@@ -860,7 +860,7 @@ def display_image_options_buttons(relative_path_to_static):
         with zoom_1:
             if st.button('Show Original Image', use_container_width=True):
                 st.session_state.image_option = 'Original'
-                st.experimental_rerun()
+                st.rerun()
         with zoom_2:
             if st.button('Zoom', use_container_width=True):
                 webbrowser.open_new_tab(link)
@@ -871,20 +871,20 @@ def display_image_options_buttons(relative_path_to_static):
         with zoom_4:
             if st.button('Show Cropped Image', use_container_width=True):
                 st.session_state.image_option = 'Cropped'
-                st.experimental_rerun()
+                st.rerun()
     else:
         _, zoom_1, zoom_2, zoom_3, __ = st.columns([1,2,2,2,1])
         with zoom_1:
             if st.button('Show Original Image', use_container_width=True):
                 st.session_state.image_option = 'Original'
-                st.experimental_rerun()
+                st.rerun()
         with zoom_2:
             if st.button('Zoom', use_container_width=True):
                 webbrowser.open_new_tab(link)
         with zoom_3:
             if st.button('Show Cropped Image', use_container_width=True):
                 st.session_state.image_option = 'Cropped'
-                st.experimental_rerun()
+                st.rerun()
 
 def display_scrollable_image():
     """
@@ -956,7 +956,7 @@ if st.session_state.data is None:
     load_data(mapbox_key)
 
     if st.session_state.data is not None:
-        st.experimental_rerun()
+        st.rerun()
 
 ###############################################################
 ####################                    #######################
@@ -998,7 +998,7 @@ if st.session_state.data is not None:
             if (st.session_state.progress == 0) and group_options[0] not in st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"]: 
                 # Add default option if "track_edit" is empty and doesn't contain the default option already
                 add_default_option_if_not_present()
-                st.experimental_rerun()
+                st.rerun()
             
             # Create the Previous and Next buttons, define 4 sub columns
             c_index, c_skip ,c_prev, c_next = st.columns([4,4,4,4])
@@ -1121,12 +1121,12 @@ if st.session_state.data is not None:
     # with col_low_1:
     #     if st.button('Skip to last **fully** viewed',key=f"Skip_to_last_fully_viewed1"):
     #         st.session_state.row_to_edit = int(last_fully_viewed)
-    #         st.experimental_rerun()
+    #         st.rerun()
 
     # with col_low_2:
     #     if st.button('Skip to last viewed',key=f"Skip_to_last_viewed1"):
     #         st.session_state.row_to_edit = int(last_true_index)
-    #         st.experimental_rerun()
+    #         st.rerun()
 
     # with col_low_3:
     #     if st.button('Save Data'):

@@ -42,7 +42,7 @@ def create_shortcut():
     print(f"Using virtual environment located at {venv_path}")
 
     # Path to the activate script in the venv
-    activate_path = os.path.join(venv_path, "Scripts", "activate")
+    activate_path = os.path.join(venv_path, "Scripts")
 
     shortcut_path = os.path.join(folder_path, f'{shortcut_name}.lnk')
 
@@ -52,7 +52,12 @@ def create_shortcut():
     # The command activates the venv, navigates to the script's directory, then runs the script
     # shortcut.Arguments = f'/K "{activate_path} & cd /D {os.path.dirname(script_path)} & streamlit run VoucherVisionEditor.py"'
     # shortcut.Arguments = f'/K "{activate_path} & cd /D {static_dir} & start cmd /c python -m http.server & cd /D {script_dir} & streamlit run VoucherVisionEditor.py"'
-    shortcut.Arguments = f'/K "{activate_path} & cd /D {script_dir} & streamlit run VoucherVisionEditor.py"'
+    streamlit_exe = os.path.join(venv_path, "Scripts","streamlit")
+    print(script_dir)
+    print(streamlit_exe)
+    activate_path = os.path.join(script_dir,"venv_VVE","Scripts")
+    print(activate_path)
+    shortcut.Arguments = f'/K cd /D ""{activate_path}"" && activate && cd /D ""{script_dir}"" && streamlit run VoucherVisionEditor.py'
     # Set the icon of the shortcut
     shortcut.IconLocation = icon_path_ico
 
