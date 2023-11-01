@@ -1,6 +1,6 @@
 # VoucherVisionEditor
 
-[![VoucherVisionEditor](https://LeafMachine.org/img/VV_Logo.png "VoucherVisionEditor")](https://LeafMachine.org/)
+[![VoucherVisionEditor](https://LeafMachine.org/img/VVE_Logo.png "VoucherVisionEditor")](https://LeafMachine.org/)
 
 Table of Contents
 =================
