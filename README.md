@@ -73,7 +73,10 @@ For more information about virtual environments, please see [Creation of virtual
     <pre><code class="language-python">which python</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 2. Then create the virtual environment (venv_VVE is the name of our new virtual environment)  
-    <pre><code class="language-python">python3 -m venv venv_VVE --copies</code></pre>
+    <pre><code class="language-python">python3 -m venv venv_VVE</code></pre>
+    <button class="btn" data-clipboard-target="#code-snippet"></button>
+    Or...
+    <pre><code class="language-python">python -m venv venv_VVE</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 3. Activate the virtual environment  
     <pre><code class="language-python">source ./venv_VVE/bin/activate</code></pre>
@@ -106,6 +109,9 @@ For more information about virtual environments, please see [Creation of virtual
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 2. Then create the virtual environment (venv_VVE is the name of our new virtual environment)  
     <pre><code class="language-python">python3 -m venv venv_VVE </code></pre>
+    <button class="btn" data-clipboard-target="#code-snippet"></button>
+    Or...
+    <pre><code class="language-python">python -m venv venv_VVE</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 3. Activate the virtual environment  
     <pre><code class="language-python">.\venv_VVE\Scripts\activate</code></pre>

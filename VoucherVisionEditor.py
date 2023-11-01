@@ -130,6 +130,45 @@ if 'zoom_dist' not in st.session_state: # Can be configured
 if 'coordinates_dist' not in st.session_state:
     st.session_state.coordinates_dist = 0
 
+if 'bp_text' not in st.session_state:
+    st.session_state.bp_text = '''
+    ## Running VVE from the command line (optional)
+    #### Save Directory and Base Path Configuration 
+    When launching the VoucherVision Editor (VVE) from the command line, two optional arguments can be specified: `--save-dir` and `--base-path`. 
+
+    - `--save-dir` defines where the edited file will be saved. VVE never overwrites the original transcription file. This must be the full file path to where the edited transcription.xlsx should be saved. If you need to pause an editing run and resume it at a later time, then the last "edited" file becomes the new input file, but `--save-dir` can remain the same because it will simply increment after each save.
+
+    - `--base-path` optional. Reroutes the file paths in the original transcription file ***if the files have been moved***. The original transcription file saves the full paths to the transcription JSON files, cropped labels images, and the original full specimen images. If the computer where VVE is running has access to these files and those file locations have not changed, then the `--base-path` option is not needed. But in the event that the original file paths are broken, this will rebuild the file paths to the new locations.
+
+    If `--save-dir` and `--base-path` are not provided in the command line arguments, you can specify them below.
+    '''
+
+if 'save_dir_help' not in st.session_state:
+    st.session_state.save_dir_help = """
+    Defines where the edited file will be saved. 
+    VVE never overwrites the original transcription file. 
+    This must be the full file path to where the edited transcription.xlsx should be saved. 
+    If you need to pause an editing run and resume it at a later time, 
+    then the last "edited" file becomes the new input file, 
+    but --save-dir can remain the same because it will simply increment after each session.
+    """
+    
+if 'base_path_help' not in st.session_state:
+    st.session_state.base_path_help = """
+    Reroutes the file paths in the original transcription file if the files have been moved. 
+    The original transcription file saves the full paths to the transcription JSON files, 
+    cropped labels images, and the original full specimen images. 
+    If the computer where VVE is running has access to these files and those file locations have not changed, 
+    then the --base-path option is not needed. 
+    But in the event that the original file paths are broken, this will rebuild the file paths to the new locations.
+    
+    For example, if the old path in your file is: 'C:/Users/old_user/Documents/Project/Transcription/File.json'
+    
+    and the new base path you enter is: 'D:/New_Project_Location/'
+    
+    then the new path for the file will become: 'D:/New_Project_Location/Transcription/File.json'.
+    """
+
 parser = argparse.ArgumentParser(description='Define save location of edited file.')
 
 # Add parser argument for save directory
@@ -397,52 +436,23 @@ def clear_directory():
 
 
 def get_directory_paths(args):
-    save_dir_help = """
-    Defines where the edited file will be saved. 
-    VVE never overwrites the original transcription file. 
-    This must be the full file path to where the edited transcription.xlsx should be saved. 
-    If you need to pause an editing run and resume it at a later time, 
-    then the last "edited" file becomes the new input file, 
-    but --save-dir can remain the same because it will simply increment after each session.
-    """
-    
-    base_path_help = """
-    Reroutes the file paths in the original transcription file if the files have been moved. 
-    The original transcription file saves the full paths to the transcription JSON files, 
-    cropped labels images, and the original full specimen images. 
-    If the computer where VVE is running has access to these files and those file locations have not changed, 
-    then the --base-path option is not needed. 
-    But in the event that the original file paths are broken, this will rebuild the file paths to the new locations.
-    
-    For example, if the old path in your file is: 'C:/Users/old_user/Documents/Project/Transcription/File.json'
-    
-    and the new base path you enter is: 'D:/New_Project_Location/'
-    
-    then the new path for the file will become: 'D:/New_Project_Location/Transcription/File.json'.
-    """
-    bp_text = '''
-    #### Save Directory and Base Path Configuration
-    When launching the VoucherVision Editor (VVE) from the command line, two optional arguments can be specified: `--save-dir` and `--base-path`. 
-
-    - `--save-dir` defines where the edited file will be saved. VVE never overwrites the original transcription file. This must be the full file path to where the edited transcription.xlsx should be saved. If you need to pause an editing run and resume it at a later time, then the last "edited" file becomes the new input file, but `--save-dir` can remain the same because it will simply increment after each save.
-
-    - `--base-path` optional. Reroutes the file paths in the original transcription file ***if the files have been moved***. The original transcription file saves the full paths to the transcription JSON files, cropped labels images, and the original full specimen images. If the computer where VVE is running has access to these files and those file locations have not changed, then the `--base-path` option is not needed. But in the event that the original file paths are broken, this will rebuild the file paths to the new locations.
-
-    If `--save-dir` and `--base-path` are not provided in the command line arguments, you can specify them below.
-    '''
-    st.markdown(bp_text)
-
+    st.header("Instructions")
+    st.write("1. Provide the full path to where you want the edited transcription file to be saved. The default location is in the same folder as the un-edited transcription .xlsx file.")
+    st.write("2. Provide the full path to the folder that contains the VoucherVision transcription file.")
+    st.write("3. Select the prompt version that you used to create the transcription .xlsx file. Different prompts use different headers.")
+    st.write("4. (Optional) Provide a Mapbox API key. The free key-less version will suffice for most use-cases.")
+    st.write("5. Drag or browse for the transcription .xlsx file. Once this file is found, the editor will open.")
+    st.write("---")
     # Get the save directory and base path from the parsed arguments or use the Streamlit input
     st.markdown("""#### Save Directory""")
-    st.session_state.SAVE_DIR = args.save_dir if args.save_dir else st.text_input('Enter the directory to save output files', help=save_dir_help)
+    st.session_state.SAVE_DIR = args.save_dir if args.save_dir else st.text_input('Enter the directory to save output files', help=st.session_state.save_dir_help)
     st.markdown("""#### Base Path""")
-    st.session_state.BASE_PATH = args.base_path if args.base_path else st.text_input('Include the full path to the folder that contains "/Transcription", but do not include "/Transcription" in the path', help=base_path_help)
+    st.session_state.BASE_PATH = args.base_path if args.base_path else st.text_input('Include the full path to the folder that contains "/Transcription", but do not include "/Transcription" in the path', help=st.session_state.base_path_help)
     st.markdown("""#### Prompt Version""")
     st.session_state.prompt_version = args.prompt_version if args.prompt_version else st.radio('Prompt Version',options=['v2', 'v1'],help='Version 1 and Version 2 prompts have different column headers')
 
     if 'Transcription' in st.session_state.BASE_PATH.split(os.path.sep):
         st.session_state.BASE_PATH = os.path.dirname(st.session_state.BASE_PATH)
-              
 
 def add_default_option_if_not_present():
     # Add default option if "track_edit" is empty and doesn't contain the default option already
@@ -1080,6 +1090,8 @@ if st.session_state.data is None:
     get_directory_paths(args)
     mapbox_key = prompt_for_mapbox_key()
     load_data(mapbox_key)
+
+    st.markdown(st.session_state.bp_text)
 
     if st.session_state.data is not None:
         st.rerun()

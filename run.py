@@ -19,6 +19,6 @@ if __name__ == "__main__":
         "run",
         resolve_path("VoucherVisionEditor.py"),
         "--global.developmentMode=false",
-        "--server.port=8523",
+        "--server.port=8527",
     ]
     sys.exit(stcli.main())
