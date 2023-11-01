@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import json, os, argparse, shutil, re, toml
+import json, os, argparse, shutil, re, toml, math
 import subprocess
 import threading
 from PIL import Image
@@ -17,6 +17,10 @@ from io import BytesIO
 
 
 ### To run:
+# streamlit run VoucherVisionEditor.py -- 
+# --base-path D:/D_Desktop/LM2/Asa_Gray/Transcription
+# --save-dir D:/D_Desktop/LM2
+
 # streamlit run VoucherVisionEditor.py -- 
 # --base-path D:/Dropbox/LM2_Env/VoucherVision_Datasets/POC_chatGPT__2022_09_07_thru12_S3_jacortez_AllAsia/2022_09_07_thru12_S3_jacortez_AllAsia_2023_06_16__02-12-26
 # --save-dir D:/D_Desktop/OUT
@@ -101,6 +105,31 @@ if 'is_fitted_image' not in st.session_state:
 if 'fitted_image_width' not in st.session_state:
     st.session_state.fitted_image_width = 600
 
+if 'n_columns' not in st.session_state:
+    st.session_state.n_columns = 26
+
+# if 'prompt_version' not in st.session_state:
+#     st.session_state.prompt_version = 'v2'
+
+if 'grouping' not in st.session_state:
+    st.session_state.grouping = None
+
+# Initialize a state to know whether the button was clicked or not
+if "button_clicked" not in st.session_state:
+    st.session_state.button_clicked = False
+
+if "form_width" not in st.session_state:
+    st.session_state.form_width = 42
+
+if "distance_GPS_warn" not in st.session_state: # Can be configured
+    st.session_state.distance_GPS_warn = 100
+
+if 'zoom_dist' not in st.session_state: # Can be configured
+    st.session_state.zoom_dist = 3000
+
+if 'coordinates_dist' not in st.session_state:
+    st.session_state.coordinates_dist = 0
+
 parser = argparse.ArgumentParser(description='Define save location of edited file.')
 
 # Add parser argument for save directory
@@ -108,6 +137,8 @@ parser.add_argument('--save-dir', type=str, default=None,
                     help='Directory to save output files')
 parser.add_argument('--base-path', type=str, default='',
                     help='New base path to replace the existing one, up to "/Transcription"')
+parser.add_argument('--prompt-version', type=str, default='',
+                    help='Prompt version used for VoucherVision. V1 has 26 total columns. V2 has 30 column (all headers are lowercase, have underscores)')
 
 # Parse the arguments
 try:
@@ -148,6 +179,9 @@ def setup_streamlit_config(mapbox_key=''):
     enableStaticServing = true
     runOnSave = true
     port = 8523
+
+    [runner]
+    fastReruns = false
     """
 
     if mapbox_key != '':
@@ -162,7 +196,7 @@ def setup_streamlit_config(mapbox_key=''):
 ###############################################################
 #################       Definitions        ####################
 ###############################################################
-color_map = {
+st.session_state.color_map = {
     "TAXONOMY": 'blue', 
     "GEOGRAPHY": 'orange', 
     "LOCALITY": 'green',
@@ -171,7 +205,7 @@ color_map = {
     "OCR": '#7fbfff', 
 }
 
-color_map_json = {
+st.session_state.color_map_json = {
     "TAXONOMY": "#7fbfff", # pastel blue
     "GEOGRAPHY": "#f6a14f",  # pastel orange
     "LOCALITY": "#48ca48", # pastel green
@@ -179,13 +213,25 @@ color_map_json = {
     "MISCELLANEOUS": "#ff3333",  # pastel red
 }
 
-grouping = {
-    "TAXONOMY": ["Catalog Number", "Genus", "Species", "subspecies", "variety", "forma",],
-    "GEOGRAPHY": ["Country", "State", "County", "Verbatim Coordinates",],
-    "LOCALITY": ["Locality Name", "Min Elevation", "Max Elevation", "Elevation Units",],
-    "COLLECTING": ["Datum","Cultivated","Habitat","Collectors","Collector Number", "Verbatim Date","Date", "End Date",],
-}
-
+def set_column_groups():
+    # if st.session_state.n_columns == 26: # Version 1 prompts
+    if st.session_state.prompt_version == 'v1':
+        st.session_state.grouping = {
+            "TAXONOMY": ["Catalog Number", "Genus", "Species", "subspecies", "variety", "forma",],
+            "GEOGRAPHY": ["Country", "State", "County", "Verbatim Coordinates",],
+            "LOCALITY": ["Locality Name", "Min Elevation", "Max Elevation", "Elevation Units",],
+            "COLLECTING": ["Datum","Cultivated","Habitat","Collectors","Collector Number", "Verbatim Date","Date", "End Date",],
+        }
+    # elif st.session_state.n_columns == 30: # Version 2 prompts
+    if st.session_state.prompt_version == 'v2':
+        st.session_state.grouping = {
+            "TAXONOMY": ["catalog_number", "genus", "species", "subspecies", "variety", "forma",],
+            "GEOGRAPHY": ["country", "state", "county", "verbatim_coordinates","decimal_coordinates"],
+            "LOCALITY": ["locality_name", "min_elevation", "max_elevation", "elevation_units",],
+            "COLLECTING": ["datum","cultivated","habitat","plant_description","collectors","collector_number", "determined_by", "verbatim_date","date", "end_date",],
+        }
+    else:
+        raise
 
 ###############################################################
 #################          Utils           ####################
@@ -231,12 +277,12 @@ def save_data():
     if st.session_state.file_name.endswith('.csv'):
         file_path = os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name)
         st.session_state.data.to_csv(file_path, index=False)
-        st.success('Saved (CSV)')
+        # st.success('Saved (CSV)')
         print(f"Saved (CSV) {file_path}")
     elif st.session_state.file_name.endswith('.xlsx'):
         file_path = os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name)
         st.session_state.data.to_excel(file_path, index=False)
-        st.success('Saved (XLSX)')
+        # st.success('Saved (XLSX)')
         print(f"Saved (XLSX) {file_path}")
     else:
         st.error('Unknown file format.')
@@ -254,6 +300,9 @@ def load_data(mapbox_key):
             data = pd.read_csv(uploaded_file, dtype=str)
         elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
             data = pd.read_excel(uploaded_file, dtype=str)
+        st.session_state.n_columns = data.shape[1]
+
+        set_column_groups()
 
         if "track_view" not in data.columns:
             data["track_view"] = 'False'
@@ -268,7 +317,7 @@ def load_data(mapbox_key):
         if st.session_state.BASE_PATH != '':
             st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'crop'))
             st.session_state.data['path_to_original'] = st.session_state.data['path_to_original'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'original'))
-            st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'json'))
+            st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'jpg'))
             st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'json'))
         
         # Determine SAVE_DIR from the 'path_to_content' column
@@ -312,8 +361,10 @@ def start_server():
     os.makedirs(st.session_state.static_folder_path, exist_ok=True)
     st.session_state.static_folder_path_o = os.path.join(st.session_state.static_folder_path, "static_og")
     st.session_state.static_folder_path_c = os.path.join(st.session_state.static_folder_path, "static_cr")
+    st.session_state.static_folder_path_h = os.path.join(st.session_state.static_folder_path, "static_h")
     os.makedirs(st.session_state.static_folder_path_o, exist_ok=True)
     os.makedirs(st.session_state.static_folder_path_c, exist_ok=True)
+    os.makedirs(st.session_state.static_folder_path_h, exist_ok=True)
 
     logo_path = os.path.join(st.session_state.static_folder_path_c, 'logo.png')
     shutil.copy("img/logo.png", logo_path)
@@ -386,7 +437,11 @@ def get_directory_paths(args):
     st.session_state.SAVE_DIR = args.save_dir if args.save_dir else st.text_input('Enter the directory to save output files', help=save_dir_help)
     st.markdown("""#### Base Path""")
     st.session_state.BASE_PATH = args.base_path if args.base_path else st.text_input('Include the full path to the folder that contains "/Transcription", but do not include "/Transcription" in the path', help=base_path_help)
+    st.markdown("""#### Prompt Version""")
+    st.session_state.prompt_version = args.prompt_version if args.prompt_version else st.radio('Prompt Version',options=['v2', 'v1'],help='Version 1 and Version 2 prompts have different column headers')
 
+    if 'Transcription' in st.session_state.BASE_PATH.split(os.path.sep):
+        st.session_state.BASE_PATH = os.path.dirname(st.session_state.BASE_PATH)
               
 
 def add_default_option_if_not_present():
@@ -540,14 +595,14 @@ def load_json_helper_files():
     Updates the st.session_state with 'json_dict' for the helper JSON and 'OCR_JSON' for the OCR data.
     """
     if st.session_state['last_row_to_edit'] != st.session_state.row_to_edit:
-        JSON_path = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_helper"]
+        JSON_path = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_content"]
 
         if JSON_path:
             with open(JSON_path, "r") as file:
                 st.session_state['json_dict'] = json.load(file)
 
         # Load second JSON (OCR)
-        original_JSON_path = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_helper"]
+        original_JSON_path = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_content"]
         
         if original_JSON_path:
             # Breakdown the path into parts
@@ -572,90 +627,82 @@ def on_press_previous():
     """
     Handle actions when the "Previous" button is pressed.
     """
-    if st.button("Previous", use_container_width=True):
-        st.session_state.progress_counter = 0
-        if st.session_state.current_options:
-            # Store current options as a list in "track_edit" column
-            st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] = st.session_state.current_options
-        # Add default option if "track_edit" is empty and doesn't contain the default option already
-        add_default_option_if_not_present()
+    st.session_state.progress_counter = 0
+    if st.session_state.current_options:
+        # Store current options as a list in "track_edit" column
+        st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] = st.session_state.current_options
+    # Add default option if "track_edit" is empty and doesn't contain the default option already
+    add_default_option_if_not_present()
 
-        if st.session_state.row_to_edit == st.session_state.data.index[0]:
-            if st.session_state.access_option == 'Admin':
-                st.session_state.row_to_edit = st.session_state.data.index[-1]
-        else:
-            st.session_state.row_to_edit -= 1
+    if st.session_state.row_to_edit == st.session_state.data.index[0]:
+        if st.session_state.access_option == 'Admin':
+            st.session_state.row_to_edit = st.session_state.data.index[-1]
+    else:
+        st.session_state.row_to_edit -= 1
 
-        # st.session_state["group_option"] = group_options[0]  # Reset the group_option
-        if st.session_state.default_to_original:
-            st.session_state.image_option = 'Original'
-        st.rerun()
+    # st.session_state["group_option"] = group_options[0]  # Reset the group_option
+    if st.session_state.default_to_original:
+        st.session_state.image_option = 'Original'
 
 def on_press_next(group_options):
     """
     Handle actions when the "Next" button is pressed.
     """
     if st.session_state.progress == len(group_options) or st.session_state.access_option == 'Admin':
-        if st.button("Next", type="primary", use_container_width=True):
-            st.session_state.progress_counter = 0
-            st.session_state.progress_index = 0
-            if st.session_state.current_options:
-                # Store current options as a list in "track_edit" column
-                st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] = st.session_state.current_options
-            # Add default option if "track_edit" is empty and doesn't contain the default option already
-            add_default_option_if_not_present()
+        st.session_state.progress_counter = 0
+        st.session_state.progress_index = 0
+        if st.session_state.current_options:
+            # Store current options as a list in "track_edit" column
+            st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] = st.session_state.current_options
+        # Add default option if "track_edit" is empty and doesn't contain the default option already
+        add_default_option_if_not_present()
 
-            if st.session_state.row_to_edit == st.session_state.data.index[-1]:
-                st.session_state.row_to_edit = st.session_state.data.index[0]
-            else:
-                st.session_state.row_to_edit += 1
+        if st.session_state.row_to_edit == st.session_state.data.index[-1]:
+            st.session_state.row_to_edit = st.session_state.data.index[0]
+        else:
+            st.session_state.row_to_edit += 1
 
-            st.session_state["group_option"] = group_options[0]  # Reset the group_option
-            if st.session_state.default_to_original:
-                st.session_state.image_option = 'Original'
-            st.rerun()
+        st.session_state["group_option"] = group_options[0]  # Reset the group_option
+        if st.session_state.default_to_original:
+            st.session_state.image_option = 'Original'
     else:
         st.info("Please confirm all categories.")
 
 def on_press_skip_to_bookmark():
-    if st.button('Skip to last viewed image',key=f"Skip_to_last_viewed2", use_container_width=True):
         last_true_index, last_fully_viewed = update_progress_bar_overall()
         st.session_state.row_to_edit = int(last_true_index)
-        st.rerun()
 
-def on_press_confirm_content():
-    if st.button('Confirm Content',key=f"Confirm_Content1", use_container_width=True, type="primary"):
-        st.session_state.progress_index += 1
-        for i, option in enumerate(group_options):
-            if i == st.session_state.progress_index:
-                # group_option_cols[i].button(option, use_container_width=True, disabled=do_disable_btn)
-                
-                st.session_state["group_option"] = option
-                group_option = option
+def on_press_confirm_content(group_options):
+    st.session_state.progress_index += 1
+    for i, option in enumerate(group_options):
+        if i == st.session_state.progress_index:
+            # group_option_cols[i].button(option, use_container_width=True, disabled=do_disable_btn)
+            
+            st.session_state["group_option"] = option
+            group_option = option
 
-                if "track_edit" not in st.session_state.data.columns:
-                    st.session_state.data["track_edit"] = [[group_options[0]] if group_options[0] else [] for _ in range(len(st.session_state.data))]
+            if "track_edit" not in st.session_state.data.columns:
+                st.session_state.data["track_edit"] = [[group_options[0]] if group_options[0] else [] for _ in range(len(st.session_state.data))]
 
-                if st.session_state.access_option != 'Admin': 
-                    if option not in st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"].split(","):
-                        current_edit_track = st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"]
-                        if current_edit_track:
-                            new_edit_track = current_edit_track + "," + option
-                        else:
-                            new_edit_track = option
-                        st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] = new_edit_track
+            if st.session_state.access_option != 'Admin': 
+                if option not in st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"].split(","):
+                    current_edit_track = st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"]
+                    if current_edit_track:
+                        new_edit_track = current_edit_track + "," + option
+                    else:
+                        new_edit_track = option
+                    st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] = new_edit_track
 
-                        add_default_option_if_not_present()
-        with c_form:
-            save_data()
-        con_form.empty()
-        st.rerun()
-
+                    add_default_option_if_not_present()
+    with c_form:
+        save_data()
+    con_form.empty()
+    # st.rerun()
 
 ###############################################################
 ################# Display Rows in the Form ####################
 ###############################################################
-def form_layout(group_option, grouping, color_map):
+def form_layout(group_option, grouping):
     """
     Display form layout based on group_option and update st.session_state.data.
 
@@ -664,30 +711,32 @@ def form_layout(group_option, grouping, color_map):
         grouping (dict): Dictionary mapping groups to fields.
         color_map (dict): Dictionary mapping groups to colors.
     """
-    columns_to_show = st.session_state.data.columns if group_option == "ALL" else grouping[group_option]
+    columns_to_show = st.session_state.data.columns if group_option == "ALL" else st.session_state.grouping[group_option]
     for col in columns_to_show:
         if col not in ['track_view', 'track_edit']:
             # Find the corresponding group and color
             unique_key = f"{st.session_state.row_to_edit}_{col}"
-            for group, fields in grouping.items():
+            for group, fields in st.session_state.grouping.items():
                 if col in fields:
-                    color = color_map.get(group, "#FFFFFF")  # default to white color
+                    color = st.session_state.color_map.get(group, "#FFFFFF")  # default to white color
                     break
             else:
-                color = color_map.get("MISCELLANEOUS", "#FFFFFF")  # default to white color
+                color = st.session_state.color_map.get("MISCELLANEOUS", "#FFFFFF")  # default to white color
 
             colored_label = f":{color}[{col}]"
 
             # IF admin, allow barcode to be edited
-            if (st.session_state.access_option == 'Admin' and (col == 'Catalog Number')): 
+            if (st.session_state.access_option == 'Admin' and (col in ['Catalog Number', 'catalog_number'])): 
                 # Show editable catalog number to admin
                 st.session_state.user_input[col] = st.text_input(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key,)
-            elif (st.session_state.access_option == 'Labeler' and (col == 'Catalog Number')): 
+            elif (st.session_state.access_option == 'Labeler' and (col in ['Catalog Number', 'catalog_number'])): 
                 # Show disabled catalog number to labeler
                 st.session_state.user_input[col] = st.text_input(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key, disabled=True)
             else:
-                st.session_state.user_input[col] = st.text_input(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key)
-
+                if len(st.session_state.data.loc[st.session_state.row_to_edit, col]) > st.session_state.form_width:
+                    st.session_state.user_input[col] = st.text_area(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key)
+                else:
+                    st.session_state.user_input[col] = st.text_input(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key)
             if st.session_state.user_input[col] != st.session_state.data.loc[st.session_state.row_to_edit, col]:
                 st.session_state.data.loc[st.session_state.row_to_edit, col] = st.session_state.user_input[col]
                 save_data()
@@ -700,9 +749,9 @@ def display_json_helper_text():
     # Check for presence of 'json_dict' in session state
     if 'json_dict' in st.session_state:
         # Button to toggle extra helper text
-        form_pre_text = st.empty()
-        with form_pre_text.container():
-            on_press_show_helper_text()
+        # form_pre_text = st.empty()
+        # with form_pre_text.container():
+        #     on_press_show_helper_text()
         
         # Display helper text if toggled on
         if st.session_state.show_helper_text:
@@ -720,28 +769,28 @@ def display_json_helper_text():
                 # Iterate through main keys and values in json_dict
                 for main_key, main_value in json_dict.items():
                     if group_option == 'ALL':
-                        display_tab_content(tab1, main_key, main_value, color_map_json)
+                        display_tab_content(tab1, main_key, main_value)
                         if main_key == 'MISCELLANEOUS':
-                            display_tab_content(tab2, main_key, main_value, color_map_json)
+                            display_tab_content(tab2, main_key, main_value)
                     elif main_key == 'MISCELLANEOUS':
-                        display_tab_content(tab2, main_key, main_value, color_map_json)
+                        display_tab_content(tab2, main_key, main_value)
                     elif ((main_key == group_option) and (main_key != 'MISCELLANEOUS')):
-                        display_tab_content(tab1, main_key, main_value, color_map_json)
+                        display_tab_content(tab1, main_key, main_value)
 
                 # Display All OCR Text in tab3
                 with tab3:
-                    color = color_map.get('OCR', "#FFFFFF") 
+                    color = st.session_state.color_map.get('OCR', "#FFFFFF") 
                     st.markdown(f"<h4 style='color: {color};'>All OCR Text</h4><br>", unsafe_allow_html=True)
                     cleaned_OCR_text = remove_number_lines(OCR_JSON['OCR'])
                     OCR_show = cleaned_OCR_text.replace('\n', '<br/>')
                     st.markdown(f"""<p style='font-size:20px;'>{OCR_show}</p><br>""", unsafe_allow_html=True)
 
-def display_tab_content(tab, main_key, main_value, color_map_json):
+def display_tab_content(tab, main_key, main_value):
     """
     Display content for a specific tab.
     """
     with tab:
-        color = color_map_json.get(main_key, "black")  # Default to black if key is not in color_map
+        color = st.session_state.color_map_json.get(main_key, "black")  # Default to black if key is not in color_map
         st.markdown(f"<h4 style='color: {color};'>{main_key}</h4><br>", unsafe_allow_html=True)
         
         if isinstance(main_value, dict):
@@ -751,55 +800,124 @@ def display_tab_content(tab, main_key, main_value, color_map_json):
                     sub_value_show = sub_value_show.replace('\n', '<br/>')
                     st.markdown(f"<b style='font-size:20px;'>{sub_key}: <br></b> {sub_value_show}<br>", unsafe_allow_html=True)
 
-def on_press_show_helper_text():
-    if st.button('Show Predicted Text',key=f"Show_help2", use_container_width=True, type="secondary"):
-        if st.session_state.show_helper_text == True:
-            st.session_state.show_helper_text = False
-        elif st.session_state.show_helper_text == False:
-            st.session_state.show_helper_text = True
-        st.rerun()
+# def on_press_show_helper_text():
+#     if st.button('Show Predicted Text',key=f"Show_help2", use_container_width=True, type="secondary"):
+#         if st.session_state.show_helper_text == True:
+#             st.session_state.show_helper_text = False
+#         elif st.session_state.show_helper_text == False:
+#             st.session_state.show_helper_text = True
+#         st.rerun()
 
 
 ###############################################################
 ###################### Validate Fields ########################
 ###############################################################
 def validate_verbatim_coordinates():
-    verbatim_coordinates = st.session_state.data.loc[st.session_state.row_to_edit, 'Verbatim Coordinates']
+    if st.session_state.prompt_version == 'v1':
+        verbatim_coordinates = st.session_state.data.loc[st.session_state.row_to_edit, 'Verbatim Coordinates']
+    elif st.session_state.prompt_version == 'v2':
+        verbatim_coordinates = st.session_state.data.loc[st.session_state.row_to_edit, 'verbatim_coordinates']
+    else: 
+        raise
+
     if verbatim_coordinates:
-        try:
-            do_warn = check_for_sep(verbatim_coordinates)
-            if do_warn:
-                st.warning("Possibly invalid GPS coordinates! Lacks separator , - | ")
+        st.write('Verbatim Coordinates :large_purple_circle:')
+        verbatim_map_data = validate_and_get_coordinates(verbatim_coordinates, 'verbatim')
+    else:
+        verbatim_map_data = None
 
-            # Split latitude and longitude from the verbatim_coordinates using regex
-            verbatim_coordinates = verbatim_coordinates.strip()
-            coords = re.split(',|-\s', verbatim_coordinates)
-            # print(len(coords))
-            # Check if we have two separate coordinates
-            if len(coords) != 2:
-                st.warning("Possibly invalid GPS coordinates! Exactly two coordinate values not found.")
-            
-            lat, lon = coords
+    if st.session_state.prompt_version == 'v2':
+        decimal_coordinates = st.session_state.data.loc[st.session_state.row_to_edit, 'decimal_coordinates']
+        if decimal_coordinates:
+            st.write('Decimal Coordinates :large_green_circle:')
+            decimal_map_data = validate_and_get_coordinates(decimal_coordinates, 'decimal')
+        else:
+            decimal_map_data = None
 
-            # Parse the coordinates
-            lat, lon = parse_coordinate(lat.strip()), parse_coordinate(lon.strip())
+    if verbatim_map_data is not None and decimal_map_data is not None:
+        zoom_out = should_zoom_out(verbatim_map_data['lat'][0], verbatim_map_data['lon'][0], decimal_map_data['lat'][0], decimal_map_data['lon'][0])
+        combined_map_data = pd.concat([verbatim_map_data, decimal_map_data]).reset_index(drop=True)
+        display_map(combined_map_data, zoom_out)
+    else:
+        zoom_out = False
+        display_map(verbatim_map_data, zoom_out)
+        display_map(decimal_map_data, zoom_out)
 
-            # Check if the coordinates are within the valid ranges
-            if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
-                st.warning("Invalid GPS coordinates! Values are out of bounds.")
+def get_map_data(coords_string, coordinate_type):
+    coords = re.split(',|-\s', coords_string.strip())
+    if len(coords) != 2:
+        st.warning(f"Possibly invalid {coordinate_type} GPS coordinates! Exactly two coordinate values not found.")
+        return None
+    lat, lon = parse_coordinate(coords)
+    if lat is None or not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+        st.warning(f"Invalid {coordinate_type} GPS coordinates! Values are out of bounds.")
+        return None
+    if coordinate_type == 'decimal':
+        color = [[0.0, 1.0, 0.0, 0.5]]  # Decimal for green
+        if st.session_state.pinpoint == "Pinpoint":
+            size = [100]  # Decimal for green
+        else:
+            size = [100000]  # Decimal for green
+    else:
+        color = [[0.627, 0.125, 0.941, 0.5]]  # Decimal for purple
+        if st.session_state.pinpoint == "Pinpoint":
+            size = [200]  # Decimal for purple
+        else:
+            size = [200000]  # Decimal for purple
+    print({'lat': [lat], 'lon': [lon], 'color': color})
+    return pd.DataFrame({'lat': [lat], 'lon': [lon], 'color': color, 'size':size})
+
+def display_map(map_data, zoom_out):
+    if map_data is not None and not map_data.empty:
+        if zoom_out:
+            z = 0
+            st.map(map_data, zoom=z, size='size', color='color')
+            st.error(f':heavy_exclamation_mark: The verbatim and decimal coordinates are {st.session_state.coordinates_dist} kilometers apart. Check the coordinates:heavy_exclamation_mark:')
+        else:
+            z = 3
+            st.map(map_data, zoom=z, size='size', color='color')
+            if st.session_state.coordinates_dist > st.session_state.distance_GPS_warn:
+                st.warning(f':bell: ***WARNING:*** Distance between verbatim and decimal coordinates is ***{st.session_state.coordinates_dist}*** kilometers. Check the coordinates!')
             else:
-                # Create a dataframe with latitude and longitude
-                map_data = pd.DataFrame({
-                    'lat': [lat],
-                    'lon': [lon]
-                })
+                st.info(f'The verbatim and decimal coordinates are ***{st.session_state.coordinates_dist}*** kilometers apart :earth_africa:')
+            
 
-                # Create a map with the coordinates
-                st.map(map_data, zoom=3)
-        except ValueError:
-            st.error("Invalid GPS coordinates!\nIncorrect OR unsupported coordinate format.")
-            pass
 
+        current_map_size = st.session_state.pinpoint
+        if 'pinpoint' not in st.session_state:
+            st.session_state.pinpoint = st.radio('Map Dot Size', options=["Broad", "Pinpoint"], index=0)
+        else:
+            st.session_state.pinpoint = st.radio('Map Dot Size', options=["Broad", "Pinpoint"])
+        if current_map_size != st.session_state.pinpoint:
+            st.rerun()
+
+def validate_and_get_coordinates(coordinate_str, coordinate_type):
+    try:
+        do_warn = check_for_sep(coordinate_str)
+        if do_warn:
+            st.warning(f"Possibly invalid {coordinate_type} GPS coordinates! Lacks separator , - | ")
+        map_data = get_map_data(coordinate_str, coordinate_type)
+        return map_data
+    except Exception as e:
+        st.error(f"{e} Invalid {coordinate_type} GPS coordinates!\nIncorrect OR unsupported coordinate format.")
+        return None
+    
+def haversine_distance(lat1, lon1, lat2, lon2):
+    # Convert degrees to radians
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+    
+    # Haversine formula
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    r = 6371 # Radius of Earth in kilometers
+    return r * c
+
+def should_zoom_out(lat1, lon1, lat2, lon2):
+    st.session_state.coordinates_dist = 0
+    st.session_state.coordinates_dist = round(haversine_distance(lat1, lon1, lat2, lon2),2)
+    return st.session_state.coordinates_dist > st.session_state.zoom_dist  # Return True if distance is more than 45 km
 ###############################################################
 ###################### Image Handling #########################
 ###############################################################
@@ -818,6 +936,8 @@ def image_path_and_load():
             st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_original"]
         elif st.session_state.image_option == 'Cropped':
             st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_crop"]
+        elif st.session_state.image_option == 'Helper':
+            st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_helper"]
         
         # Load the image if the image path is not null
         if pd.notnull(st.session_state['image_path']):
@@ -841,6 +961,9 @@ def image_to_server():
     elif st.session_state.image_option == 'Cropped':
         static_image_path = os.path.join('static_cr', os.path.basename(st.session_state['image_path']))
         shutil.copy(st.session_state["image_path"], os.path.join(st.session_state.static_folder_path_c, os.path.basename(st.session_state['image_path'])))
+    elif st.session_state.image_option == 'Helper':
+        static_image_path = os.path.join('static_h', os.path.basename(st.session_state['image_path']))
+        shutil.copy(st.session_state["image_path"], os.path.join(st.session_state.static_folder_path_h, os.path.basename(st.session_state['image_path'])))
 
     # Print the relative path to the static directory
     relative_path_to_static = os.path.relpath(static_image_path, st.session_state.current_dir).replace('\\', '/')
@@ -855,12 +978,12 @@ def display_image_options_buttons(relative_path_to_static):
     # Define the Zoom link
     link = f'http://localhost:8000/{relative_path_to_static}'
     
+    current_image = st.session_state.image_option
     if st.session_state.use_extra_image_options:
         _, zoom_1, zoom_2, zoom_3, zoom_4, __ = st.columns([1,2,2,2,2,1])
         with zoom_1:
             if st.button('Show Original Image', use_container_width=True):
                 st.session_state.image_option = 'Original'
-                st.rerun()
         with zoom_2:
             if st.button('Zoom', use_container_width=True):
                 webbrowser.open_new_tab(link)
@@ -871,20 +994,23 @@ def display_image_options_buttons(relative_path_to_static):
         with zoom_4:
             if st.button('Show Cropped Image', use_container_width=True):
                 st.session_state.image_option = 'Cropped'
-                st.rerun()
     else:
-        _, zoom_1, zoom_2, zoom_3, __ = st.columns([1,2,2,2,1])
+        _, zoom_1, zoom_2, zoom_3, zoom_4, __ = st.columns([1,2,2,2,2,1])
         with zoom_1:
             if st.button('Show Original Image', use_container_width=True):
                 st.session_state.image_option = 'Original'
-                st.rerun()
         with zoom_2:
             if st.button('Zoom', use_container_width=True):
                 webbrowser.open_new_tab(link)
         with zoom_3:
             if st.button('Show Cropped Image', use_container_width=True):
                 st.session_state.image_option = 'Cropped'
-                st.rerun()
+        with zoom_4:
+            if st.button('Show OCR Image', use_container_width=True):
+                st.session_state.image_option = 'Helper'
+    last_image_option = st.session_state.image_option
+    if current_image != last_image_option:
+        st.rerun()
 
 def display_scrollable_image():
     """
@@ -973,7 +1099,7 @@ if st.session_state.data is not None:
     c_left, c_right = layout_image_proportion()
 
     # Organize the text groupings
-    group_options = list(grouping.keys()) + ["ALL"]
+    group_options = list(st.session_state.grouping.keys()) + ["ALL"]
     group_option = st.session_state.get("group_option", group_options[0])
     group_option_cols = c_left.columns(len(group_options))
     
@@ -1003,34 +1129,42 @@ if st.session_state.data is not None:
             # Create the Previous and Next buttons, define 4 sub columns
             c_index, c_skip ,c_prev, c_next = st.columns([4,4,4,4])
             with c_prev:
-                on_press_previous()
+                st.button("Previous",  use_container_width=True, on_click=on_press_previous)
+
             with c_next:
                 # Count the number of group options that have been selected
                 # Only enable the 'Next' button if all group options have been selected
-                on_press_next(group_options)
+                st.button("Next", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options])
+
                         
             # Get the current row from the spreadsheet, show the index
             n_rows = len(st.session_state.data)
             with c_index:
-                st.write(f"**Editing row {st.session_state.row_to_edit} / {n_rows-1}**")
+                st.write(f"**Editing Image {st.session_state.row_to_edit+1} / {n_rows}**")
             
             # Create the skip to bookmark button
             with c_skip:
-                on_press_skip_to_bookmark()
+                st.button('Skip to last viewed image',key=f"Skip_to_last_viewed2", use_container_width=True, on_click=on_press_skip_to_bookmark)
 
-            c_json, c_form = st.columns([4,4])
+
+            c_gps, c_form = st.columns([4,4])
             # c_form, c_json = st.columns([4,4])
             
             # *** Display the spreadsheet rows in the form ***
             with c_form:
                 con_form = st.empty()
                 with con_form.container():
-                    form_layout(group_option, grouping, color_map)
+                    form_layout(group_option, st.session_state.grouping)
 
-                on_press_confirm_content()
+                content_ready = False
+                st.button('Confirm Content',key=f"Confirm_Content1", use_container_width=True, type="primary",on_click=on_press_confirm_content,args=[group_options])
+                    # on_press_confirm_content(group_options)  
+                    # content_ready = True
+                # if content_ready:
+                #     st.rerun()
 
             ### Validate Fields TODO: add many more validation steps
-            with c_json:
+            with c_gps:
                 validate_verbatim_coordinates()
 
         # Update the track_view column for the current row
@@ -1071,7 +1205,7 @@ if st.session_state.data is not None:
                 # Display the current row
                 n_rows = len(st.session_state.data)-1
                 st.write(f"**Showing image for row {st.session_state.row_to_edit} / {n_rows}**")
-            c_json, c_form = st.columns([4,4])
+            c_gps, c_form = st.columns([4,4])
 
 
 
@@ -1087,7 +1221,7 @@ if st.session_state.data is not None:
 
 
     # Only load JSON if row has changed
-    with c_json:
+    with c_gps:
         load_json_helper_files()
 
         display_json_helper_text()
@@ -1107,6 +1241,7 @@ if st.session_state.data is not None:
 
             # Display the configurable image viewer
             display_scrollable_image()
+            st.write('')
 
 
 

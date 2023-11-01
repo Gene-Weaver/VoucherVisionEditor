@@ -73,7 +73,7 @@ For more information about virtual environments, please see [Creation of virtual
     <pre><code class="language-python">which python</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 2. Then create the virtual environment (venv_VVE is the name of our new virtual environment)  
-    <pre><code class="language-python">python3 -m venv venv_VVE</code></pre>
+    <pre><code class="language-python">python3 -m venv venv_VVE --copies</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 3. Activate the virtual environment  
     <pre><code class="language-python">source ./venv_VVE/bin/activate</code></pre>
@@ -91,6 +91,10 @@ For more information about virtual environments, please see [Creation of virtual
     <pre><code class="language-python">pip install streamlit pandas openpyxl Pillow</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 
+2. Upgrade Streamlit 
+    <pre><code class="language-python">pip install --upgrade streamlit</code></pre>
+    <button class="btn" data-clipboard-target="#code-snippet"></button>
+
 ---
 
 ## Installation - Windows 10+
@@ -101,7 +105,7 @@ For more information about virtual environments, please see [Creation of virtual
     <pre><code class="language-python">python --version</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 2. Then create the virtual environment (venv_VVE is the name of our new virtual environment)  
-    <pre><code class="language-python">python3 -m venv venv_VVE</code></pre>
+    <pre><code class="language-python">python3 -m venv venv_VVE </code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 3. Activate the virtual environment  
     <pre><code class="language-python">.\venv_VVE\Scripts\activate</code></pre>
@@ -117,6 +121,10 @@ For more information about virtual environments, please see [Creation of virtual
 
 1. Install the required dependencies to use VoucherVisionEditor  
     <pre><code class="language-python">pip install streamlit pandas openpyxl Pillow pywin32</code></pre>
+    <button class="btn" data-clipboard-target="#code-snippet"></button>
+
+2. Upgrade Streamlit 
+    <pre><code class="language-python">pip install --upgrade streamlit</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 
 ---

@@ -12,29 +12,59 @@ def remove_number_lines(text, threshold=6):
         if len(numbers) < threshold:
             cleaned_lines.append(line)
     return '\n'.join(cleaned_lines)
-def parse_dms(dms):
-    """Parse degrees, minutes, seconds coordinates to decimal degrees"""
-    parts = re.split('[°\'"]+', dms)
-    direction = parts[-1]
-    parts = parts[:-1]
+def dms_to_decimal(dms_string):
+    """Convert DMS string to decimal format for latitude and longitude."""
     
-    while len(parts) < 3:  # if no seconds or no minutes and seconds, fill with zeros
-        parts.append('0')
+    def parse_dms(dms):
+        """Parse degrees, minutes, seconds coordinates to decimal degrees"""
+        direction = dms[-1].strip()
+        parts = re.split('[°\'"MinutesSecondsNSEWnsew]+', dms)
+        parts = [p.strip() for p in parts if p.strip()]  # removing leading/trailing whitespaces and empty strings
+        
+        while len(parts) < 3:  # if no seconds or no minutes and seconds, fill with zeros
+            parts.append('0')
+        
+        if len(parts) == 3:
+            degrees, minutes, seconds = parts
+            dd = float(degrees) + float(minutes)/60 + float(seconds)/(60*60)
+            if direction in ('S', 'W'):
+                dd *= -1
+            return dd
+        else:
+            raise
     
-    degrees, minutes, seconds = parts
-    dd = float(degrees) + float(minutes)/60 + float(seconds)/(60*60);
-    if direction in ('S','W'):
-        dd *= -1
-    return dd
+    # Splitting into latitude and longitude parts
+    # lat_str, lon_str = dms_string.split(", ")
+    lat_str = dms_string[0]
+    lon_str = dms_string[1]
+    
+    lat_decimal = parse_dms(lat_str)
+    lon_decimal = parse_dms(lon_str)
+
+    return lat_decimal, lon_decimal
+# def parse_dms(dms):
+#     """Parse degrees, minutes, seconds coordinates to decimal degrees"""
+#     parts = re.split('[°\'"]+', dms)
+#     direction = parts[-1]
+#     parts = parts[:-1]
+    
+#     while len(parts) < 3:  # if no seconds or no minutes and seconds, fill with zeros
+#         parts.append('0')
+    
+#     degrees, minutes, seconds = parts
+#     dd = float(degrees) + float(minutes)/60 + float(seconds)/(60*60);
+#     if direction in ('S','W'):
+#         dd *= -1
+#     return dd
 def parse_coordinate(coordinate):
     """Try to parse a coordinate to decimal degrees format"""
     try:
         return float(coordinate)  # plain decimal degrees
-    except ValueError:
+    except:
         pass
     try:
-        return parse_dms(coordinate)  # degrees, minutes, seconds
-    except ValueError:
+        return dms_to_decimal(coordinate)  # degrees, minutes, seconds
+    except:
         pass
     try:
         # degrees, decimal minutes
@@ -43,18 +73,22 @@ def parse_coordinate(coordinate):
         if parts[2] in ('S', 'W'):
             dd *= -1
         return dd
-    except (ValueError, IndexError):
-        raise ValueError("Could not parse coordinate")
+    except:
+        return None, None
 def check_for_sep(verbatim_coordinates):
     # Split latitude and longitude from the verbatim_coordinates using regex
-    verbatim_coordinates = verbatim_coordinates.strip()
-    coords = re.split(',|-', verbatim_coordinates)
+    chars = [',', '|', '-']
+    counts = {}
+    
+    for char in chars:
+        counts[char] = verbatim_coordinates.count(char)
+    total_count = sum(counts.values())
     
     # Check if we have two separate coordinates
-    if len(coords) != 2:
-        return True
-    else:
+    if total_count >= 1:
         return False
+    else:
+        return True
 def replace_base_path(old_path, new_base_path, opt):
     # print(f"old = {old_path}")
     # print(f"new = {new_base_path}")
@@ -68,6 +102,10 @@ def replace_base_path(old_path, new_base_path, opt):
         transcription_index = parts.index('Original_Images') if 'Original_Images' in parts else None
     elif opt == 'json':
         transcription_index = parts.index('Transcription') if 'Transcription' in parts else None
+    elif opt == 'jpg':
+        transcription_index = parts.index('Transcription') if 'Transcription' in parts else None
+    else:
+        raise
 
     if transcription_index is not None:
         # Replace the base path up to 'Transcription' with the new_base_path
