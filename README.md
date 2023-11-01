@@ -18,6 +18,8 @@ Table of Contents
    * [Installation - Windows 10+](#installation---windows-10)
       * [Virtual Environment](#virtual-environment-1)
       * [Installing Packages](#installing-packages-1)
+* [Create a Desktop Shortcut to Launch VoucherVisionEditor GUI](#create-a-desktop-shortcut-to-launch-vouchervisioneditor-gui)
+* [Running VoucherVisionEditor from the Terminal](#running-vouchervisioneditor-from-the-terminal)
 
 ---
 
@@ -135,7 +137,7 @@ For more information about virtual environments, please see [Creation of virtual
 
 ---
 
-# Launch VoucherVisionEditor GUI
+# Create a Desktop Shortcut to Launch VoucherVisionEditor GUI
 We can create a desktop shortcut to launch VoucherVisionEditor. In the `../VoucherVisionEditor/` directory is a file called `create_desktop_shortcut.py`. In the terminal, move into the `../VoucherVisionEditor/` directory and type:
 <pre><code class="language-python">python3 create_desktop_shortcut.py</code></pre>
 <button class="btn" data-clipboard-target="#code-snippet"></button>
