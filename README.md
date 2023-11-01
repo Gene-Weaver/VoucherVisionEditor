@@ -139,12 +139,19 @@ For more information about virtual environments, please see [Creation of virtual
 
 # Create a Desktop Shortcut to Launch VoucherVisionEditor GUI
 We can create a desktop shortcut to launch VoucherVisionEditor. In the `../VoucherVisionEditor/` directory is a file called `create_desktop_shortcut.py`. In the terminal, move into the `../VoucherVisionEditor/` directory and type:
+<pre><code class="language-python">python create_desktop_shortcut.py</code></pre>
+<button class="btn" data-clipboard-target="#code-snippet"></button>
+Or...
 <pre><code class="language-python">python3 create_desktop_shortcut.py</code></pre>
 <button class="btn" data-clipboard-target="#code-snippet"></button>
+Follow the instructions, select where you want the shortcut to be created, then where the virtual environment is located. 
+
+***Note*** If you ever see an error that says that a "port is not available", open `run.py` in a plain text editor and change the `--port` value to something different but close, like 8502.
 
 ---
 
 # Running VoucherVisionEditor from the Terminal
+We recommend using `python run.py` to launch the GUI, but the following instructions show how to launch via the `streamlit` command, which you probably do not need to worry about.
 
 1. In the terminal, move into the VoucherVisionEditor directory.
 2. Make sure that your local version is updated by running `git pull` (you might need to use the Git Bash terminal).
