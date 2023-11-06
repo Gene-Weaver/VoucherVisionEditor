@@ -127,8 +127,11 @@ if "distance_GPS_warn" not in st.session_state: # Can be configured
 if 'zoom_dist' not in st.session_state: # Can be configured
     st.session_state.zoom_dist = 3000
 
+if 'pinpoint' not in st.session_state:
+    st.session_state.pinpoint = "Broad"
+
 if 'coordinates_dist' not in st.session_state:
-    st.session_state.coordinates_dist = 0
+    st.session_state.coordinates_dist = None
 
 if 'bp_text' not in st.session_state:
     st.session_state.bp_text = '''
@@ -444,8 +447,8 @@ def get_directory_paths(args):
     st.write("5. Drag or browse for the transcription .xlsx file. Once this file is found, the editor will open.")
     st.write("---")
     # Get the save directory and base path from the parsed arguments or use the Streamlit input
-    st.markdown("""#### Save Directory""")
-    st.session_state.SAVE_DIR = args.save_dir if args.save_dir else st.text_input('Enter the directory to save output files', help=st.session_state.save_dir_help)
+    # st.markdown("""#### Save Directory""")
+    # st.session_state.SAVE_DIR = args.save_dir if args.save_dir else st.text_input('Enter the directory to save output files', help=st.session_state.save_dir_help)
     st.markdown("""#### Base Path""")
     st.session_state.BASE_PATH = args.base_path if args.base_path else st.text_input('Include the full path to the folder that contains "/Transcription", but do not include "/Transcription" in the path', help=st.session_state.base_path_help)
     st.markdown("""#### Prompt Version""")
@@ -676,7 +679,8 @@ def on_press_next(group_options):
         if st.session_state.default_to_original:
             st.session_state.image_option = 'Original'
     else:
-        st.info("Please confirm all categories.")
+        pass
+        # st.info("Please confirm all categories before moving to next image")
 
 def on_press_skip_to_bookmark():
         last_true_index, last_fully_viewed = update_progress_bar_overall()
@@ -850,6 +854,7 @@ def validate_verbatim_coordinates():
         display_map(combined_map_data, zoom_out)
     else:
         zoom_out = False
+        st.session_state.coordinates_dist = None
         display_map(verbatim_map_data, zoom_out)
         display_map(decimal_map_data, zoom_out)
 
@@ -882,22 +887,22 @@ def display_map(map_data, zoom_out):
         if zoom_out:
             z = 0
             st.map(map_data, zoom=z, size='size', color='color')
-            st.error(f':heavy_exclamation_mark: The verbatim and decimal coordinates are {st.session_state.coordinates_dist} kilometers apart. Check the coordinates:heavy_exclamation_mark:')
+            if st.session_state.coordinates_dist:
+                st.error(f':heavy_exclamation_mark: The verbatim and decimal coordinates are {st.session_state.coordinates_dist} kilometers apart. Check the coordinates:heavy_exclamation_mark:')
         else:
             z = 3
             st.map(map_data, zoom=z, size='size', color='color')
-            if st.session_state.coordinates_dist > st.session_state.distance_GPS_warn:
-                st.warning(f':bell: ***WARNING:*** Distance between verbatim and decimal coordinates is ***{st.session_state.coordinates_dist}*** kilometers. Check the coordinates!')
-            else:
-                st.info(f'The verbatim and decimal coordinates are ***{st.session_state.coordinates_dist}*** kilometers apart :earth_africa:')
-            
-
+            if st.session_state.coordinates_dist:
+                if st.session_state.coordinates_dist > st.session_state.distance_GPS_warn:
+                    st.warning(f':bell: ***WARNING:*** Distance between verbatim and decimal coordinates is ***{st.session_state.coordinates_dist}*** kilometers. Check the coordinates!')
+                
+                else:
+                    st.info(f'The verbatim and decimal coordinates are ***{st.session_state.coordinates_dist}*** kilometers apart :earth_africa:')
+            elif st.session_state.coordinates_dist == 0.0:
+                st.info(f':white_check_mark: Verbatim and Decimal coordinates are the same')
 
         current_map_size = st.session_state.pinpoint
-        if 'pinpoint' not in st.session_state:
-            st.session_state.pinpoint = st.radio('Map Dot Size', options=["Broad", "Pinpoint"], index=0)
-        else:
-            st.session_state.pinpoint = st.radio('Map Dot Size', options=["Broad", "Pinpoint"])
+        st.session_state.pinpoint = st.radio('Map Dot Size', options=["Broad", "Pinpoint"], index=0)
         if current_map_size != st.session_state.pinpoint:
             st.rerun()
 
@@ -1146,7 +1151,12 @@ if st.session_state.data is not None:
             with c_next:
                 # Count the number of group options that have been selected
                 # Only enable the 'Next' button if all group options have been selected
-                st.button("Next", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options])
+                if st.session_state.progress == len(group_options) or st.session_state.access_option == 'Admin':
+                    st.button("Next", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options])
+                else:
+                    st.button("Next", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options],disabled=True)
+                    # st.info("Please confirm all categories before moving to next image")
+
 
                         
             # Get the current row from the spreadsheet, show the index
