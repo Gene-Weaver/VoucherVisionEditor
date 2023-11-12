@@ -39,7 +39,7 @@ Both VoucherVision and VoucherVisionEditor are built with adaptability in mind. 
 
 # Try our public demo!
 Our public demo, while lacking several quality control and reliability features found in the full VoucherVision module, provides an exciting glimpse into its capabilities. Feel free to upload your herbarium specimen and see what happens! We make frequent updates, so don't forget to revisit!
-[VoucherVision Demo](https://vouchervision.azurewebsites.net/)
+[VoucherVision Demo](https://huggingface.co/spaces/phyloforfun/VoucherVision)
 
 ---
 
