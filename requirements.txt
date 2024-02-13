@@ -1,0 +1,9 @@
+streamlit
+st-annotated-text
+pyyaml
+duckduckgo-search
+langchain
+langchain-community
+pandas 
+openpyxl 
+Pillow

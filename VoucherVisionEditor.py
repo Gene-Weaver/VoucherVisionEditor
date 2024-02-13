@@ -1,13 +1,19 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
-import json, os, argparse, shutil, re, toml, math
-import subprocess
-import threading
+import json, os, argparse, shutil, re, toml, math, yaml, tempfile, zipfile, base64, webbrowser, threading, subprocess
 from PIL import Image
 from utils import *
-import webbrowser
-import base64
 from io import BytesIO
+from langchain_community.tools import DuckDuckGoSearchRun
+from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
+from annotated_text import annotated_text
+from datetime import datetime
+
+import cProfile
+import pstats
+
+from utils import get_wfo_url
 
 # pip install streamlit pandas Pillow openpyxl streamlit-aggrid
 # Windows
@@ -25,8 +31,15 @@ from io import BytesIO
 # --base-path D:/Dropbox/LM2_Env/VoucherVision_Datasets/POC_chatGPT__2022_09_07_thru12_S3_jacortez_AllAsia/2022_09_07_thru12_S3_jacortez_AllAsia_2023_06_16__02-12-26
 # --save-dir D:/D_Desktop/OUT
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
-st.set_page_config(layout="wide", page_icon='img/icon.ico', page_title='VoucherVision Editor')
+st.set_page_config(layout="wide", 
+                   page_icon='img/icon.ico', 
+                   page_title='VoucherVision Editor',
+                   menu_items={"Report a Bug": "https://forms.gle/kP8imC9JQTPLrXgg8","About":"VoucherVision was created and is maintained by William Weaver, University of Michigan. Please see doi:10.1002/ajb2.16256 for more information."},
+                   initial_sidebar_state="expanded",)
 
+
+if "hide_columns_in_editor" not in st.session_state:
+    st.session_state.hide_columns_in_editor = []
 
 # Initialize Streamlit Session State if it hasn't been initialized yet
 if "row_to_edit" not in st.session_state:
@@ -72,6 +85,9 @@ if 'previous_access_option' not in st.session_state:
 if 'image_option' not in st.session_state:
     st.session_state.image_option = 'Original'
 
+if 'last_image_option' not in st.session_state:
+    st.session_state.last_image_option = ''
+
 if 'default_to_original' not in st.session_state:
     st.session_state.default_to_original = True
 
@@ -82,19 +98,19 @@ if 'show_helper_text' not in st.session_state:
     st.session_state.show_helper_text = False
 
 if 'set_image_size' not in st.session_state:
-    st.session_state.set_image_size = 'Medium'
+    st.session_state.set_image_size = 'Custom'
 
 if 'set_image_size_previous' not in st.session_state:
-    st.session_state.set_image_size_previous = 'Medium'
+    st.session_state.set_image_size_previous = 'Custom'
 
 if 'set_image_size_px' not in st.session_state:
-    st.session_state.set_image_size_px = 1100
+    st.session_state.set_image_size_px = 900
 
 if 'set_image_size_pxh' not in st.session_state:
     st.session_state.set_image_size_pxh = 80
 
 if 'image_fill' not in st.session_state:
-    st.session_state.image_fill = "More"
+    st.session_state.image_fill = "More - Image Right"
 
 if 'use_extra_image_options' not in st.session_state:
     st.session_state.use_extra_image_options = False
@@ -108,8 +124,59 @@ if 'fitted_image_width' not in st.session_state:
 if 'n_columns' not in st.session_state:
     st.session_state.n_columns = 26
 
-# if 'prompt_version' not in st.session_state:
-#     st.session_state.prompt_version = 'v2'
+if 'working_file' not in st.session_state:
+    st.session_state.working_file = None  
+
+if 'prompt_name' not in st.session_state:
+    st.session_state.prompt_name = None  
+
+if 'prompt_json' not in st.session_state:
+    st.session_state.prompt_json = None  
+
+if 'form_hint_location' not in st.session_state:
+    st.session_state.form_hint_location = 'Right'     
+
+if 'search_term' not in st.session_state:
+    st.session_state.search_term = ''
+    
+if 'color_map_order' not in st.session_state:
+    st.session_state.color_map_order = ["#7fbfff", "#f6a14f", "#48ca48", "#bf7fbf", "#ff3333" , "#787878", "#ff00fb"]
+
+if 'color_map_order_text' not in st.session_state:
+    st.session_state.color_map_order_text = [":blue", ":orange", ":green", ":violet", ":red" , ":gray", ":rainbow"]
+
+if 'color_map_json' not in st.session_state:
+    st.session_state.color_map_json = {}
+
+if 'color_map_text' not in st.session_state:
+    st.session_state.color_map_text = {}
+
+if 'wfo_match_level' not in st.session_state:
+    st.session_state.wfo_match_level = "No Match"
+
+if 'image_rotation' not in st.session_state:
+    st.session_state.image_rotation = "0"
+
+if 'image_rotation_change' not in st.session_state:
+    st.session_state.image_rotation_change = True
+
+if 'relative_path_to_static' not in st.session_state:
+    st.session_state.relative_path_to_static = ''
+
+if 'image_path' not in st.session_state:
+    st.session_state.image_path = ''
+
+if 'current_time' not in st.session_state:
+    st.session_state.current_time = 'NA'
+    
+    
+    
+
+if 'image_rotation_previous' not in st.session_state:
+    st.session_state.image_rotation_previous = ''
+
+if 'location_google_search' not in st.session_state:
+    st.session_state.location_google_search = "Top" # "Top", "Hint Panel", "Bottom"
 
 if 'grouping' not in st.session_state:
     st.session_state.grouping = None
@@ -119,7 +186,7 @@ if "button_clicked" not in st.session_state:
     st.session_state.button_clicked = False
 
 if "form_width" not in st.session_state:
-    st.session_state.form_width = 42
+    st.session_state.form_width = 30
 
 if "distance_GPS_warn" not in st.session_state: # Can be configured
     st.session_state.distance_GPS_warn = 100
@@ -132,6 +199,32 @@ if 'pinpoint' not in st.session_state:
 
 if 'coordinates_dist' not in st.session_state:
     st.session_state.coordinates_dist = None
+
+if 'fullpath_working_file' not in st.session_state:
+    st.session_state.fullpath_working_file = None
+
+if 'dir_home' not in st.session_state:
+    st.session_state.dir_home = os.path.dirname(__file__)
+
+if 'data_transcription' not in st.session_state:
+    st.session_state.data_transcription = None
+
+if 'wiki_file_list' not in st.session_state:
+    st.session_state.wiki_file_list = []
+
+if 'wiki_file_dict' not in st.session_state:
+    st.session_state.wiki_file_dict = {}
+
+if 'search_results_duckduckgo' not in st.session_state:
+    st.session_state.search_results_duckduckgo = None
+
+if 'search_info_plants' not in st.session_state:
+    st.session_state.search_info_plants = ['order','family','scientificName', 'scientificNameAuthorship', 'genus','subgenus', 'specificEpithet', 'infraspecificEpithet',]
+if 'search_info_geo' not in st.session_state:
+    st.session_state.search_info_geo = ['country','stateProvince','county', 'municipality', 'minimumElevationInMeters','maximumElevationInMeters', 'locality', 'habitat','decimalLatitude', 'decimalLongitude', 'verbatimCoordinates',]
+if 'search_info_people' not in st.session_state:
+    st.session_state.search_info_people = ['identifiedBy','recordedBy',]
+
 
 if 'bp_text' not in st.session_state:
     st.session_state.bp_text = '''
@@ -194,7 +287,7 @@ except SystemExit as e:
 ###############################################################
 #################          Config          ####################
 ###############################################################
-def setup_streamlit_config(mapbox_key=''):
+def setup_streamlit_config(mapbox_key=None):
     # Define the directory path and filename
     dir_path = ".streamlit"
     file_path = os.path.join(dir_path, "config.toml")
@@ -204,18 +297,20 @@ def setup_streamlit_config(mapbox_key=''):
         os.makedirs(dir_path)
 
     # If the mapbox_key is empty, and the config file already has a mapbox key, don't overwrite the file
-    if mapbox_key == '':
-        if os.path.exists(file_path):
-            config_data = toml.load(file_path)
-            existing_key = config_data.get('mapbox', {}).get('token', None)
-            if existing_key is not None and existing_key != '':
-                return
+    # if mapbox_key == None:
+    #     if os.path.exists(file_path):
+    #         config_data = toml.load(file_path)
+    #         existing_key = config_data.get('mapbox', {}).get('token', None)
+    #         if existing_key is not None and existing_key != '':
+    #             return
     
     # Create or modify the file with the provided content
     config_content = f"""
     [theme]
-    base = "dark"
     primaryColor = "#00ff00"
+    backgroundColor="#1a1a1a"
+    secondaryBackgroundColor="#303030"
+    textColor = "cccccc"
 
     [server]
     enableStaticServing = true
@@ -226,7 +321,7 @@ def setup_streamlit_config(mapbox_key=''):
     fastReruns = false
     """
 
-    if mapbox_key != '':
+    if mapbox_key:
         config_content += f"""
         [mapbox]
         token = "{mapbox_key}"
@@ -238,46 +333,102 @@ def setup_streamlit_config(mapbox_key=''):
 ###############################################################
 #################       Definitions        ####################
 ###############################################################
-st.session_state.color_map = {
-    "TAXONOMY": 'blue', 
-    "GEOGRAPHY": 'orange', 
-    "LOCALITY": 'green',
-    "COLLECTING": 'violet', 
-    "MISCELLANEOUS": 'red', 
-    "OCR": '#7fbfff', 
-}
+# st.session_state.color_map = {
+#     "TAXONOMY": 'blue', 
+#     "GEOGRAPHY": 'orange', 
+#     "LOCALITY": 'green',
+#     "COLLECTING": 'violet', 
+#     "MISC": 'red', 
+#     # "OCR": '#7fbfff', 
+# }
 
-st.session_state.color_map_json = {
-    "TAXONOMY": "#7fbfff", # pastel blue
-    "GEOGRAPHY": "#f6a14f",  # pastel orange
-    "LOCALITY": "#48ca48", # pastel green
-    "COLLECTING": "#bf7fbf",  # pastel purple
-    "MISCELLANEOUS": "#ff3333",  # pastel red
-}
+# st.session_state.color_map_json = {
+#     "TAXONOMY": "#7fbfff", # pastel blue
+#     "GEOGRAPHY": "#f6a14f",  # pastel orange
+#     "LOCALITY": "#48ca48", # pastel green
+#     "COLLECTING": "#bf7fbf",  # pastel purple
+#     "MISC": "#ff3333",  # pastel red
+# }
 
-def set_column_groups():
-    # if st.session_state.n_columns == 26: # Version 1 prompts
-    if st.session_state.prompt_version == 'v1':
-        st.session_state.grouping = {
-            "TAXONOMY": ["Catalog Number", "Genus", "Species", "subspecies", "variety", "forma",],
-            "GEOGRAPHY": ["Country", "State", "County", "Verbatim Coordinates",],
-            "LOCALITY": ["Locality Name", "Min Elevation", "Max Elevation", "Elevation Units",],
-            "COLLECTING": ["Datum","Cultivated","Habitat","Collectors","Collector Number", "Verbatim Date","Date", "End Date",],
-        }
-    # elif st.session_state.n_columns == 30: # Version 2 prompts
-    if st.session_state.prompt_version == 'v2':
-        st.session_state.grouping = {
-            "TAXONOMY": ["catalog_number", "genus", "species", "subspecies", "variety", "forma",],
-            "GEOGRAPHY": ["country", "state", "county", "verbatim_coordinates","decimal_coordinates"],
-            "LOCALITY": ["locality_name", "min_elevation", "max_elevation", "elevation_units",],
-            "COLLECTING": ["datum","cultivated","habitat","plant_description","collectors","collector_number", "determined_by", "verbatim_date","date", "end_date",],
-        }
-    else:
-        raise
+# def set_column_groups():
+#     # if st.session_state.n_columns == 26: # Version 1 prompts
+#     if st.session_state.prompt_version == 'v1':
+#         st.session_state.grouping = {
+#             "TAXONOMY": ["Catalog Number", "Genus", "Species", "subspecies", "variety", "forma",],
+#             "GEOGRAPHY": ["Country", "State", "County", "Verbatim Coordinates",],
+#             "LOCALITY": ["Locality Name", "Min Elevation", "Max Elevation", "Elevation Units",],
+#             "COLLECTING": ["Datum","Cultivated","Habitat","Collectors","Collector Number", "Verbatim Date","Date", "End Date",],
+#         }
+#     # elif st.session_state.n_columns == 30: # Version 2 prompts
+#     if st.session_state.prompt_version == 'v2':
+#         st.session_state.grouping = {
+#             "TAXONOMY": ["catalog_number", "genus", "species", "subspecies", "variety", "forma",],
+#             "GEOGRAPHY": ["country", "state", "county", "verbatim_coordinates","decimal_coordinates"],
+#             "LOCALITY": ["locality_name", "min_elevation", "max_elevation", "elevation_units",],
+#             "COLLECTING": ["datum","cultivated","habitat","plant_description","collectors","collector_number", "determined_by", "verbatim_date","date", "end_date",],
+#         }
+#     else:
+#         raise
+def set_column_groups(prompt_json):
+    mapping = prompt_json['mapping']
+    # Initialize an empty dictionary for the new grouping
+    new_grouping = {}
+
+    ind = 0
+    # Iterate over the mapping
+    for group, columns in mapping.items():
+        # Create a new group in the new_grouping dictionary with the list of columns
+        if columns:
+            new_grouping[group] = columns
+            st.session_state.color_map_json[group] = st.session_state.color_map_order[ind]
+            st.session_state.color_map_text[group] = st.session_state.color_map_order_text[ind]
+            ind += 1
+
+    # TODO add manual_columns_in_editor: from exampl.yaml ############################################################################################################################## TODO
+            
+    # Update the st.session_state.grouping with the new grouping
+    st.session_state.grouping = new_grouping
+
 
 ###############################################################
 #################          Utils           ####################
 ###############################################################
+def unzip_and_setup_path(uploaded_file, target_dir):
+    if uploaded_file is not None:
+        with zipfile.ZipFile(uploaded_file, 'r') as zip_ref:
+            zip_ref.extractall(target_dir)
+        st.success("File unpacked successfully")
+
+
+def upload_and_unzip():
+    uploaded_file = st.file_uploader("Add a .zip file to the projects folder. Once added, you can select the project and then choose a transcription file to edit. ", 
+                                     type='zip')
+    if uploaded_file is not None:
+        # Construct the target directory path
+        # Assuming `dir_home` and `projects` are defined or replace with actual values
+        filename_zip = uploaded_file.name
+        base_filename = filename_zip.rsplit('.', 1)[0]  # Remove the .zip extension
+        target_dir = os.path.join(st.session_state.dir_home, 'projects', base_filename)
+        os.makedirs(target_dir, exist_ok=True)  # Create target directory if it doesn't exist
+        
+        # Unzip and set up the path
+        unzip_and_setup_path(uploaded_file, target_dir)
+
+        # Update BASE_PATH to the new directory containing the unpacked files
+        st.session_state.BASE_PATH = target_dir
+        print(f"BASE = {target_dir}")
+
+    project_dir = os.path.join(st.session_state.dir_home, 'projects')
+    subdirs = [d for d in os.listdir(project_dir) if os.path.isdir(os.path.join(project_dir, d))]
+
+    # Create a select box for choosing a subdirectory
+    selected_subdir = st.selectbox("Select a project:", subdirs)
+    st.session_state.BASE_PATH = os.path.join(st.session_state.dir_home, 'projects', selected_subdir)
+    st.success(f"Working from: {st.session_state.BASE_PATH}")
+
+    
+
+
 def prompt_for_mapbox_key():
     # Define the directory path and filename
     dir_path = ".streamlit"
@@ -314,73 +465,185 @@ def image_to_base64(img):
 
 
 # Use SAVE_DIR where needed
+# def save_data():
+#     # Check the file extension and save to the appropriate format
+#     if st.session_state.file_name.endswith('.csv'):
+#         file_path = os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name)
+#         st.session_state.data.to_csv(file_path, index=False)
+#         # st.success('Saved (CSV)')
+#         print(f"Saved (CSV) {file_path}")
+#     elif st.session_state.file_name.endswith('.xlsx'):
+#         file_path = os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name)
+#         st.session_state.data.to_excel(file_path, index=False)
+#         # st.success('Saved (XLSX)')
+#         print(f"Saved (XLSX) {file_path}")
+#     else:
+#         st.error('Unknown file format.')
 def save_data():
     # Check the file extension and save to the appropriate format
-    if st.session_state.file_name.endswith('.csv'):
-        file_path = os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name)
-        st.session_state.data.to_csv(file_path, index=False)
-        # st.success('Saved (CSV)')
-        print(f"Saved (CSV) {file_path}")
-    elif st.session_state.file_name.endswith('.xlsx'):
+    # if st.session_state.file_name.endswith('.csv'):
+    #     file_path = os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name)
+    #     st.session_state.data.to_csv(file_path, index=False)
+    #     # st.success('Saved (CSV)')
+    #     print(f"Saved (CSV) {file_path}")
+    # elif st.session_state.file_name.endswith('.xlsx'):
+    try:
         file_path = os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name)
         st.session_state.data.to_excel(file_path, index=False)
         # st.success('Saved (XLSX)')
         print(f"Saved (XLSX) {file_path}")
-    else:
-        st.error('Unknown file format.')
-
-def load_data(mapbox_key):
-    if 'data' not in st.session_state or st.session_state.data is None:
-        uploaded_file = st.file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
-    else:
-        uploaded_file = None
-
-    if uploaded_file is not None:
-        setup_streamlit_config(mapbox_key)
-
-        if uploaded_file.type == "text/csv":
-            data = pd.read_csv(uploaded_file, dtype=str)
-        elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-            data = pd.read_excel(uploaded_file, dtype=str)
-        st.session_state.n_columns = data.shape[1]
-
-        set_column_groups()
-
-        if "track_view" not in data.columns:
-            data["track_view"] = 'False'
-        if 'track_edit' not in data.columns:
-            data["track_edit"] = ["" for _ in range(len(data))]
-
-        st.session_state.data = data.fillna('')
-        file_extension = "csv" if uploaded_file.type == "text/csv" else "xlsx"
-        st.session_state.file_name = f"{uploaded_file.name.split('.')[0]}_edited.{file_extension}"
-
-        # If BASE_PATH is provided, replace old base paths in the dataframe
-        if st.session_state.BASE_PATH != '':
-            st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'crop'))
-            st.session_state.data['path_to_original'] = st.session_state.data['path_to_original'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'original'))
-            st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'jpg'))
-            st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'json'))
+    except:
+        print(f"Unknown file format for transcription file.")
+        st.error('Unknown file format for transcription file.')
         
-        # Determine SAVE_DIR from the 'path_to_content' column
-        first_path_to_content = st.session_state.data['path_to_content'][0]
-        print("")
-        print(first_path_to_content)
-        print("")
-        parts = first_path_to_content.split(os.path.sep)
-        transcription_index = parts.index('Transcription') if 'Transcription' in parts else None
-        print("")
-        print(parts)
-        print("")
-        if transcription_index is not None:
-            # add a slash after the drive letter if it is missing
-            if len(parts[0]) == 2 and parts[0][1] == ":":
-                parts[0] += os.path.sep
-            st.session_state.SAVE_DIR = os.path.join(*parts[:transcription_index+1])
-            print(f"Saving edited file to {st.session_state.SAVE_DIR}")
-            if not os.path.exists(st.session_state.SAVE_DIR):
-                print("UH OH! new dir created but it should not be")
-                os.makedirs(st.session_state.SAVE_DIR)
+
+
+def get_current_datetime():
+        # Get the current date and time
+        now = datetime.now()
+        # Format it as a string, replacing colons with underscores
+        datetime_iso = now.strftime('%Y_%m_%dT%H_%M_%S')
+        return datetime_iso
+
+
+# C:\Users\Will\Downloads\mistralmed_pv5_trOCRhand_angio
+def load_data():
+    if 'data' not in st.session_state or st.session_state.data is None:
+        if st.session_state.BASE_PATH:
+            st.session_state.BASE_PATH_transcription = os.path.join(st.session_state.BASE_PATH,'Transcription')
+
+            xlsx_files = [file for file in os.listdir(st.session_state.BASE_PATH_transcription) if file.endswith('.xlsx')]
+            st.session_state.working_file = st.selectbox(
+                "Select the transcription file you would like to edit",
+                xlsx_files,
+                index=None,
+                placeholder="",
+                )
+
+            if st.session_state.working_file:
+                st.session_state.fullpath_working_file = os.path.join(st.session_state.BASE_PATH_transcription, st.session_state.working_file)
+                
+                if os.path.exists(st.session_state.fullpath_working_file):
+                    st.session_state.prompt_name = [file for file in os.listdir(os.path.join(st.session_state.BASE_PATH_transcription,'Prompt_Template')) if file.endswith('.yaml')][0] # Only take 1 prompt
+                    st.session_state.fullpath_prompt = os.path.join(st.session_state.BASE_PATH_transcription, 'Prompt_Template',st.session_state.prompt_name)
+
+                    st.session_state.wiki_file_list = [file for file in os.listdir(os.path.join(st.session_state.BASE_PATH_transcription,'Individual_Wikipedia')) if file.endswith('.json')]
+                    for wiki_file in st.session_state.wiki_file_list:
+                        fname = os.path.basename(wiki_file).split(".")[0]
+                        st.session_state.wiki_file_dict[fname] = os.path.join(st.session_state.BASE_PATH_transcription,'Individual_Wikipedia',wiki_file)
+
+
+                    # Read the YAML file and convert it to a JSON object
+                    with open(st.session_state.fullpath_prompt, 'r') as file:
+                        st.session_state.prompt_json = yaml.safe_load(file)
+
+                    data = pd.read_excel(st.session_state.fullpath_working_file, dtype=str)
+                    st.session_state.data_transcription = data
+                    st.session_state.n_columns = data.shape[1]
+
+                    set_column_groups(st.session_state.prompt_json)
+
+
+                    if "track_view" not in data.columns:
+                        data["track_view"] = 'False'
+                    if 'track_edit' not in data.columns:
+                        data["track_edit"] = ["" for _ in range(len(data))]
+
+                    st.session_state.data = data.fillna('')
+
+                    ### Rename the new file at the time of editing
+                    st.session_state.current_time = get_current_datetime()
+                    # Does the working_file already have __edited__
+                    tracker = '__edited__'
+                    if tracker in st.session_state.working_file:
+                        base = st.session_state.working_file.split(tracker)[0]
+                        st.session_state.file_name = f"{base}{tracker}{st.session_state.current_time}.xlsx" 
+                    else: # new transcription 
+                        st.session_state.file_name = f"{st.session_state.working_file.split('.')[0]}{tracker}{st.session_state.current_time}.xlsx" 
+
+                    # If BASE_PATH is provided, replace old base paths in the dataframe
+                    if st.session_state.BASE_PATH != '':
+                        st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'crop'))
+                        st.session_state.data['path_to_original'] = st.session_state.data['path_to_original'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'original'))
+                        st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'jpg'))
+                        st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'json'))
+                    
+                    # Determine SAVE_DIR from the 'path_to_content' column
+                    first_path_to_content = st.session_state.data['path_to_content'][0]
+                    print("")
+                    print(first_path_to_content)
+                    print("")
+                    parts = first_path_to_content.split(os.path.sep)
+                    transcription_index = parts.index('Transcription') if 'Transcription' in parts else None
+                    print("")
+                    print(parts)
+                    print("")
+                    if transcription_index is not None:
+                        # add a slash after the drive letter if it is missing
+                        if len(parts[0]) == 2 and parts[0][1] == ":":
+                            parts[0] += os.path.sep
+                        st.session_state.SAVE_DIR = os.path.join(*parts[:transcription_index+1])
+                        print(f"Saving edited file to {st.session_state.SAVE_DIR}")
+                        if not os.path.exists(st.session_state.SAVE_DIR):
+                            print("UH OH! new dir created but it should not be")
+                            os.makedirs(st.session_state.SAVE_DIR)
+
+
+        
+    
+
+# def load_data(mapbox_key):
+#     if 'data' not in st.session_state or st.session_state.data is None:
+#         uploaded_file = st.file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
+#     else:
+#         uploaded_file = None
+
+#     if uploaded_file is not None:
+#         setup_streamlit_config(mapbox_key)
+
+#         if uploaded_file.type == "text/csv":
+#             data = pd.read_csv(uploaded_file, dtype=str)
+#         elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+#             data = pd.read_excel(uploaded_file, dtype=str)
+#         st.session_state.n_columns = data.shape[1]
+
+#         set_column_groups()
+
+#         if "track_view" not in data.columns:
+#             data["track_view"] = 'False'
+#         if 'track_edit' not in data.columns:
+#             data["track_edit"] = ["" for _ in range(len(data))]
+
+#         st.session_state.data = data.fillna('')
+#         file_extension = "csv" if uploaded_file.type == "text/csv" else "xlsx"
+#         st.session_state.file_name = f"{uploaded_file.name.split('.')[0]}_edited.{file_extension}"
+
+#         # If BASE_PATH is provided, replace old base paths in the dataframe
+#         if st.session_state.BASE_PATH != '':
+#             st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'crop'))
+#             st.session_state.data['path_to_original'] = st.session_state.data['path_to_original'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'original'))
+#             st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'jpg'))
+#             st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'json'))
+        
+#         # Determine SAVE_DIR from the 'path_to_content' column
+#         first_path_to_content = st.session_state.data['path_to_content'][0]
+#         print("")
+#         print(first_path_to_content)
+#         print("")
+#         parts = first_path_to_content.split(os.path.sep)
+#         transcription_index = parts.index('Transcription') if 'Transcription' in parts else None
+#         print("")
+#         print(parts)
+#         print("")
+#         if transcription_index is not None:
+#             # add a slash after the drive letter if it is missing
+#             if len(parts[0]) == 2 and parts[0][1] == ":":
+#                 parts[0] += os.path.sep
+#             st.session_state.SAVE_DIR = os.path.join(*parts[:transcription_index+1])
+#             print(f"Saving edited file to {st.session_state.SAVE_DIR}")
+#             if not os.path.exists(st.session_state.SAVE_DIR):
+#                 print("UH OH! new dir created but it should not be")
+#                 os.makedirs(st.session_state.SAVE_DIR)
 
 
 def start_server():
@@ -439,23 +702,29 @@ def clear_directory():
 
 
 def get_directory_paths(args):
-    st.header("Instructions")
-    st.write("1. Provide the full path to where you want the edited transcription file to be saved. The default location is in the same folder as the un-edited transcription .xlsx file.")
-    st.write("2. Provide the full path to the folder that contains the VoucherVision transcription file.")
-    st.write("3. Select the prompt version that you used to create the transcription .xlsx file. Different prompts use different headers.")
-    st.write("4. (Optional) Provide a Mapbox API key. The free key-less version will suffice for most use-cases.")
-    st.write("5. Drag or browse for the transcription .xlsx file. Once this file is found, the editor will open.")
-    st.write("---")
-    # Get the save directory and base path from the parsed arguments or use the Streamlit input
-    # st.markdown("""#### Save Directory""")
-    # st.session_state.SAVE_DIR = args.save_dir if args.save_dir else st.text_input('Enter the directory to save output files', help=st.session_state.save_dir_help)
-    st.markdown("""#### Base Path""")
-    st.session_state.BASE_PATH = args.base_path if args.base_path else st.text_input('Include the full path to the folder that contains "/Transcription", but do not include "/Transcription" in the path', help=st.session_state.base_path_help)
-    st.markdown("""#### Prompt Version""")
-    st.session_state.prompt_version = args.prompt_version if args.prompt_version else st.radio('Prompt Version',options=['v2', 'v1'],help='Version 1 and Version 2 prompts have different column headers')
+    ################################################################################################################################################################### TEMP
+    # st.session_state.BASE_PATH = "C:/Users/Will/Downloads/test_order"
+    upload_and_unzip()
 
-    if 'Transcription' in st.session_state.BASE_PATH.split(os.path.sep):
-        st.session_state.BASE_PATH = os.path.dirname(st.session_state.BASE_PATH)
+    # st.header("Instructions")
+    # st.write("1. Provide the full path to where you want the edited transcription file to be saved. The default location is in the same folder as the un-edited transcription .xlsx file.")
+    # st.write("2. Provide the full path to the folder that contains the VoucherVision transcription file.")
+    # st.write("3. Select the prompt version that you used to create the transcription .xlsx file. Different prompts use different headers.")
+    # st.write("4. (Optional) Provide a Mapbox API key. The free key-less version will suffice for most use-cases.")
+    # st.write("5. Drag or browse for the transcription .xlsx file. Once this file is found, the editor will open.")
+    # st.write("---")
+    # # Get the save directory and base path from the parsed arguments or use the Streamlit input
+    # # st.markdown("""#### Save Directory""")
+    # # st.session_state.SAVE_DIR = args.save_dir if args.save_dir else st.text_input('Enter the directory to save output files', help=st.session_state.save_dir_help)
+    # st.markdown("""#### Base Path""")
+    # st.session_state.BASE_PATH = args.base_path if args.base_path else st.text_input('Include the full path to the folder that contains "/Transcription", but do not include "/Transcription" in the path', help=st.session_state.base_path_help)
+    # st.markdown("""#### Prompt Version""")
+    # st.session_state.prompt_version = args.prompt_version if args.prompt_version else st.radio('Prompt Version',options=['v2', 'v1'],help='Version 1 and Version 2 prompts have different column headers')
+
+    # if 'Transcription' in st.session_state.BASE_PATH.split(os.path.sep):
+    #     st.session_state.BASE_PATH = os.path.dirname(st.session_state.BASE_PATH)
+
+    
 
 def add_default_option_if_not_present():
     # Add default option if "track_edit" is empty and doesn't contain the default option already
@@ -503,13 +772,13 @@ def update_progress_bar_overall():
 
     # Calculate the progress_overall as a fraction
     progress_overall_fraction = min(last_full_view_index / total_rows, 1.0)
-    print(progress_overall_fraction)
+    # print(progress_overall_fraction)
     # Display the progress_overall information
     # st.write(f"When 'Admin' is enabled, the following progress metrics will not update, but edits can still  be made.")
     st.progress(progress_overall_fraction)
     # st.write(f"Last viewed image: {last_true_index} -- Last completed image: {last_full_view_index}")
     st.write(f"Viewed *{last_true_index}* of *{total_rows}* images")
-    st.write(f"Completed *{last_full_view_index}* of *{total_rows}* images")
+    # st.write(f"Completed *{last_full_view_index}* of *{total_rows}* images")
     # Display the progress bar with text
     return last_true_index, last_full_view_index
 
@@ -525,15 +794,25 @@ def layout_image_proportion():
     Returns:
         tuple: (c_left, c_right) - The two columns created based on the image_fill state.
     """
-    if st.session_state.image_fill == "Maximum":
-        c_left, c_right = st.columns([5, 13])
-    elif st.session_state.image_fill == "More":
-        c_left, c_right = st.columns([6, 12])
-    else:
-        c_left, c_right = st.columns([8, 8])
-    
-    return c_left, c_right
+    if st.session_state.image_fill == "Maximum - Image Right":
+        c_left, c_right, c_help = st.columns([6, 9, 6])
+    elif st.session_state.image_fill == "More - Image Right":
+        c_left, c_right, c_help = st.columns([6, 9, 4])
+    elif st.session_state.image_fill == "Balanced - Image Right":
+        c_left, c_right, c_help = st.columns([8, 8, 3])
 
+    elif st.session_state.image_fill == "Maximum - Image Left":
+        c_right, c_left, c_help = st.columns([9, 6, 6])
+    elif st.session_state.image_fill == "More - Image Left":
+        c_right, c_left, c_help = st.columns([9, 6, 4])
+    elif st.session_state.image_fill == "Balanced - Image Left":
+        c_right, c_left, c_help = st.columns([8, 8, 3])
+    else:
+        c_left, c_right, c_help = st.columns([8, 8, 3])
+    
+    return c_left, c_right, c_help
+
+@st.cache_data
 def show_header_welcome():
     # Create three columns
     h1, h2, h3 = st.columns([2,1,2])
@@ -555,26 +834,39 @@ def show_header_main():
         h1, h2, h3 = st.columns([1,6,1])
         with h2:
             st.image(f"http://localhost:8000/{st.session_state.logo_path}", use_column_width=True)
-            st.markdown("<h1 style='text-align: center;'>VoucherVision Editor</h1>", unsafe_allow_html=True)
+            # st.markdown("<h1 style='text-align: center;'>VoucherVision Editor</h1>", unsafe_allow_html=True)
             # Use the first column for the logo and the second for the title
             # st.image("img/logo.png", width=200)  # adjust width as needed
             # st.markdown(f'<a href="https://github.com/Gene-Weaver/VoucherVisionEditor"><img src="http://localhost:8000/{st.session_state.logo_path}" width="100"></a>', unsafe_allow_html=True)
         
+            st.markdown(f"<h2 style='text-align: center;'><a href='https://forms.gle/kP8imC9JQTPLrXgg8' target='_blank'>Report a Bug</a></h2>", unsafe_allow_html=True)
+
         # Image Layout Focus selectbox
-        st.session_state.image_fill = st.sidebar.selectbox("Image Layout Focus", ["More", "Maximum", "Balanced"])
-        
+        st.session_state.image_fill = st.sidebar.selectbox("Image Layout Focus", ["More - Image Right", "Balanced - Image Right",  "Maximum - Image Right",
+                                                                                  "More - Image Left", "Balanced - Image Left", "Maximum - Image Left",])
+
         # Image Size selectbox
-        st.session_state.set_image_size = st.sidebar.selectbox("Image Size", ["Medium", "Large", "Small", "Custom", "Auto Width", "Fitted"])
+        st.session_state.set_image_size = st.sidebar.selectbox("Image Size", ["Custom", "Medium", "Large", "Small", "Auto Width", "Fitted"])
 
         # Set Image Width slider
         if st.session_state.set_image_size == "Custom":
             image_sizes = list(range(200, 2601, 100))
-            st.session_state.set_image_size_px = st.select_slider('Set Image Width', options=image_sizes, value=1500)
+            st.session_state.set_image_size_px = st.select_slider('Set Image Width', options=image_sizes, value=900)
 
         # Set Viewing Height slider
         if st.session_state.set_image_size != "Auto Width":
             image_sizes = list(range(20, 201, 5))
             st.session_state.set_image_size_pxh = st.select_slider('Set Viewing Height', options=image_sizes, value=80)
+
+        # Location of the form record TRUTH
+        st.session_state.form_hint_location = st.sidebar.selectbox("Position of the form hints", ["Left", "Right"])
+
+        # Location of the Google Search
+        st.session_state.location_google_search = st.sidebar.selectbox("Location of Google Search", ["Top", "Hint Panel", "Bottom"])
+
+        # Warning message for 
+        distances_GPS = list(range(0, 501, 10))
+        st.session_state.distance_GPS_warn = st.select_slider('Display warning message if Verbarim/Decimal coordinates disagree by more than X km.', options=distances_GPS, value=100)
 
         # Access selectbox
         st.session_state.access_option = st.sidebar.selectbox("Access", ["Labeler", "Admin"])
@@ -708,68 +1000,426 @@ def on_press_confirm_content(group_options):
                     st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] = new_edit_track
 
                     add_default_option_if_not_present()
-    with c_form:
-        save_data()
-    con_form.empty()
-    # st.rerun()
+
+    for col in helper_map:
+        helper_input_key = f"helper_{col}"
+        st.session_state[helper_input_key] = None
+
+    save_data()
 
 ###############################################################
 ################# Display Rows in the Form ####################
 ###############################################################
-def form_layout(group_option, grouping):
-    """
-    Display form layout based on group_option and update st.session_state.data.
+# def form_layout(group_option, grouping):
+#     """
+#     Display form layout based on group_option and update st.session_state.data.
 
-    Parameters:
-        group_option (str): Current group option.
-        grouping (dict): Dictionary mapping groups to fields.
-        color_map (dict): Dictionary mapping groups to colors.
-    """
-    columns_to_show = st.session_state.data.columns if group_option == "ALL" else st.session_state.grouping[group_option]
-    for col in columns_to_show:
-        if col not in ['track_view', 'track_edit']:
-            # Find the corresponding group and color
-            unique_key = f"{st.session_state.row_to_edit}_{col}"
-            for group, fields in st.session_state.grouping.items():
-                if col in fields:
-                    color = st.session_state.color_map.get(group, "#FFFFFF")  # default to white color
-                    break
-            else:
-                color = st.session_state.color_map.get("MISCELLANEOUS", "#FFFFFF")  # default to white color
+#     Parameters:
+#         group_option (str): Current group option.
+#         grouping (dict): Dictionary mapping groups to fields.
+#         color_map (dict): Dictionary mapping groups to colors.
+#     """
+#     columns_to_show = st.session_state.data.columns if group_option == "ALL" else st.session_state.grouping[group_option]
+#     for col in columns_to_show:
+#         if col not in ['track_view', 'track_edit']:
+#             # Find the corresponding group and color
+#             unique_key = f"{st.session_state.row_to_edit}_{col}"
+#             for group, fields in st.session_state.grouping.items():
+#                 if col in fields:
+#                     color = st.session_state.color_map.get(group, "#FFFFFF")  # default to white color
+#                     break
+#             else:
+#                 color = st.session_state.color_map.get("MISCELLANEOUS", "#FFFFFF")  # default to white color
 
-            colored_label = f":{color}[{col}]"
+#             colored_label = f":{color}[{col}]"
 
-            # IF admin, allow barcode to be edited
-            if (st.session_state.access_option == 'Admin' and (col in ['Catalog Number', 'catalog_number'])): 
-                # Show editable catalog number to admin
-                st.session_state.user_input[col] = st.text_input(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key,)
-            elif (st.session_state.access_option == 'Labeler' and (col in ['Catalog Number', 'catalog_number'])): 
-                # Show disabled catalog number to labeler
-                st.session_state.user_input[col] = st.text_input(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key, disabled=True)
-            else:
-                if len(st.session_state.data.loc[st.session_state.row_to_edit, col]) > st.session_state.form_width:
-                    st.session_state.user_input[col] = st.text_area(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key)
+#             # IF admin, allow barcode to be edited
+#             if (st.session_state.access_option == 'Admin' and (col in ['catalogNumber',])): 
+#                 # Show editable catalog number to admin
+#                 st.session_state.user_input[col] = st.text_input(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key,)
+#             elif (st.session_state.access_option == 'Labeler' and (col in ['catalogNumber',])): 
+#                 # Show disabled catalog number to labeler
+#                 st.session_state.user_input[col] = st.text_input(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key, disabled=True)
+#             else:
+#                 if len(st.session_state.data.loc[st.session_state.row_to_edit, col]) > st.session_state.form_width:
+#                     st.session_state.user_input[col] = st.text_area(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key)
+#                 else:
+#                     st.session_state.user_input[col] = st.text_input(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key)
+#             if st.session_state.user_input[col] != st.session_state.data.loc[st.session_state.row_to_edit, col]:
+#                 st.session_state.data.loc[st.session_state.row_to_edit, col] = st.session_state.user_input[col]
+#                 save_data()
+
+# Define the helper map outside of the functions
+helper_map = {
+    "country": "GEO_country",
+    "stateProvince": "GEO_state",
+    "county": "GEO_county",
+    "municipality": "GEO_city",
+    "decimalLatitude": "GEO_decimal_lat",
+    "decimalLongitude": "GEO_decimal_long",
+
+    "order": "WFO_placement", #WFO_placement[3]
+    "family": "WFO_placement", #WFO_placement[4]
+    "scientificName": "WFO_best_match",  #WFO_best_match[0][1]
+    "scientificNameAuthorship": "WFO_best_match",  #WFO_best_match[2:] ################################################################################################ NEEDS TO BE A CONFIG
+    "genus": "WFO_placement", #WFO_placement[5]
+    "specificEpithet": "WFO_placement", #WFO_placement[6]
+}
+    
+#########################################################################################################################################################################################
+#########################################################################################################################################################################################
+#########################################################################################################################################################################################
+def display_layout_with_helpers(group_option):
+    st.session_state.wfo_match_level = "No Match"
+    is_exact_match = st.session_state.data['WFO_exact_match'][st.session_state.row_to_edit]
+    if is_exact_match == 'True':
+        hint = ("World Flora Online", "Exact Match", "#059c1b")  # Red for invalid
+        st.session_state.wfo_match_level = "Exact Match"
+    else:
+        is_best_match = st.session_state.data['WFO_best_match'][st.session_state.row_to_edit]
+        if len(is_best_match) > 0:
+            hint = ("World Flora Online", "Partial Match", "#0252c9")  # Red for invalid
+            st.session_state.wfo_match_level =  "Partial Match"
+        else:
+            hint = ("World Flora Online", "No Match", "#870307")  # Red for invalid
+
+    if hint:    
+        annotated_text(hint)
+
+    move_format = [6, 1, 6, 1, 1, 1]
+    i = 0
+    # Display helper data and move buttons
+    for col in get_columns_to_show(group_option):
+        if col not in st.session_state.hide_columns_in_editor:
+            i += 1
+            with st.container():
+                if st.session_state.form_hint_location == 'Left':
+                    c_help, c_move, c_form, c_cap, c_lower, c_search = st.columns(move_format)
+                    # move_arrow = "==:arrow_forward:"
+                    move_arrow = ":arrow_forward:"
+                elif st.session_state.form_hint_location == 'Right':
+                    c_form, c_move, c_help, c_cap, c_lower, c_search = st.columns(move_format)
+                    # move_arrow = ":arrow_backward:=="
+                    move_arrow = ":arrow_backward:"
+
                 else:
-                    st.session_state.user_input[col] = st.text_input(colored_label, st.session_state.data.loc[st.session_state.row_to_edit, col], key=unique_key)
-            if st.session_state.user_input[col] != st.session_state.data.loc[st.session_state.row_to_edit, col]:
-                st.session_state.data.loc[st.session_state.row_to_edit, col] = st.session_state.user_input[col]
-                save_data()
+                    c_help, c_move, c_form, c_cap, c_lower, c_search = st.columns(move_format)
+                if i == 1:
+                    with c_form:
+                        st.markdown(f"<u>Specimen Record</u>", unsafe_allow_html=True)
+                    with c_move:
+                        st.markdown(move_arrow)
+                    with c_help:
+                        st.text("Tool Hints")
+                    with c_cap:
+                        st.text("Cap")
+                    with c_lower:
+                        st.text("Low")
+                    with c_search:
+                        st.text("Web")
+                form_layout(group_option,col, c_form)
+                # display_move_button(col, c_move, move_arrow=move_arrow)
+                display_cap_case_button(col, c_cap)
+                display_lower_case_button(col, c_lower)
+                display_search_button(col, c_search)
+                display_helper_input(col, c_help, c_move, move_arrow=move_arrow)
+    
+    st.button('Confirm Content',key=f"Confirm_Content1", use_container_width=True, type="primary",on_click=on_press_confirm_content,args=[group_options]) 
 
 
+
+
+def form_layout(group_option,col, c_form):
+    with c_form:
+        # Determine columns to show
+        if col not in ['track_view', 'track_edit']:
+            unique_key, color = prepare_column(col)
+            handle_column_input(col, unique_key, color)
+
+
+
+def display_helper_input(col, in_column, in_column_move, move_arrow):
+    helper_input_key = f"helper_{col}"
+    
+    if col not in helper_map: # TODO make helper_map a config file
+        # Display a disabled text input for alignment purposes
+        # st.text_input(f"{col}", '', key=f"disabled_helper_{col}", disabled=True)
+        pass
+    else:
+        helper_key = helper_map[col]
+        hint_type = helper_key.split('_')
+        suggested_value = str(st.session_state.data[helper_key][st.session_state.row_to_edit])
+        if suggested_value:
+
+            # Initialize the session state variable before widget creation
+            if helper_input_key not in st.session_state:
+                st.session_state[helper_input_key] = suggested_value
+                
+            hint = None
+            with in_column:
+                # helper_key = helper_map[col]
+                # suggested_value = str(st.session_state.data[helper_key][st.session_state.row_to_edit])
+                if col == "order":
+                    suggested_value = suggested_value.split("|")[3]
+                elif col == "family":
+                    suggested_value = suggested_value.split("|")[4]
+                elif col == "scientificName":
+                    suggested_value = " ".join([suggested_value.split(" ")[0],suggested_value.split(" ")[1]])
+                elif col == "scientificNameAuthorship":
+                    pts = suggested_value.split(" ")[2:]
+                    suggested_value = " ".join(pts)
+                elif col == "genus":
+                    suggested_value = suggested_value.split("|")[5]
+                elif col == "specificEpithet":
+                    suggested_value = suggested_value.split("|")[6]
+
+                
+                if 'GEO' in hint_type:
+                    st.text_input(f"{col} (GEO)", value=suggested_value, key=f"{helper_input_key}_input", placeholder=suggested_value)
+                elif 'WFO' in hint_type:
+                    if col == 'specificEpithet':
+                        temp_sp = suggested_value.split('$')[0]
+                        st.text_input(f"{col} (WFO)", value=temp_sp, key=f"{helper_input_key}_input", placeholder=temp_sp)
+                    else:
+                        st.text_input(f"{col} (WFO)", value=suggested_value, key=f"{helper_input_key}_input", placeholder=suggested_value)
+                else:
+                    st.text_input(f"{col} (hint)", value=suggested_value, key=f"{helper_input_key}_input", placeholder=suggested_value)
+            
+            display_move_button(col, in_column_move, move_arrow)
+
+
+
+
+def get_columns_to_show(group_option):
+    #"""Return the columns to be shown based on the group option."""
+    return st.session_state.data.columns if group_option == "ALL" else st.session_state.grouping[group_option]
+
+def prepare_column(col):
+    #"""Prepare unique key and color for the given column."""
+    unique_key = f"{st.session_state.row_to_edit}_{col}"
+    color = find_column_color(col)
+    return unique_key, color
+
+def find_column_color(col):
+    #"""Find the color for the given column."""
+    for group, fields in st.session_state.grouping.items():
+        if col in fields:
+            return st.session_state.color_map_text.get(group, ":gray")
+    return st.session_state.color_map_text.get("MISC", ":red")
+
+def get_color(col):
+    #"""Find the color for the given column."""
+    for group, fields in st.session_state.grouping.items():
+        if col in fields:
+            return st.session_state.color_map_text.get(group, ":gray")
+    return st.session_state.color_map_text.get("MISC", ":red")
+
+def handle_column_input(col, unique_key, color):
+    #"""Handle input for the given column."""
+    colored_label = f"{color}[{col}]"
+    value = st.session_state.data.loc[st.session_state.row_to_edit, col]
+    input_type = determine_input_type(col, value)
+    st.session_state.user_input[col] = input_type(colored_label, value, key=unique_key)
+    update_data_if_changed(col, value)
+
+def determine_input_type(col, value):
+    #"""Determine the type of input field based on column and conditions."""
+    if col == 'catalogNumber':
+        return handle_catalog_number_input
+    
+    if value:
+        if len(value) > st.session_state.form_width:
+            return st.text_area     
+        else:
+            return st.text_input
+    else:
+        return st.text_input
+
+def handle_catalog_number_input(colored_label, value, key):
+    #"""Handle input specifically for 'catalogNumber'."""
+    access_option = st.session_state.access_option
+    if access_option == 'Admin':
+        return st.text_input(colored_label, value, key=key)
+    elif access_option == 'Labeler':
+        return st.text_input(colored_label, value, key=key, disabled=True)
+    return st.text_input(colored_label, value, key=key)
+
+def update_data_if_changed(col, original_value):
+    #"""Update the session state data if the value has changed."""
+    if st.session_state.user_input[col] != original_value:
+        st.session_state.data.loc[st.session_state.row_to_edit, col] = st.session_state.user_input[col]
+        save_data()
+
+# def display_helper_data(col):
+#     #"""Display helper data for the given column."""
+#     helper_key = helper_map[col]
+#     suggested_value = getattr(st.session_state, helper_key, None)
+#     if suggested_value is not None:
+#         st.write(f"Suggested {col}: {suggested_value}")
+
+def display_move_button(col, in_column, move_arrow):
+    with in_column:
+        #"""Display a move button for the given column."""
+        if col in helper_map:
+            move_key = f"{col}_to_{helper_map[col]}"
+            st.write("")
+            st.write("")
+            st.button(move_arrow, key=move_key,on_click=move_suggested_data, args=[col, helper_map],use_container_width=True)
+        else:
+            pass
+
+
+def move_suggested_data(col_to, helper_map):
+    """Move suggested data to the main form input for the given column."""
+    helper_value = helper_map[col_to]
+    # helper_value_text = st.session_state.data.loc[st.session_state.row_to_edit, helper_value]
+    helper_value_text = st.session_state[f"helper_{col_to}_input"]
+    if helper_value is not None:
+        st.session_state.user_input[col_to] = helper_value_text
+        st.session_state.data.at[st.session_state.row_to_edit, col_to] = helper_value_text
+        save_data()
+
+
+
+def display_lower_case_button(col, in_column):
+    symbol = ":arrow_double_down:"
+    with in_column:
+        #"""Display a move button for the given column."""
+        # if col in helper_map:
+        true_key = f"{col}_lower_"
+        st.write("")
+        st.write("")
+        st.button(symbol, key=true_key,on_click=apply_lower_case, args=[col],use_container_width=True)
+        # else:
+            # pass
+
+def apply_lower_case(col_to):
+    if st.session_state.data.at[st.session_state.row_to_edit, col_to] is not None:
+        try:
+            st.session_state.data.at[st.session_state.row_to_edit, col_to] = st.session_state.data.at[st.session_state.row_to_edit, col_to].lower()
+            save_data()
+        except Exception as e:
+            print(e)
+            pass
+
+def display_cap_case_button(col, in_column):
+    symbol = ":eject:"
+    with in_column:
+        #"""Display a move button for the given column."""
+        # if col in helper_map:
+        true_key = f"{col}_cap_"
+        st.write("")
+        st.write("")
+        st.button(symbol, key=true_key,on_click=apply_cap_case, args=[col], use_container_width=True)
+        # else:
+            # pass
+
+def apply_cap_case(col_to):
+    if st.session_state.data.at[st.session_state.row_to_edit, col_to] is not None:
+        try:
+            st.session_state.data.at[st.session_state.row_to_edit, col_to] = st.session_state.data.at[st.session_state.row_to_edit, col_to].capitalize()
+            save_data()
+        except Exception as e:
+            print(e)
+            pass
+
+def display_search_button(col, in_column):
+    symbol = ":mag:"
+    with in_column:
+        #"""Display a move button for the given column."""
+        # if col in helper_map:
+        true_key = f"{col}_search_"
+        st.write("")
+        st.write("")
+        st.button(symbol, key=true_key,on_click=apply_search, args=[col], use_container_width=True)
+
+def apply_search(col_to):
+    wrapper = DuckDuckGoSearchAPIWrapper(max_results=2)
+    search = DuckDuckGoSearchRun(api_wrapper=wrapper)
+    st.session_state.search_results_duckduckgo = None
+    if st.session_state.data.at[st.session_state.row_to_edit, col_to] is not None:
+        try:
+            if col_to in st.session_state.search_info_plants:
+                query = f"Plant {col_to} " + st.session_state.data.at[st.session_state.row_to_edit, col_to]
+                res = search.run(query).replace('...', '\n\n')
+                search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
+                st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
+            elif col_to in st.session_state.search_info_geo:
+                if col_to in ['country', 'stateProvince', 'county', 'municipality']:
+                    country = st.session_state.data.at[st.session_state.row_to_edit, 'country']
+                    stateProvince = st.session_state.data.at[st.session_state.row_to_edit, 'stateProvince']
+                    county = st.session_state.data.at[st.session_state.row_to_edit, 'county']
+                    municipality = st.session_state.data.at[st.session_state.row_to_edit, 'municipality']
+                    query = ' '.join([municipality, county, stateProvince, country])
+                elif col_to in ['decimalLatitude', 'decimalLongitude', ]:
+                    decimalLatitude = st.session_state.data.at[st.session_state.row_to_edit, 'decimalLatitude']
+                    decimalLongitude = st.session_state.data.at[st.session_state.row_to_edit, 'decimalLongitude']
+                    query = ' '.join([decimalLatitude, decimalLongitude])
+                else:
+                    query = f"Location {col_to} " + st.session_state.data.at[st.session_state.row_to_edit, col_to]
+                res = search.run(query).replace('...', '\n\n')
+                search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
+                st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
+            elif col_to in st.session_state.search_info_people:
+                query = f"Botanist Person {col_to} " + st.session_state.data.at[st.session_state.row_to_edit, col_to]
+                res = search.run(query).replace('...', '\n\n')
+                search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
+                st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
+            else:
+                query = st.session_state.data.at[st.session_state.row_to_edit, col_to]
+                res = search.run(query).replace('...', '\n\n')
+                search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
+                st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
+            st.session_state.search_term = query
+
+        except Exception as e:
+            print(e)
+            pass
+
+def load_yaml_to_json(fullpath):
+    try:
+        with open(fullpath, 'r') as yaml_file:
+            yaml_data = yaml.safe_load(yaml_file)
+            # Convert the YAML data to JSON format
+            json_data = json.dumps(yaml_data, indent=4)
+            return json_data
+    except Exception as e:
+        print(f"Error loading YAML file: {e}")
+        return None
 ###############################################################
 ################# Display JSON Helper Text ####################
 ###############################################################
+@st.cache_data
+def display_WFO_partial_match():
+    if st.session_state.wfo_match_level == "Partial Match":
+        with st.expander(f"{get_color('scientificName')}[**WFO** Suggested Taxonomy]"):
+            partial_matches = st.session_state.data['WFO_candidate_names'][st.session_state.row_to_edit].split('|')
+            temp = []
+            ii = 0
+            for partial_match in partial_matches:
+                if partial_match not in temp:
+                    ii += 1
+                    temp.append(partial_match)
+                    partial_match_url, partial_match_url_search = get_wfo_url(partial_match)
+                    if partial_match_url:
+                        st.link_button(label=partial_match,url=partial_match_url)
+                    # st.write(f"{ii}) {partial_match}")
+
+@st.cache_data
+def display_prompt_template():
+    prompt_json = load_yaml_to_json(st.session_state.fullpath_prompt)
+    if st.session_state.fullpath_prompt and st.session_state.fullpath_prompt:
+        with st.expander(f"Transcription Prompt :arrow_forward: {st.session_state.prompt_name}"):
+            st.json(prompt_json)
+
+
+
+
 def display_json_helper_text():
     # Check for presence of 'json_dict' in session state
     if 'json_dict' in st.session_state:
         # Button to toggle extra helper text
-        # form_pre_text = st.empty()
-        # with form_pre_text.container():
-        #     on_press_show_helper_text()
-        
-        # Display helper text if toggled on
-        if st.session_state.show_helper_text:
-            json_dict = st.session_state['json_dict']
+        with st.expander("Unstructured OCR Text"):
             
             # Load OCR_JSON if available
             if 'OCR_JSON' in st.session_state:
@@ -778,26 +1428,28 @@ def display_json_helper_text():
             # Create tabs
             con_tabs = st.empty()
             with con_tabs.container():
-                tab1, tab2, tab3 = st.tabs([group_option, "Misc", "OCR"])
-
-                # Iterate through main keys and values in json_dict
-                for main_key, main_value in json_dict.items():
-                    if group_option == 'ALL':
-                        display_tab_content(tab1, main_key, main_value)
-                        if main_key == 'MISCELLANEOUS':
-                            display_tab_content(tab2, main_key, main_value)
-                    elif main_key == 'MISCELLANEOUS':
-                        display_tab_content(tab2, main_key, main_value)
-                    elif ((main_key == group_option) and (main_key != 'MISCELLANEOUS')):
-                        display_tab_content(tab1, main_key, main_value)
+                tab1, tab2, tab3 = st.tabs(["OCR Handwritten",  "OCR Printed",  "trOCR"])
 
                 # Display All OCR Text in tab3
-                with tab3:
-                    color = st.session_state.color_map.get('OCR', "#FFFFFF") 
-                    st.markdown(f"<h4 style='color: {color};'>All OCR Text</h4><br>", unsafe_allow_html=True)
-                    cleaned_OCR_text = remove_number_lines(OCR_JSON['OCR'])
-                    OCR_show = cleaned_OCR_text.replace('\n', '<br/>')
-                    st.markdown(f"""<p style='font-size:20px;'>{OCR_show}</p><br>""", unsafe_allow_html=True)
+                if 'OCR_handwritten' in OCR_JSON:
+                    with tab1:
+                        # st.markdown(f"<h4 style='color: {color};'>All OCR Text</h4><br>", unsafe_allow_html=True)
+                        # cleaned_OCR_text = remove_number_lines(OCR_JSON['OCR_handwritten'])
+                        OCR_show = OCR_JSON['OCR_handwritten'].replace('\n', '<br/>')
+                        st.markdown(f"""<p style='font-size:16px;'>{OCR_show}</p><br>""", unsafe_allow_html=True)
+                if 'OCR_printed' in OCR_JSON:
+                    with tab2:
+                        # st.markdown(f"<h4 style='color: {color};'>All OCR Text</h4><br>", unsafe_allow_html=True)
+                        # cleaned_OCR_text = remove_number_lines(OCR_JSON['OCR_printed'])
+                        OCR_show = OCR_JSON['OCR_printed'].replace('\n', '<br/>')
+                        st.markdown(f"""<p style='font-size:16px;'>{OCR_show}</p><br>""", unsafe_allow_html=True)
+                if 'OCR_trOCR' in OCR_JSON:
+                    with tab3:
+                        # st.markdown(f"<h4 style='color: {color};'>All OCR Text</h4><br>", unsafe_allow_html=True)
+                        # cleaned_OCR_text = remove_number_lines(OCR_JSON['OCR_trOCR'])
+                        OCR_show = OCR_JSON['OCR_trOCR'].replace('\n', '<br/>')
+                        st.markdown(f"""<p style='font-size:16px;'>{OCR_show}</p><br>""", unsafe_allow_html=True)
+
 
 def display_tab_content(tab, main_key, main_value):
     """
@@ -814,49 +1466,216 @@ def display_tab_content(tab, main_key, main_value):
                     sub_value_show = sub_value_show.replace('\n', '<br/>')
                     st.markdown(f"<b style='font-size:20px;'>{sub_key}: <br></b> {sub_value_show}<br>", unsafe_allow_html=True)
 
-# def on_press_show_helper_text():
-#     if st.button('Show Predicted Text',key=f"Show_help2", use_container_width=True, type="secondary"):
-#         if st.session_state.show_helper_text == True:
-#             st.session_state.show_helper_text = False
-#         elif st.session_state.show_helper_text == False:
-#             st.session_state.show_helper_text = True
-#         st.rerun()
+def on_press_show_helper_text():
+    if st.button('Predicted Text',key=f"Show_help2", use_container_width=True, type="secondary"):
+        if st.session_state.show_helper_text == True:
+            st.session_state.show_helper_text = False
+        elif st.session_state.show_helper_text == False:
+            st.session_state.show_helper_text = True
 
+@st.cache_data
+def display_wiki_taxa_main_links():
+    fname = st.session_state.data['filename'][st.session_state.row_to_edit]
+    wiki_json_path = st.session_state.wiki_file_dict[fname]
+
+    if wiki_json_path:
+        with open(wiki_json_path, "r") as file:
+            wiki_json = json.load(file)
+
+        wiki_taxa = wiki_json.get('WIKI_TAXA', None)
+        wiki_taxa_data = wiki_taxa.get('DATA', None)
+        wiki_taxa_page_title = wiki_taxa.get('PAGE_TITLE', None)
+        wiki_taxa_page_link = wiki_taxa.get('PAGE_LINK', None)
+
+        c_help_left, c_help_right = st.columns([1,1])
+
+        with c_help_left:
+            if wiki_taxa_page_title and wiki_taxa_page_link:
+                st.link_button(label=f":blue[:information_source: {wiki_taxa_page_title}]",url=wiki_taxa_page_link)
+
+        with c_help_right:
+            if wiki_taxa_data:
+                if 'GRIN' in wiki_taxa_data:
+                    if wiki_taxa_data.get('GRIN',None):
+                        st.link_button(label=f"{get_color('scientificName')}[GRIN]",url=wiki_taxa_data.get('GRIN', None))
+        c_help_left, c_help_right = st.columns([1,1])
+
+        with c_help_left:
+            if wiki_taxa_data:
+                if 'POWOID' in wiki_taxa_data:
+                    if wiki_taxa_data.get('POWOID',None):
+                        st.link_button(label=f"{get_color('scientificName')}[POWO]",url=wiki_taxa_data.get('POWOID', None))
+
+        with c_help_right:
+            if wiki_taxa_data:
+                if 'POWOID_syn' in wiki_taxa_data:
+                    if wiki_taxa_data.get('POWOID_syn',None):
+                        st.link_button(label=f"{get_color('scientificName')}[POWO Syn.]",url=wiki_taxa_data.get('POWOID_syn', None))
+  
+
+@st.cache_data
+def display_wiki_taxa_sub_links():
+    fname = st.session_state.data['filename'][st.session_state.row_to_edit]
+    wiki_json_path = st.session_state.wiki_file_dict[fname]
+
+    if wiki_json_path:
+        with open(wiki_json_path, "r") as file:
+            wiki_json = json.load(file)
+
+        wiki_taxa = wiki_json.get('WIKI_TAXA', None)
+        wiki_taxa_links = wiki_taxa.get('LINKS', None)
+        
+        if wiki_taxa_links:
+            with st.expander('Top Wikipedia Links'):
+                for label, link in wiki_taxa_links.items():
+                    st.link_button(label=label,url=link)
+
+
+@st.cache_data
+def display_wiki_taxa_summary():
+    fname = st.session_state.data['filename'][st.session_state.row_to_edit]
+    wiki_json_path = st.session_state.wiki_file_dict[fname]
+
+    if wiki_json_path:
+        with open(wiki_json_path, "r") as file:
+            wiki_json = json.load(file)
+
+        wiki_taxa = wiki_json.get('WIKI_TAXA', None)
+        wiki_taxa_summary = wiki_taxa.get('SUMMARY', None)
+
+        if wiki_taxa_summary:
+            with st.expander(f"{get_color('scientificName')}[Wikipedia Summary - Taxonomy]"):
+                st.write(wiki_taxa_summary.strip())
+        
+
+@st.cache_data
+def display_wiki_geo_main_links():
+    fname = st.session_state.data['filename'][st.session_state.row_to_edit]
+    wiki_json_path = st.session_state.wiki_file_dict[fname]
+
+    if wiki_json_path:
+        with open(wiki_json_path, "r") as file:
+            wiki_json = json.load(file)
+        wiki_geo = wiki_json.get('WIKI_GEO', None)
+        wiki_geo_links = wiki_geo.get('LINKS', None)
+        wiki_geo_data = wiki_geo.get('DATA', None)
+        wiki_geo_summary = wiki_geo.get('SUMMARY', None)
+        wiki_geo_page_link = wiki_geo.get('PAGE_LINK', None)
+        wiki_geo_page_title = wiki_geo.get('PAGE_TITLE', None)
+
+        wiki_locality = wiki_json.get('WIKI_LOCALITY', None)
+        wiki_locality_data = wiki_locality.get('DATA', None)
+        wiki_locality_summary = wiki_locality.get('SUMMARY', None)
+        wiki_locality_page_link = wiki_locality.get('PAGE_LINK', None)
+        wiki_locality_page_title = wiki_locality.get('PAGE_TITLE', None)
+
+        c_help_left, c_help_right = st.columns([1,1])
+
+        with c_help_left:
+            if wiki_geo_page_title and wiki_geo_page_link:
+                st.link_button(label=f"{get_color('country')}[:information_source: {wiki_geo_page_title}]",url=wiki_geo_page_link)
+
+        with c_help_right:
+            if wiki_locality_page_title and wiki_locality_page_link:
+                st.link_button(label=f"{get_color('country')}[:information_source: {wiki_locality_page_title}]",url=wiki_locality_page_link)
+    pass
+
+
+def display_search_results():
+    with st.expander(":mag: :rainbow[Search Results]"):
+        if st.session_state.search_results_duckduckgo:
+            st.write(f"{st.session_state.search_results_duckduckgo}")
+        else:
+            st.empty()
+
+
+def display_google_search():
+    loc = st.session_state.location_google_search
+    if loc == 'Top':
+        with st.expander("Google Search"):#,key=f"Google Search{loc}"):
+            # search = st.text_input("What do you want to search for?")
+            components.iframe(f"https://www.google.com/search?igu=1&ei=&q={st.session_state.search_term}", height=500,scrolling=True)
+    elif loc == 'Hint Panel':
+        with st.expander("Google Search"):#,key=f"Google Search{loc}"):
+            # search = st.text_input("What do you want to search for?")
+            components.iframe(f"https://www.google.com/search?igu=1&ei=&q={st.session_state.search_term}", height=500,scrolling=True)
+    elif loc == 'Bottom':
+        with st.expander("Google Search"):#,key=f"Google Search{loc}"):
+            # search = st.text_input("What do you want to search for?")
+            components.iframe(f"https://www.google.com/search?igu=1&ei=&q={st.session_state.search_term}", height=1000,scrolling=True)
+        
 
 ###############################################################
 ###################### Validate Fields ########################
 ###############################################################
-def validate_verbatim_coordinates():
-    if st.session_state.prompt_version == 'v1':
-        verbatim_coordinates = st.session_state.data.loc[st.session_state.row_to_edit, 'Verbatim Coordinates']
-    elif st.session_state.prompt_version == 'v2':
-        verbatim_coordinates = st.session_state.data.loc[st.session_state.row_to_edit, 'verbatim_coordinates']
-    else: 
-        raise
+def display_coordinates():
+    with st.expander(f":earth_africa: {get_color('country')}[Mapped Coordinates]"):
+        verbatim_coordinates = st.session_state.data.loc[st.session_state.row_to_edit, 'verbatimCoordinates']
 
-    if verbatim_coordinates:
-        st.write('Verbatim Coordinates :large_purple_circle:')
-        verbatim_map_data = validate_and_get_coordinates(verbatim_coordinates, 'verbatim')
-    else:
-        verbatim_map_data = None
+        decimal_lat = st.session_state.data.loc[st.session_state.row_to_edit, 'decimalLatitude']
+        decimal_long = st.session_state.data.loc[st.session_state.row_to_edit, 'decimalLongitude']
+        decimal_coordinates = ','.join([decimal_lat,decimal_long])
 
-    if st.session_state.prompt_version == 'v2':
-        decimal_coordinates = st.session_state.data.loc[st.session_state.row_to_edit, 'decimal_coordinates']
+        decimal_lat_geo = st.session_state.data.loc[st.session_state.row_to_edit, 'GEO_decimal_lat']
+        decimal_long_geo = st.session_state.data.loc[st.session_state.row_to_edit, 'GEO_decimal_long']
+        decimal_coordinates_geo = ','.join([decimal_lat_geo,decimal_long_geo])
+
+        annotated_text(("Verbatim Coordinates", "", "#b86602"), ("Decimal Coordinates", " ", "#017d16"), ("Geolocation Hint", " ", "#0232b8"))
+
+        if verbatim_coordinates:
+            verbatim_map_data = validate_and_get_coordinates(verbatim_coordinates, 'verbatim')
+        else:
+            verbatim_map_data = None
+        
         if decimal_coordinates:
-            st.write('Decimal Coordinates :large_green_circle:')
             decimal_map_data = validate_and_get_coordinates(decimal_coordinates, 'decimal')
         else:
             decimal_map_data = None
 
-    if verbatim_map_data is not None and decimal_map_data is not None:
-        zoom_out = should_zoom_out(verbatim_map_data['lat'][0], verbatim_map_data['lon'][0], decimal_map_data['lat'][0], decimal_map_data['lon'][0])
-        combined_map_data = pd.concat([verbatim_map_data, decimal_map_data]).reset_index(drop=True)
-        display_map(combined_map_data, zoom_out)
-    else:
-        zoom_out = False
-        st.session_state.coordinates_dist = None
-        display_map(verbatim_map_data, zoom_out)
-        display_map(decimal_map_data, zoom_out)
+        if decimal_coordinates:
+            decimal_geo_map_data = validate_and_get_coordinates(decimal_coordinates_geo, 'Geolocation Hint')
+        else:
+            decimal_geo_map_data = None
+
+        # Prepare a list for DataFrames that are not None
+        map_data_frames = []
+
+        if verbatim_map_data is not None:
+            map_data_frames.append(verbatim_map_data)
+
+        if decimal_map_data is not None:
+            map_data_frames.append(decimal_map_data)
+
+        if decimal_geo_map_data is not None:
+            map_data_frames.append(decimal_geo_map_data)
+
+        # Only proceed if there's at least one valid DataFrame
+        if map_data_frames:
+            if len(map_data_frames) > 1:
+                # Check if we need to zoom out
+                zoom_out = should_zoom_out(map_data_frames[0]['lat'][0], map_data_frames[0]['lon'][0],
+                                        map_data_frames[1]['lat'][0], map_data_frames[1]['lon'][0])
+            else:
+                zoom_out = False  # Or some default behavior if there's only one set of coordinates
+
+            # Concatenate all valid DataFrames and reset the index
+            combined_map_data = pd.concat(map_data_frames).reset_index(drop=True)
+            display_map(combined_map_data, zoom_out)
+        else:
+            # Handle the case where all map data is None, if needed
+            st.write("No valid coordinates to display.")
+
+
+        # if verbatim_map_data is not None and decimal_map_data is not None:
+        #     zoom_out = should_zoom_out(verbatim_map_data['lat'][0], verbatim_map_data['lon'][0], decimal_map_data['lat'][0], decimal_map_data['lon'][0])
+        #     combined_map_data = pd.concat([verbatim_map_data, decimal_map_data, decimal_geo_map_data]).reset_index(drop=True)
+        #     display_map(combined_map_data, zoom_out)
+        # # else:
+        #     zoom_out = False
+        #     st.session_state.coordinates_dist = None
+        #     display_map(verbatim_map_data, zoom_out)
+        #     display_map(decimal_map_data, zoom_out)
+        #     display_map(decimal_geo_map_data, zoom_out)
 
 def get_map_data(coords_string, coordinate_type):
     coords = re.split(',|-\s', coords_string.strip())
@@ -873,14 +1692,28 @@ def get_map_data(coords_string, coordinate_type):
             size = [100]  # Decimal for green
         else:
             size = [100000]  # Decimal for green
-    else:
-        color = [[0.627, 0.125, 0.941, 0.5]]  # Decimal for purple
+    elif coordinate_type == 'Geolocation Hint':
+        color = [[0.2, 0.5, 1.0, 0.5]]  # Decimal for blue
         if st.session_state.pinpoint == "Pinpoint":
-            size = [200]  # Decimal for purple
+            size = [150]  # Decimal for green
         else:
-            size = [200000]  # Decimal for purple
-    print({'lat': [lat], 'lon': [lon], 'color': color})
+            size = [150000]  # Decimal for green
+    elif coordinate_type == 'verbatim':
+        color = [[1.0, 0.5, 0.0, 0.5]]# Decimal for orange
+        if st.session_state.pinpoint == "Pinpoint":
+            size = [150]  
+        else:
+            size = [150000] 
+    else:
+        color = [[1.0, 0.0, 0.0, 0.5]]  # Decimal for red
+        if st.session_state.pinpoint == "Pinpoint":
+            size = [250]  
+        else:
+            size = [250000]  
+    # print({'lat': [lat], 'lon': [lon], 'color': color})
     return pd.DataFrame({'lat': [lat], 'lon': [lon], 'color': color, 'size':size})
+
+
 
 def display_map(map_data, zoom_out):
     if map_data is not None and not map_data.empty:
@@ -906,6 +1739,7 @@ def display_map(map_data, zoom_out):
         if current_map_size != st.session_state.pinpoint:
             st.rerun()
 
+
 def validate_and_get_coordinates(coordinate_str, coordinate_type):
     try:
         do_warn = check_for_sep(coordinate_str)
@@ -917,6 +1751,7 @@ def validate_and_get_coordinates(coordinate_str, coordinate_type):
         st.error(f"{e} Invalid {coordinate_type} GPS coordinates!\nIncorrect OR unsupported coordinate format.")
         return None
     
+
 def haversine_distance(lat1, lon1, lat2, lon2):
     # Convert degrees to radians
     lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
@@ -929,6 +1764,7 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     r = 6371 # Radius of Earth in kilometers
     return r * c
 
+
 def should_zoom_out(lat1, lon1, lat2, lon2):
     st.session_state.coordinates_dist = 0
     st.session_state.coordinates_dist = round(haversine_distance(lat1, lon1, lat2, lon2),2)
@@ -937,55 +1773,89 @@ def should_zoom_out(lat1, lon1, lat2, lon2):
 ###################### Image Handling #########################
 ###############################################################
 def image_path_and_load():
-    """
-    Update the image path based on the current row being edited and the selected image option.
-    Then, load the image into st.session_state.
-    """
     # Check if the current row or image option has changed
-    if (st.session_state['last_row_to_edit'] != st.session_state.row_to_edit or 
-        'last_image_option' not in st.session_state or 
-        st.session_state['last_image_option'] != st.session_state.image_option):
+    if ((st.session_state['last_row_to_edit'] != st.session_state.row_to_edit) or 
+        ('last_image_option' not in st.session_state) or 
+        (st.session_state['last_image_option'] != st.session_state.image_option) or 
+        st.session_state.image_rotation_change):
+
+        print("ROUTING")
+        print(f"    new row                --- {st.session_state['last_row_to_edit'] != st.session_state.row_to_edit} --- row {st.session_state.row_to_edit}")
+        print(f"    image_option not in st --- {'last_image_option' not in st.session_state}")
+        print(f"    image_option changed   --- {st.session_state['last_image_option'] != st.session_state.image_option} --- {st.session_state.image_option}")
+        print(f"    image was rotated      --- {st.session_state.image_rotation_change} --- {st.session_state.image_rotation}")
+
+        # Remember the selected image option
+        st.session_state['last_image_option'] = st.session_state.image_option
+        st.session_state.last_row_to_edit = st.session_state.row_to_edit
 
         # Update the image path based on the selected image option
         if st.session_state.image_option == 'Original':
             st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_original"]
+            st.session_state['image'] = Image.open(st.session_state['image_path'])
+            st.session_state.relative_path_to_static = image_to_server()
         elif st.session_state.image_option == 'Cropped':
             st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_crop"]
+            st.session_state['image'] = Image.open(st.session_state['image_path'])
+            st.session_state.relative_path_to_static = image_to_server()
         elif st.session_state.image_option == 'Helper':
             st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_helper"]
-        
+            st.session_state['image'] = Image.open(st.session_state['image_path'])
+            st.session_state.relative_path_to_static = image_to_server()
+
         # Load the image if the image path is not null
-        if pd.notnull(st.session_state['image_path']):
-            new_img_path = st.session_state['image_path']
-            new_img_path_fname = os.path.basename(new_img_path)
-            print(f'LOADING IMAGE: {new_img_path_fname}')
-            st.session_state['image'] = Image.open(new_img_path)
+        if st.session_state.image_rotation_change:
+            if pd.notnull(st.session_state['image_path']):
+                new_img_path = st.session_state['image_path']
+                new_img_path_fname = os.path.basename(new_img_path)
+                print(f'LOADING IMAGE: {new_img_path_fname}')
+                # st.session_state['image_path'] = new_img_path
+                st.session_state['image'] = apply_image_rotation(Image.open(new_img_path))
+            st.session_state.image_rotation_change = False
+            st.session_state.relative_path_to_static = image_to_server()
         
-        # Remember the selected image option
-        st.session_state['last_image_option'] = st.session_state.image_option
-
+        
+def apply_image_rotation(image):
+    if st.session_state.image_rotation == 'left':
+        return image.rotate(90, expand=True)
+    elif st.session_state.image_rotation == 'right':
+        return image.rotate(-90, expand=True)
+    elif st.session_state.image_rotation == '180':
+        return image.rotate(180, expand=True)
+    else:
+        return image
+    
 def image_to_server():
-    """
-    Copy the image (either original or cropped) to a static directory 
-    and print the relative path for the image.
-    """
-    # Determine the destination path based on the image option
-    if st.session_state.image_option == 'Original':
-        static_image_path = os.path.join('static_og', os.path.basename(st.session_state['image_path']))
-        shutil.copy(st.session_state["image_path"], os.path.join(st.session_state.static_folder_path_o, os.path.basename(st.session_state['image_path'])))
-    elif st.session_state.image_option == 'Cropped':
-        static_image_path = os.path.join('static_cr', os.path.basename(st.session_state['image_path']))
-        shutil.copy(st.session_state["image_path"], os.path.join(st.session_state.static_folder_path_c, os.path.basename(st.session_state['image_path'])))
-    elif st.session_state.image_option == 'Helper':
-        static_image_path = os.path.join('static_h', os.path.basename(st.session_state['image_path']))
-        shutil.copy(st.session_state["image_path"], os.path.join(st.session_state.static_folder_path_h, os.path.basename(st.session_state['image_path'])))
 
-    # Print the relative path to the static directory
+    image_path = st.session_state['image_path']
+    print(image_path)
+    if 'image_rotation' in st.session_state and st.session_state.image_rotation in ['left', 'right', '180']:
+
+        # Save the rotated image to a temporary file
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(image_path)[1])
+        st.session_state['image'].save(temp_file.name)
+        image_path = temp_file.name  # Update image_path to point to the rotated image
+        st.session_state['image_path'] = image_path
+        # st.session_state.image_rotation_change = False
+    
+    # Continue with the existing logic to determine the destination path
+    if st.session_state.image_option == 'Original':
+        static_image_path = os.path.join('static_og', os.path.basename(image_path))
+        shutil.copy(image_path, os.path.join(st.session_state.static_folder_path_o, os.path.basename(image_path)))
+    elif st.session_state.image_option == 'Cropped':
+        static_image_path = os.path.join('static_cr', os.path.basename(image_path))
+        shutil.copy(image_path, os.path.join(st.session_state.static_folder_path_c, os.path.basename(image_path)))
+    elif st.session_state.image_option == 'Helper':
+        static_image_path = os.path.join('static_h', os.path.basename(image_path))
+        shutil.copy(image_path, os.path.join(st.session_state.static_folder_path_h, os.path.basename(image_path)))
+    
+    # Generate and print the relative path to the static directory
     relative_path_to_static = os.path.relpath(static_image_path, st.session_state.current_dir).replace('\\', '/')
     print(f"Adding to Zoom image server: {relative_path_to_static}")
     return relative_path_to_static
 
-def display_image_options_buttons(relative_path_to_static):
+
+def display_image_options_buttons(relative_path_to_static, zoom_1, zoom_2, zoom_3, zoom_4):
     """
     Display buttons for different image options.
     The number and type of buttons displayed depends on st.session_state.use_extra_image_options.
@@ -995,9 +1865,8 @@ def display_image_options_buttons(relative_path_to_static):
     
     current_image = st.session_state.image_option
     if st.session_state.use_extra_image_options:
-        _, zoom_1, zoom_2, zoom_3, zoom_4, __ = st.columns([1,2,2,2,2,1])
         with zoom_1:
-            if st.button('Show Original Image', use_container_width=True):
+            if st.button('Original', use_container_width=True):
                 st.session_state.image_option = 'Original'
         with zoom_2:
             if st.button('Zoom', use_container_width=True):
@@ -1007,76 +1876,135 @@ def display_image_options_buttons(relative_path_to_static):
                 st.session_state.is_fitted_image = not st.session_state.is_fitted_image
                 st.session_state.set_image_size = 'Fitted' if st.session_state.is_fitted_image else st.session_state.set_image_size_previous
         with zoom_4:
-            if st.button('Show Cropped Image', use_container_width=True):
+            if st.button('Collage', use_container_width=True):
                 st.session_state.image_option = 'Cropped'
     else:
-        _, zoom_1, zoom_2, zoom_3, zoom_4, __ = st.columns([1,2,2,2,2,1])
         with zoom_1:
-            if st.button('Show Original Image', use_container_width=True):
+            if st.button('Original', use_container_width=True):
                 st.session_state.image_option = 'Original'
         with zoom_2:
             if st.button('Zoom', use_container_width=True):
                 webbrowser.open_new_tab(link)
         with zoom_3:
-            if st.button('Show Cropped Image', use_container_width=True):
+            if st.button('Collage', use_container_width=True):
                 st.session_state.image_option = 'Cropped'
         with zoom_4:
-            if st.button('Show OCR Image', use_container_width=True):
+            if st.button('OCR', use_container_width=True):
                 st.session_state.image_option = 'Helper'
     last_image_option = st.session_state.image_option
     if current_image != last_image_option:
         st.rerun()
 
-def display_scrollable_image():
+
+def display_image_rotation_buttons(r1, r2, r3, r4):
+    st.session_state.image_rotation_previous
+    with r1:
+        if st.button(':arrow_right_hook:', use_container_width=True,help="Rotate image 90 degrees counterclockwise"):
+            st.session_state.image_rotation = 'left'
+            if st.session_state.image_rotation_previous != st.session_state.image_rotation:
+                st.session_state.image_rotation_previous = st.session_state.image_rotation
+                st.session_state.image_rotation_change = True
+                st.rerun()
+
+    with r2:
+        if st.button(':leftwards_arrow_with_hook:', use_container_width=True,help="Rotate image 90 degrees clockwise"):
+            st.session_state.image_rotation = 'right'
+            if st.session_state.image_rotation_previous != st.session_state.image_rotation:
+                st.session_state.image_rotation_previous = st.session_state.image_rotation
+                st.session_state.image_rotation_change = True
+                st.rerun()
+    with r3:
+        if st.button(':arrow_double_down:', use_container_width=True,help="Rotate image 180 degrees"):
+            st.session_state.image_rotation = '180'
+            if st.session_state.image_rotation_previous != st.session_state.image_rotation:
+                st.session_state.image_rotation_previous = st.session_state.image_rotation
+                st.session_state.image_rotation_change = True
+                st.rerun()
+    with r4:
+        if st.button(':arrow_double_up:', use_container_width=True,help="Normal"):
+            st.session_state.image_rotation = '0'
+            if st.session_state.image_rotation_previous != st.session_state.image_rotation:
+                st.session_state.image_rotation_previous = st.session_state.image_rotation
+                st.session_state.image_rotation_change = True
+                st.rerun()
+
+
+def display_scrollable_image(con_image):
     """
     Display the image from st.session_state in a scrollable container.
     The width and height of the container are determined by st.session_state values.
     """
     # Initialize the container
-    con_image = st.empty()
-    with con_image.container():
-        # Determine the desired width based on st.session_state.set_image_size
-        if st.session_state.set_image_size == "Auto Width":
-            st.image(st.session_state['image'], caption=st.session_state['image_path'], use_column_width=True)
-            return
+    with con_image:
+        display_scrollable_image_method()
 
-        if st.session_state.set_image_size == "Custom":
-            image_width = st.session_state.set_image_size_px
-        elif st.session_state.set_image_size == "Large":
-            image_width = 1500
-        elif st.session_state.set_image_size == "Medium":
-            image_width = 1100
-        elif st.session_state.set_image_size == "Small":
-            image_width = 800
-        elif st.session_state.set_image_size == "Fitted":
-            image_width = 600
-        else:
-            image_width = 1100  # For use_column_width=True
 
-        # Convert the image to base64
-        base64_image = image_to_base64(st.session_state['image'])
+def display_scrollable_image_method():
 
-        # Embed the image with the determined width in the custom div
-        img_html = f"""
-        <div class='scrollable-image-container'>
-            <img src='data:image/jpeg;base64,{base64_image}' alt='Image' style='width:{image_width}px'>
-        </div>
-        """
+    # Determine the desired width based on st.session_state.set_image_size
+    if st.session_state.set_image_size == "Auto Width":
+        st.image(st.session_state['image'], caption=st.session_state['image_path'], use_column_width=True)
+        return
 
-        # The CSS to make this container scrollable, with dynamic height based on st.session_state.set_image_size_pxh
-        css = f"""
-        <style>
-            .scrollable-image-container {{
-                overflow: auto;
-                height: {st.session_state.set_image_size_pxh}vh;
-                width: 70vw;
-            }}
-        </style>
-        """
+    if st.session_state.set_image_size == "Custom":
+        image_width = st.session_state.set_image_size_px
+    elif st.session_state.set_image_size == "Large":
+        image_width = 1500
+    elif st.session_state.set_image_size == "Medium":
+        image_width = 1100
+    elif st.session_state.set_image_size == "Small":
+        image_width = 800
+    elif st.session_state.set_image_size == "Fitted":
+        image_width = 600
+    else:
+        image_width = 900  # For use_column_width=True
 
+    # Convert the image to base64
+    base64_image = image_to_base64(st.session_state['image'])
+
+    # Embed the image with the determined width in the custom div
+    img_html = f"""
+    <div class='scrollable-image-container'>
+        <img src='data:image/jpeg;base64,{base64_image}' alt='Image' style='width:{image_width}px'>
+    </div>
+    """
+
+    # The CSS to make this container scrollable, with dynamic height based on st.session_state.set_image_size_pxh
+    css = f"""
+    <style>
+        .scrollable-image-container {{
+            overflow: auto;
+            height: {st.session_state.set_image_size_pxh}vh;
+            width: 70vw;
+            text-align: left;
+            margin-left: 0;
+        }}
+    </style>
+    """
+    css_img_left = f"""
+    <style>
+        .scrollable-image-container {{
+            overflow: auto;
+            height: {st.session_state.set_image_size_pxh}vh;
+            width: 70vw;
+            direction: rtl;
+            text-align: left;
+            margin-left: 0;
+        }}
+    </style>
+    """
+
+    is_img_left = False
+    pts = st.session_state.image_fill.split(" ")
+    if "Left" in pts:
+        is_img_left = True
+
+    if is_img_left:
+        st.markdown(css_img_left, unsafe_allow_html=True)
+    else:
         # Apply the CSS and then the image
         st.markdown(css, unsafe_allow_html=True)
-        st.markdown(img_html, unsafe_allow_html=True)
+    st.markdown(img_html, unsafe_allow_html=True)
 
 ###############################################################
 ####################                    #######################
@@ -1093,8 +2021,10 @@ if st.session_state.data is None:
     show_header_welcome()
 
     get_directory_paths(args)
-    mapbox_key = prompt_for_mapbox_key()
-    load_data(mapbox_key)
+    # mapbox_key = prompt_for_mapbox_key()
+    # setup_streamlit_config(mapbox_key)
+
+    load_data()
 
     st.markdown(st.session_state.bp_text)
 
@@ -1107,13 +2037,19 @@ if st.session_state.data is None:
 ####################                    #######################
 ###############################################################
 if st.session_state.data is not None:
+    do_print_profiler = False
+    if do_print_profiler:
+        profiler = cProfile.Profile()
+        profiler.enable()
+
+
     show_header_main()
 
     # Initialize previous_row_to_edit if it's not already in session_state
     st.session_state.setdefault('previous_row_to_edit', None)
 
     # Set the overall layout. Right is for image things, left is for text things
-    c_left, c_right = layout_image_proportion()
+    c_left, c_right, c_help = layout_image_proportion()
 
     # Organize the text groupings
     group_options = list(st.session_state.grouping.keys()) + ["ALL"]
@@ -1168,27 +2104,8 @@ if st.session_state.data is not None:
             with c_skip:
                 st.button('Skip to last viewed image',key=f"Skip_to_last_viewed2", use_container_width=True, on_click=on_press_skip_to_bookmark)
 
-
-            c_gps, c_form = st.columns([4,4])
-            # c_form, c_json = st.columns([4,4])
-            
-            # *** Display the spreadsheet rows in the form ***
-            with c_form:
-                con_form = st.empty()
-                with con_form.container():
-                    form_layout(group_option, st.session_state.grouping)
-
-                content_ready = False
-                st.button('Confirm Content',key=f"Confirm_Content1", use_container_width=True, type="primary",on_click=on_press_confirm_content,args=[group_options])
-                    # on_press_confirm_content(group_options)  
-                    # content_ready = True
-                # if content_ready:
-                #     st.rerun()
-
-            ### Validate Fields TODO: add many more validation steps
-            with c_gps:
-                validate_verbatim_coordinates()
-
+            display_layout_with_helpers(group_option)
+          
         # Update the track_view column for the current row
         if st.session_state.access_option != 'Admin': # ONLY add views if in the label tab
             st.session_state.data.loc[st.session_state.row_to_edit, "track_view"] = 'True'
@@ -1227,9 +2144,7 @@ if st.session_state.data is not None:
                 # Display the current row
                 n_rows = len(st.session_state.data)-1
                 st.write(f"**Showing image for row {st.session_state.row_to_edit} / {n_rows}**")
-            c_gps, c_form = st.columns([4,4])
-
-
+            # c_gps, c_form = st.columns([4,4])
 
 
     # check if the row_to_edit has changed
@@ -1243,51 +2158,69 @@ if st.session_state.data is not None:
 
 
     # Only load JSON if row has changed
-    with c_gps:
+    with c_help:
+        
         load_json_helper_files()
 
+        display_wiki_taxa_main_links()
+
+        display_wiki_geo_main_links()
+
+        display_coordinates()
+        
+        display_WFO_partial_match()
+        
+        display_wiki_taxa_summary()
+        
         display_json_helper_text()
+
+        # display_wiki_taxa_sub_links()
+        
+        # display_search_results()
+
+        if st.session_state.location_google_search == "Hint Panel":
+            display_google_search()
+
+
 
         
     ### Display the image
     with c_right:
         image_path_and_load()
 
-        if 'image' in st.session_state and 'last_image_option' in st.session_state:    
-
-            # Add the image to the local server for the zoom functionality
-            relative_path_to_static = image_to_server()
-
-            # Two options for the image viewing buttons
-            display_image_options_buttons(relative_path_to_static)
-
-            # Display the configurable image viewer
-            display_scrollable_image()
-            st.write('')
+        r1, r2, zoom_1, zoom_2, zoom_3, zoom_4, r3, r4 = st.columns([1,1,2,2,2,2,1,1])
+        if st.session_state.location_google_search == 'Top':
+            display_google_search()
+        con_image = st.container()
 
 
 
+        # Add the image to the local server for the zoom functionality
+
+        # Two options for the image viewing buttons
+        display_image_options_buttons(st.session_state.relative_path_to_static, zoom_1, zoom_2, zoom_3, zoom_4)
+        
+
+        # Display the configurable image viewer
+        display_scrollable_image(con_image)
+
+        display_image_rotation_buttons(r1, r2, r3, r4)
+        # relative_path_to_static = image_to_server()
+
+        st.write('')
+
+
+    if st.session_state.location_google_search == 'Bottom':
+        display_google_search()
+    st.header("Additional Project Information")
+    display_prompt_template()
+    
     st.header('Project Progress')
-
     # col_low_1, col_low_2, col_low_3, col_low_4, col_low_5, col_low_6, col_low_7, col_low_8,  = st.columns([1,1,1,1,1,1,1,1])
     last_true_index, last_fully_viewed = update_progress_bar_overall()
-    # st.session_state['last_fully_viewed'] = last_fully_viewed
-    # # update the 'last_row_to_edit' in the session state to the current 'row_to_edit'
-    # st.session_state['last_row_to_edit'] = st.session_state.row_to_edit
 
-    # with col_low_1:
-    #     if st.button('Skip to last **fully** viewed',key=f"Skip_to_last_fully_viewed1"):
-    #         st.session_state.row_to_edit = int(last_fully_viewed)
-    #         st.rerun()
+    if do_print_profiler:
+        profiler.disable()
+        stats = pstats.Stats(profiler).sort_stats('cumulative')
+        stats.print_stats(30)
 
-    # with col_low_2:
-    #     if st.button('Skip to last viewed',key=f"Skip_to_last_viewed1"):
-    #         st.session_state.row_to_edit = int(last_true_index)
-    #         st.rerun()
-
-    # with col_low_3:
-    #     if st.button('Save Data'):
-    #         save_data()
-
-    
-        

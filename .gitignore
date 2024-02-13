@@ -1,6 +1,7 @@
-venv_*/
+*venv*/
 static/
-.streamlit*/
+projects/
+.streamlit2/
 img/hidden/
 
 # Byte-compiled / optimized / DLL files

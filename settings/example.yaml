@@ -1,0 +1,6 @@
+hide_columns_in_editor:
+  - order
+  - family 
+manual_columns_in_editor:
+  program:
+    - ALL

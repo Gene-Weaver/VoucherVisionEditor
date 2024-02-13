@@ -1,0 +1,13 @@
+[theme]
+    primaryColor = "#00ff00"
+    backgroundColor="#1a1a1a"
+    secondaryBackgroundColor="#303030"
+    textColor = "cccccc"
+
+    [server]
+    enableStaticServing = true
+    runOnSave = true
+    port = 8523
+
+    [runner]
+    fastReruns = false
