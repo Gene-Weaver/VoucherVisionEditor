@@ -1,5 +1,3 @@
-# VoucherVisionEditor
-
 [![VoucherVisionEditor](https://LeafMachine.org/img/VVE_Logo.png "VoucherVisionEditor")](https://LeafMachine.org/)
 
 Table of Contents
@@ -67,12 +65,15 @@ For more information about virtual environments, please see [Creation of virtual
 
 ---
 
-## Installation - Ubuntu 20.04
+## Installation - Ubuntu and MacOS
 
 ### Virtual Environment
 
 1. Still inside the VoucherVisionEditor directory, show that a venv is currently not active 
     <pre><code class="language-python">which python</code></pre>
+    <button class="btn" data-clipboard-target="#code-snippet"></button>
+    For Mac:
+    <pre><code class="language-python">python --version</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 2. Then create the virtual environment (venv_VVE is the name of our new virtual environment)  
     <pre><code class="language-python">python3 -m venv venv_VVE</code></pre>
@@ -86,6 +87,9 @@ For more information about virtual environments, please see [Creation of virtual
 4. Confirm that the venv is active (should be different from step 1)  
     <pre><code class="language-python">which python</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
+    For Mac:
+    <pre><code class="language-python">python --version</code></pre>
+    <button class="btn" data-clipboard-target="#code-snippet"></button>
 5. If you want to exit the venv, deactivate the venv using  
     <pre><code class="language-python">deactivate</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
@@ -93,7 +97,7 @@ For more information about virtual environments, please see [Creation of virtual
 ### Installing Packages
 
 1. Install the required libraries to use VoucherVisionEditor 
-    <pre><code class="language-python">pip install streamlit pandas openpyxl Pillow</code></pre>
+    <pre><code class="language-python">pip install -r requirements.txt</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 
 2. Upgrade Streamlit 
@@ -105,7 +109,7 @@ For more information about virtual environments, please see [Creation of virtual
 ## Installation - Windows 10+
 
 ### Virtual Environment
-
+> Note: we assume that you have WSL already installed. Please see [the Microsoft help page](https://learn.microsoft.com/en-us/windows/wsl/install) if the steps below cause errors.
 1. Still inside the VoucherVisionEditor directory, show that a venv is currently not active 
     <pre><code class="language-python">python --version</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
@@ -128,16 +132,20 @@ For more information about virtual environments, please see [Creation of virtual
 ### Installing Packages
 
 1. Install the required dependencies to use VoucherVisionEditor  
-    <pre><code class="language-python">pip install streamlit pandas openpyxl Pillow pywin32</code></pre>
+    <pre><code class="language-python">pip install -r requirements.txt</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 
 2. Upgrade Streamlit 
     <pre><code class="language-python">pip install --upgrade streamlit</code></pre>
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 
+3. Install pywin32 
+    <pre><code class="language-python">pip install pywin32</code></pre>
+    <button class="btn" data-clipboard-target="#code-snippet"></button>
+
 ---
 
-# Create a Desktop Shortcut to Launch VoucherVisionEditor GUI
+# Create a Desktop Shortcut to Launch VoucherVisionEditor GUI (Windows)
 We can create a desktop shortcut to launch VoucherVisionEditor. In the `../VoucherVisionEditor/` directory is a file called `create_desktop_shortcut.py`. In the terminal, move into the `../VoucherVisionEditor/` directory and type:
 <pre><code class="language-python">python create_desktop_shortcut.py</code></pre>
 <button class="btn" data-clipboard-target="#code-snippet"></button>
@@ -150,7 +158,18 @@ Follow the instructions, select where you want the shortcut to be created, then 
 
 ---
 
-# Running VoucherVisionEditor from the Terminal
+# Launching VoucherVisionEditor from the Terminal
+`cd` into your VoucherVisionEditor directory. 
+<pre><code class="language-python">python run.py</code></pre>
+<button class="btn" data-clipboard-target="#code-snippet"></button>
+OR...
+<pre><code class="language-python">./run.py</code></pre>
+<button class="btn" data-clipboard-target="#code-snippet"></button>
+OR...
+<pre><code class="language-python">python ./run.py</code></pre>
+<button class="btn" data-clipboard-target="#code-snippet"></button>
+
+<!-- 
 We recommend using `python run.py` to launch the GUI, but the following instructions show how to launch via the `streamlit` command, which you probably do not need to worry about.
 
 1. In the terminal, move into the VoucherVisionEditor directory.
@@ -167,4 +186,14 @@ new input file, but `--save-dir` can remain the same because it will simply incr
 Say that you process images with VoucherVision and the output files are saved to `C:/user/documents/Project_1/Run_1`. The folder `Run_1` contains the main output directories, including the `Original_Images` and `Transcription` folders. To make the output portable, we would copy and move everything inside of the `Project_1` folder. Now the new location might be something like `E:/usr/home/Project_1/Run_1`. So for the `--base=path` option we would include eveerything in the new file path up to the `Transcription` like this:
 `--base-path E:/usr/home/Project_1/Run_1`
 <pre><code class="language-python">python3 LeafMachine2.py</code></pre>
-<button class="btn" data-clipboard-target="#code-snippet"></button>
+<button class="btn" data-clipboard-target="#code-snippet"></button> -->
+
+1. VoucherVisionEditor launches projects from within the `VoucherVisionEditor/projects` folder. Use the file uploader to drag and drop the `.zip` file for the project that you want to work on.
+2. This adds the project to the `/projects` folder. You only have to do this once. Now all material is available to VV Editor.
+3. In the dropdown menu, select the project that you want to edit.
+4. In the second dropdown, choose the transcription file that you want to edit
+    - For new projects, select the `transcribed.xlsx` file.
+    - As soon as you make your first edit, all changes will be saved into a new file called `transcribed__edited__CURRENT_DATE_TIME.xlsx`
+    - For the current session, all changes will be saved here. 
+    - If you end editing for the day, then on your next session simply load the last `transcribed__edited__CURRENT_DATE_TIME.xlsx`file and start editing
+    - VVE creates a new `__edited__` for each session for redundancy purposes
