@@ -154,7 +154,19 @@ Or...
 <button class="btn" data-clipboard-target="#code-snippet"></button>
 Follow the instructions, select where you want the shortcut to be created, then where the virtual environment is located. 
 
-***Note*** If you ever see an error that says that a "port is not available", open `run.py` in a plain text editor and change the `--port` value to something different but close, like 8502.
+***Note*** If you ever see an error that says that a "port is not available", open `run.py` in a plain text editor and change the `--port` value to something different but close, like 8502. Sometimes the connection may not close properly. Also make sure that the previous terminal is closed before re-launching.
+
+---
+# Create a Desktop Shortcut to Launch VoucherVisionEditor GUI (MacOS)
+We can create a desktop shortcut to launch VoucherVisionEditor. In the `../VoucherVisionEditor/` directory is a file called `create_desktop_shortcut_mac.py`. In the terminal, `cd` into the `../VoucherVisionEditor/` directory and type:
+<pre><code class="language-python">python create_desktop_shortcut_mac.py</code></pre>
+<button class="btn" data-clipboard-target="#code-snippet"></button>
+Or...
+<pre><code class="language-python">python3 create_desktop_shortcut_mac.py</code></pre>
+<button class="btn" data-clipboard-target="#code-snippet"></button>
+Now go look in the `../VoucherVisionEditor/` directory. You will see a new file called `VoucherVisionEditor.app`. Drag this file into the `Applications` folder so that you can open VoucherVisionEditor just like any other app. 
+
+***Note*** If you ever see an error that says that a "port is not available", open `run.py` in a plain text editor and change the `--port` value to something different but close, like 8502. Sometimes the connection may not close properly. Also make sure that the previous terminal is closed before re-launching.
 
 ---
 
@@ -187,13 +199,16 @@ Say that you process images with VoucherVision and the output files are saved to
 `--base-path E:/usr/home/Project_1/Run_1`
 <pre><code class="language-python">python3 LeafMachine2.py</code></pre>
 <button class="btn" data-clipboard-target="#code-snippet"></button> -->
+---
 
+# Getting started
 1. VoucherVisionEditor launches projects from within the `VoucherVisionEditor/projects` folder. Use the file uploader to drag and drop the `.zip` file for the project that you want to work on.
-2. This adds the project to the `/projects` folder. You only have to do this once. Now all material is available to VV Editor.
+2. This adds the project to the `/projects` folder. You only have to do this once. Now all material for that project is available to VV Editor.
 3. In the dropdown menu, select the project that you want to edit.
-4. In the second dropdown, choose the transcription file that you want to edit
+4. In the second dropdown, choose the transcription file that you want to edit.
     - For new projects, select the `transcribed.xlsx` file.
-    - As soon as you make your first edit, all changes will be saved into a new file called `transcribed__edited__CURRENT_DATE_TIME.xlsx`
+5. As soon as you make your first edit, all changes will be saved into a new file called `transcribed__edited__CURRENT_DATE_TIME.xlsx`
     - For the current session, all changes will be saved here. 
-    - If you end editing for the day, then on your next session simply load the last `transcribed__edited__CURRENT_DATE_TIME.xlsx`file and start editing
+6. If you stop editing at the end of the day, then on your next session simply load the last `transcribed__edited__CURRENT_DATE_TIME.xlsx`file and start editing
     - VVE creates a new `__edited__` for each session for redundancy purposes
+7. If you stopped part way through a previous project, you can click `skip to last viewed image` to jump ahead

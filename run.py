@@ -13,12 +13,26 @@ def resolve_path(path):
     return resolved_path
 
 
+    # pip install protobuf==3.20.0
+
 if __name__ == "__main__":
-    sys.argv = [
-        "streamlit",
-        "run",
-        resolve_path("VoucherVisionEditor.py"),
-        "--global.developmentMode=false",
-        "--server.port=8529",
-    ]
+    port = 8530
+    
+    try:
+        sys.argv = [
+            "streamlit",
+            "run",
+            resolve_path(os.path.join(os.path.dirname(__file__),"VoucherVisionEditor.py")),
+            "--global.developmentMode=false",
+            f"--server.port={port}",
+        ]
+    except:
+        port += 1
+        sys.argv = [
+            "streamlit",
+            "run",
+            resolve_path(os.path.join(os.path.dirname(__file__),"VoucherVisionEditor.py")),
+            "--global.developmentMode=false",
+            f"--server.port={port}",
+        ]
     sys.exit(stcli.main())

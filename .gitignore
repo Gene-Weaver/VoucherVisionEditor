@@ -4,6 +4,9 @@ projects/
 .streamlit2/
 img/hidden/
 
+*.app
+*.applescript
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
