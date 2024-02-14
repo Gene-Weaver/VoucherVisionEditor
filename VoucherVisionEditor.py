@@ -401,6 +401,9 @@ def unzip_and_setup_path(uploaded_file, target_dir):
 
 
 def upload_and_unzip():
+    project_dir = os.path.join(st.session_state.dir_home, 'projects')
+    os.makedirs(project_dir, exist_ok=True)
+
     uploaded_file = st.file_uploader("Add a .zip file to the projects folder. Once added, you can select the project and then choose a transcription file to edit. ", 
                                      type='zip')
     if uploaded_file is not None:
@@ -408,8 +411,7 @@ def upload_and_unzip():
         # Assuming `dir_home` and `projects` are defined or replace with actual values
         filename_zip = uploaded_file.name
         base_filename = filename_zip.rsplit('.', 1)[0]  # Remove the .zip extension
-        os.makedirs(os.path.join(st.session_state.dir_home, 'projects'), exist_ok=True)
-        target_dir = os.path.join(st.session_state.dir_home, 'projects', base_filename)
+        target_dir = os.path.join(project_dir, base_filename)
         os.makedirs(target_dir, exist_ok=True)  # Create target directory if it doesn't exist
         
         # Unzip and set up the path
@@ -419,12 +421,11 @@ def upload_and_unzip():
         st.session_state.BASE_PATH = target_dir
         print(f"BASE = {target_dir}")
 
-    project_dir = os.path.join(st.session_state.dir_home, 'projects')
     subdirs = [d for d in os.listdir(project_dir) if os.path.isdir(os.path.join(project_dir, d))]
 
     # Create a select box for choosing a subdirectory
     selected_subdir = st.selectbox("Select a project:", subdirs)
-    st.session_state.BASE_PATH = os.path.join(st.session_state.dir_home, 'projects', selected_subdir)
+    st.session_state.BASE_PATH = os.path.join(project_dir, selected_subdir)
     st.success(f"Working from: {st.session_state.BASE_PATH}")
 
     
