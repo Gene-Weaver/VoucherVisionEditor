@@ -408,6 +408,7 @@ def upload_and_unzip():
         # Assuming `dir_home` and `projects` are defined or replace with actual values
         filename_zip = uploaded_file.name
         base_filename = filename_zip.rsplit('.', 1)[0]  # Remove the .zip extension
+        os.makedirs(os.path.join(st.session_state.dir_home, 'projects'), exist_ok=True)
         target_dir = os.path.join(st.session_state.dir_home, 'projects', base_filename)
         os.makedirs(target_dir, exist_ok=True)  # Create target directory if it doesn't exist
         

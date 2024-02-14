@@ -1,6 +1,6 @@
 *venv*/
 static/
-projects/
+projects/*
 .streamlit2/
 img/hidden/
 
