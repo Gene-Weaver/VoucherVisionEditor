@@ -421,12 +421,12 @@ def upload_and_unzip():
         st.session_state.BASE_PATH = target_dir
         print(f"BASE = {target_dir}")
 
-    subdirs = [d for d in os.listdir(project_dir) if os.path.isdir(os.path.join(project_dir, d))]
+        subdirs = [d for d in os.listdir(project_dir) if os.path.isdir(os.path.join(project_dir, d))]
 
-    # Create a select box for choosing a subdirectory
-    selected_subdir = st.selectbox("Select a project:", subdirs)
-    st.session_state.BASE_PATH = os.path.join(project_dir, selected_subdir)
-    st.success(f"Working from: {st.session_state.BASE_PATH}")
+        # Create a select box for choosing a subdirectory
+        selected_subdir = st.selectbox("Select a project:", subdirs)
+        st.session_state.BASE_PATH = os.path.join(project_dir, selected_subdir)
+        st.info(f"Working from: {st.session_state.BASE_PATH}")
 
     
 
