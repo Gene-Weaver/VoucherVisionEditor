@@ -225,6 +225,8 @@ if 'search_info_geo' not in st.session_state:
 if 'search_info_people' not in st.session_state:
     st.session_state.search_info_people = ['identifiedBy','recordedBy',]
 
+if 'BASE_PATH' not in st.session_state:
+    st.session_state.BASE_PATH = ''
 
 if 'bp_text' not in st.session_state:
     st.session_state.bp_text = '''
