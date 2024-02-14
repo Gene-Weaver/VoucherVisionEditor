@@ -3,9 +3,27 @@
 # https://medium.com/@sathiyamurthi239/how-to-create-a-streamlit-executable-python-to-exe-3bcb8eed9b16
 # pip install --upgrade cx_Freeze
 # cxfreeze -c run.py 
+# pip install protobuf==3.20.0
 
 import streamlit.web.cli as stcli
 import os, sys
+import socket
+
+def find_available_port(start_port, max_attempts=1000):
+    port = start_port
+    attempts = 0
+    while attempts < max_attempts:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("127.0.0.1", port))
+                # If successful, return the current port
+                return port
+            except socket.error:
+                # If the port is in use, increment the port number and try again
+                port += 1
+                attempts += 1
+    # Optional: Return None or raise an exception if no port is found within the attempts limit
+    raise ValueError(f"Could not find an available port within {max_attempts} attempts starting from port {start_port}.")
 
 
 def resolve_path(path):
@@ -13,26 +31,21 @@ def resolve_path(path):
     return resolved_path
 
 
-    # pip install protobuf==3.20.0
-
 if __name__ == "__main__":
-    port = 8530
-    
+    start_port = 8529
     try:
+        free_port = find_available_port(start_port)
         sys.argv = [
             "streamlit",
             "run",
             resolve_path(os.path.join(os.path.dirname(__file__),"VoucherVisionEditor.py")),
             "--global.developmentMode=false",
-            f"--server.port={port}",
+            f"--server.port={free_port}",
         ]
-    except:
-        port += 1
-        sys.argv = [
-            "streamlit",
-            "run",
-            resolve_path(os.path.join(os.path.dirname(__file__),"VoucherVisionEditor.py")),
-            "--global.developmentMode=false",
-            f"--server.port={port}",
-        ]
-    sys.exit(stcli.main())
+        sys.exit(stcli.main())
+
+
+    except ValueError as e:
+        print(e)
+    
+    
