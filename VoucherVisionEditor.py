@@ -474,11 +474,14 @@ def upload_and_unzip():
     if new_project_added:
         # If a new project was uploaded, use its path
         st.session_state.BASE_PATH = target_dir
-    else:
+    elif selected_subdir:
         # Otherwise, update BASE_PATH to the selected subdirectory
         st.session_state.BASE_PATH = os.path.join(project_dir, selected_subdir)
 
-    st.info(f"Working from: {st.session_state.BASE_PATH}")
+        st.info(f"Working from: {st.session_state.BASE_PATH}")
+    else:
+        pass
+        
 
     
 
