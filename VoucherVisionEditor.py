@@ -927,7 +927,7 @@ def show_header_main():
         st.sidebar.header('Options') #,help='Visible as Admin')
 
         # Access selectbox
-        user_pwd = st.text_input("Admin Password", type="password")
+        user_pwd = st.text_input("Admin Password", type="password",help="use: vouchervisionadmin")
         if user_pwd == st.session_state.pwd:
             st.session_state.access_option = st.sidebar.selectbox("Access", ["Labeler", "Admin"])
         else:
