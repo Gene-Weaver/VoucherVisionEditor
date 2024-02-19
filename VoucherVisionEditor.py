@@ -953,21 +953,21 @@ def show_header_main():
             st.session_state.tool_access['wfo_links'] = st.checkbox("Display top 10 list of WFO taxa (WFO partial matches)",value=st.session_state.tool_access.get('wfo_links'))
             st.session_state.tool_access['additional_info'] = st.checkbox("Display additional project information at page bottom",value=st.session_state.tool_access.get('additional_info'))
        
-            # Choose a View selectbox
-            st.session_state.view_option = st.sidebar.selectbox("Choose a View", ["Form View", "Data Editor"], disabled=True)
+            # # Choose a View selectbox
+            # st.session_state.view_option = st.sidebar.selectbox("Choose a View", ["Form View", "Data Editor"], disabled=True)
 
-            # Store previous image size
-            st.session_state.set_image_size_previous = st.session_state.set_image_size
+            # # Store previous image size
+            # st.session_state.set_image_size_previous = st.session_state.set_image_size
 
-            st.session_state.use_extra_image_options = st.sidebar.checkbox("Include toggle for fitted image view.", value=False)
-            if st.session_state.use_extra_image_options:
-                image_sizes_fitted = list(range(100, 1201, 50))
-                st.session_state.set_image_size_px = st.select_slider(
-                    'Set Fitted Image Width',
-                    options=image_sizes_fitted,value=600)
+            # st.session_state.use_extra_image_options = st.sidebar.checkbox("Include toggle for fitted image view.", value=False)
+            # if st.session_state.use_extra_image_options:
+            #     image_sizes_fitted = list(range(100, 1201, 50))
+            #     st.session_state.set_image_size_px = st.select_slider(
+            #         'Set Fitted Image Width',
+            #         options=image_sizes_fitted,value=600)
             
-            # fitted_image_width
-            st.session_state.default_to_original = st.sidebar.checkbox("Default to full image each time 'Next' or 'Previous' is pressed.", value=True)  
+            # # fitted_image_width
+            # st.session_state.default_to_original = st.sidebar.checkbox("Default to full image each time 'Next' or 'Previous' is pressed.", value=True)  
             
         else:
             st.session_state.access_option = "Labeler"
