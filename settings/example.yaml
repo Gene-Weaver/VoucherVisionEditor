@@ -1,6 +1,11 @@
 hide_columns_in_editor:
   - order
   - family 
-manual_columns_in_editor:
-  program:
-    - ALL
+add_manual_columns_in_editor:
+  TAXONOMY:
+    - forma
+    - infraspecificEpithet
+default_values:
+  no date:
+    - s.d.
+  

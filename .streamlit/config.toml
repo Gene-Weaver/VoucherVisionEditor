@@ -8,6 +8,7 @@
     enableStaticServing = true
     runOnSave = true
     port = 8523
+    maxUploadSize = 50000
 
     [runner]
     fastReruns = false

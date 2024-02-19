@@ -170,7 +170,18 @@ if 'current_time' not in st.session_state:
     st.session_state.current_time = 'NA'
     
     
-    
+if 'tool_access' not in st.session_state:
+    st.session_state.tool_access = {
+        'arrow': True,
+        'hints': True,
+        'ocr': True,
+        'wfo_badge': True,
+        'taxa_links': True,
+        'wfo_links': True,
+        'additional_info': True,
+    }  
+if 'pwd' not in st.session_state:
+    st.session_state.pwd = 'vouchervisionadmin'
 
 if 'image_rotation_previous' not in st.session_state:
     st.session_state.image_rotation_previous = ''
@@ -187,6 +198,8 @@ if "button_clicked" not in st.session_state:
 
 if "form_width" not in st.session_state:
     st.session_state.form_width = 30
+    st.session_state.form_width_1 = 30
+    st.session_state.form_width_2 = 50
 
 if "distance_GPS_warn" not in st.session_state: # Can be configured
     st.session_state.distance_GPS_warn = 100
@@ -402,15 +415,44 @@ def unzip_and_setup_path(uploaded_file, target_dir):
         st.success("File unpacked successfully")
 
 
+# def upload_and_unzip():
+#     project_dir = os.path.join(st.session_state.dir_home, 'projects')
+#     os.makedirs(project_dir, exist_ok=True)
+
+#     uploaded_file = st.file_uploader("Add a .zip file to the projects folder. Once added, you can select the project and then choose a transcription file to edit. ", 
+#                                      type='zip',accept_multiple_files=False,)
+#     if uploaded_file is not None:
+#         # Construct the target directory path
+#         # Assuming `dir_home` and `projects` are defined or replace with actual values
+#         filename_zip = uploaded_file.name
+#         base_filename = filename_zip.rsplit('.', 1)[0]  # Remove the .zip extension
+#         target_dir = os.path.join(project_dir, base_filename)
+#         os.makedirs(target_dir, exist_ok=True)  # Create target directory if it doesn't exist
+        
+#         # Unzip and set up the path
+#         unzip_and_setup_path(uploaded_file, target_dir)
+
+#         # Update BASE_PATH to the new directory containing the unpacked files
+#         st.session_state.BASE_PATH = target_dir
+#         print(f"BASE = {target_dir}")
+
+#     subdirs = [d for d in os.listdir(project_dir) if os.path.isdir(os.path.join(project_dir, d))]
+
+#     # Create a select box for choosing a subdirectory
+#     selected_subdir = st.selectbox("Select a project:", subdirs)
+#     st.session_state.BASE_PATH = os.path.join(project_dir, selected_subdir)
+#     st.info(f"Working from: {st.session_state.BASE_PATH}")
 def upload_and_unzip():
     project_dir = os.path.join(st.session_state.dir_home, 'projects')
     os.makedirs(project_dir, exist_ok=True)
 
-    uploaded_file = st.file_uploader("Add a .zip file to the projects folder. Once added, you can select the project and then choose a transcription file to edit. ", 
-                                     type='zip')
+    uploaded_file = st.file_uploader("Add a .zip file to the projects folder. Once added, you can select the project and then choose a transcription file to edit.", 
+                                     type='zip', accept_multiple_files=False)
+    # Initialize an indicator for a newly uploaded project
+    new_project_added = False
+
     if uploaded_file is not None:
         # Construct the target directory path
-        # Assuming `dir_home` and `projects` are defined or replace with actual values
         filename_zip = uploaded_file.name
         base_filename = filename_zip.rsplit('.', 1)[0]  # Remove the .zip extension
         target_dir = os.path.join(project_dir, base_filename)
@@ -419,15 +461,23 @@ def upload_and_unzip():
         # Unzip and set up the path
         unzip_and_setup_path(uploaded_file, target_dir)
 
-        # Update BASE_PATH to the new directory containing the unpacked files
-        st.session_state.BASE_PATH = target_dir
+        # Indicate a new project has been added to update BASE_PATH later
+        new_project_added = True
         print(f"BASE = {target_dir}")
 
     subdirs = [d for d in os.listdir(project_dir) if os.path.isdir(os.path.join(project_dir, d))]
 
     # Create a select box for choosing a subdirectory
     selected_subdir = st.selectbox("Select a project:", subdirs)
-    st.session_state.BASE_PATH = os.path.join(project_dir, selected_subdir)
+
+    # Update BASE_PATH based on the user's actions
+    if new_project_added:
+        # If a new project was uploaded, use its path
+        st.session_state.BASE_PATH = target_dir
+    else:
+        # Otherwise, update BASE_PATH to the selected subdirectory
+        st.session_state.BASE_PATH = os.path.join(project_dir, selected_subdir)
+
     st.info(f"Working from: {st.session_state.BASE_PATH}")
 
     
@@ -868,31 +918,57 @@ def show_header_main():
         # Location of the Google Search
         st.session_state.location_google_search = st.sidebar.selectbox("Location of Google Search", ["Top", "Hint Panel", "Bottom"])
 
-        # Warning message for 
-        distances_GPS = list(range(0, 501, 10))
-        st.session_state.distance_GPS_warn = st.select_slider('Display warning message if Verbarim/Decimal coordinates disagree by more than X km.', options=distances_GPS, value=100)
-
-        # Access selectbox
-        st.session_state.access_option = st.sidebar.selectbox("Access", ["Labeler", "Admin"])
-
-        # Choose a View selectbox
-        st.session_state.view_option = st.sidebar.selectbox("Choose a View", ["Form View", "Data Editor"], disabled=True)
-
-        # Store previous image size
-        st.session_state.set_image_size_previous = st.session_state.set_image_size
+        
 
         ######## Additional Options ################
         st.sidebar.header('Options') #,help='Visible as Admin')
+
+        # Access selectbox
+        user_pwd = st.text_input("Admin Password", type="password")
+        if user_pwd == st.session_state.pwd:
+            st.session_state.access_option = st.sidebar.selectbox("Access", ["Labeler", "Admin"])
+        else:
+            st.session_state.access_option = st.sidebar.selectbox("Access", ["Labeler", "Admin"], disabled=True)
+
+        if st.session_state.access_option in ["Admin",] and user_pwd == st.session_state.pwd:
+            # Warning message for 
+            distances_GPS = list(range(0, 501, 10))
+            st.session_state.distance_GPS_warn = st.select_slider('Display warning message if Verbarim/Decimal coordinates disagree by more than X km.', options=distances_GPS, value=100)
+
+            st.session_state.tool_access['hints'] = st.checkbox("Display WFO and GEO form hints",value=st.session_state.tool_access.get('hints'))
+            if not st.session_state.tool_access['hints']:
+                st.session_state.tool_access['arrow'] = False
+                st.session_state.form_width = st.session_state.form_width_2
+                st.session_state.tool_access['arrow'] = st.checkbox("Display move arrow button for form hints",value=st.session_state.tool_access.get('hints'),disabled=True)
+            else:
+                st.session_state.form_width = st.session_state.form_width_1
+                st.session_state.tool_access['arrow'] = st.checkbox("Display move arrow button for form hints",value=st.session_state.tool_access.get('arrow'),disabled=False)
+
+            st.session_state.tool_access['ocr'] = st.checkbox("Display button to view OCR image",value=st.session_state.tool_access.get('ocr'))
+            st.session_state.tool_access['wfo_badge'] = st.checkbox("Display WFO badge",value=st.session_state.tool_access.get('wfo_badge'))
+            st.session_state.tool_access['taxa_links'] = st.checkbox("Display buttons for Wikipedia (taxonomy), POWO, GRIN",value=st.session_state.tool_access.get('taxa_links'))
+            st.session_state.tool_access['wfo_links'] = st.checkbox("Display top 10 list of WFO taxa (WFO partial matches)",value=st.session_state.tool_access.get('wfo_links'))
+            st.session_state.tool_access['additional_info'] = st.checkbox("Display additional project information at page bottom",value=st.session_state.tool_access.get('additional_info'))
+       
+            # Choose a View selectbox
+            st.session_state.view_option = st.sidebar.selectbox("Choose a View", ["Form View", "Data Editor"], disabled=True)
+
+            # Store previous image size
+            st.session_state.set_image_size_previous = st.session_state.set_image_size
+
+            st.session_state.use_extra_image_options = st.sidebar.checkbox("Include toggle for fitted image view.", value=False)
+            if st.session_state.use_extra_image_options:
+                image_sizes_fitted = list(range(100, 1201, 50))
+                st.session_state.set_image_size_px = st.select_slider(
+                    'Set Fitted Image Width',
+                    options=image_sizes_fitted,value=600)
+            
+            # fitted_image_width
+            st.session_state.default_to_original = st.sidebar.checkbox("Default to full image each time 'Next' or 'Previous' is pressed.", value=True)  
+            
+        else:
+            st.session_state.access_option = "Labeler"
         
-        st.session_state.use_extra_image_options = st.sidebar.checkbox("Include toggle for fitted image view.", value=False)
-        if st.session_state.use_extra_image_options:
-            image_sizes_fitted = list(range(100, 1201, 50))
-            st.session_state.set_image_size_px = st.select_slider(
-                'Set Fitted Image Width',
-                options=image_sizes_fitted,value=600)
-        
-        # fitted_image_width
-        st.session_state.default_to_original = st.sidebar.checkbox("Default to full image each time 'Next' or 'Previous' is pressed.", value=True)  
 
 
 ###############################################################
@@ -1073,48 +1149,70 @@ helper_map = {
 #########################################################################################################################################################################################
 #########################################################################################################################################################################################
 #########################################################################################################################################################################################
+def display_wfo_badge():
+    if st.session_state.tool_access.get('wfo_badge'):
+            st.session_state.wfo_match_level = "No Match"
+            is_exact_match = st.session_state.data['WFO_exact_match'][st.session_state.row_to_edit]
+            if is_exact_match == 'True':
+                hint = ("World Flora Online", "Exact Match", "#059c1b")  # Red for invalid
+                st.session_state.wfo_match_level = "Exact Match"
+            else:
+                is_best_match = st.session_state.data['WFO_best_match'][st.session_state.row_to_edit]
+                if len(is_best_match) > 0:
+                    hint = ("World Flora Online", "Partial Match", "#0252c9")  # Red for invalid
+                    st.session_state.wfo_match_level =  "Partial Match"
+                else:
+                    hint = ("World Flora Online", "No Match", "#870307")  # Red for invalid
+
+            if hint:    
+                annotated_text(hint)
+
+
 def display_layout_with_helpers(group_option):
-    st.session_state.wfo_match_level = "No Match"
-    is_exact_match = st.session_state.data['WFO_exact_match'][st.session_state.row_to_edit]
-    if is_exact_match == 'True':
-        hint = ("World Flora Online", "Exact Match", "#059c1b")  # Red for invalid
-        st.session_state.wfo_match_level = "Exact Match"
+    display_wfo_badge()
+
+    if st.session_state.tool_access.get('arrow') and st.session_state.tool_access.get('hints'):
+        move_format = [6, 1, 6, 1, 1, 1]
+    elif not st.session_state.tool_access.get('arrow') and st.session_state.tool_access.get('hints'):
+        move_format = [6, 6, 1, 1, 1]
     else:
-        is_best_match = st.session_state.data['WFO_best_match'][st.session_state.row_to_edit]
-        if len(is_best_match) > 0:
-            hint = ("World Flora Online", "Partial Match", "#0252c9")  # Red for invalid
-            st.session_state.wfo_match_level =  "Partial Match"
-        else:
-            hint = ("World Flora Online", "No Match", "#870307")  # Red for invalid
+        move_format = [10, 1, 1, 1]
+        
 
-    if hint:    
-        annotated_text(hint)
-
-    move_format = [6, 1, 6, 1, 1, 1]
     i = 0
     # Display helper data and move buttons
     for col in get_columns_to_show(group_option):
         if col not in st.session_state.hide_columns_in_editor:
             i += 1
             with st.container():
-                if st.session_state.form_hint_location == 'Left':
-                    c_help, c_move, c_form, c_cap, c_lower, c_search = st.columns(move_format)
-                    # move_arrow = "==:arrow_forward:"
-                    move_arrow = ":arrow_forward:"
-                elif st.session_state.form_hint_location == 'Right':
-                    c_form, c_move, c_help, c_cap, c_lower, c_search = st.columns(move_format)
-                    # move_arrow = ":arrow_backward:=="
-                    move_arrow = ":arrow_backward:"
+                if st.session_state.tool_access.get('arrow') and st.session_state.tool_access.get('hints'):
+                    if st.session_state.form_hint_location == 'Left':
+                        c_help, c_move, c_form, c_cap, c_lower, c_search = st.columns(move_format)
+                        # move_arrow = "==:arrow_forward:"
+                        move_arrow = ":arrow_forward:"
+                    elif st.session_state.form_hint_location == 'Right':
+                        c_form, c_move, c_help, c_cap, c_lower, c_search = st.columns(move_format)
+                        # move_arrow = ":arrow_backward:=="
+                        move_arrow = ":arrow_backward:"
 
+                    else:
+                        c_help, c_move, c_form, c_cap, c_lower, c_search = st.columns(move_format)
                 else:
-                    c_help, c_move, c_form, c_cap, c_lower, c_search = st.columns(move_format)
+                    if st.session_state.tool_access.get('hints'):
+                        c_help, c_form, c_cap, c_lower, c_search = st.columns(move_format)
+                    else:
+                        c_form, c_cap, c_lower, c_search = st.columns(move_format)
+
+
                 if i == 1:
                     with c_form:
                         st.markdown(f"<u>Specimen Record</u>", unsafe_allow_html=True)
-                    with c_move:
-                        st.markdown(move_arrow)
-                    with c_help:
-                        st.text("Tool Hints")
+                    if st.session_state.tool_access.get('arrow') and st.session_state.tool_access.get('hints'):
+                        with c_move:
+                            st.markdown(move_arrow)
+                    if st.session_state.tool_access.get('hints'):
+                        with c_help:
+                            st.text("Tool Hints")
                     with c_cap:
                         st.text("Cap")
                     with c_lower:
@@ -1126,7 +1224,14 @@ def display_layout_with_helpers(group_option):
                 display_cap_case_button(col, c_cap)
                 display_lower_case_button(col, c_lower)
                 display_search_button(col, c_search)
-                display_helper_input(col, c_help, c_move, move_arrow=move_arrow)
+                if st.session_state.tool_access.get('arrow') and st.session_state.tool_access.get('hints'):
+                    display_helper_input(col, c_help, c_move=c_move, move_arrow=move_arrow)
+                elif not st.session_state.tool_access.get('arrow') and st.session_state.tool_access.get('hints'):
+                    display_helper_input(col, c_help, c_move=None, move_arrow=None)
+                else:
+                    display_helper_input(col, c_help=None, c_move=None, move_arrow=None)
+
+
     
     st.button('Confirm Content',key=f"Confirm_Content1", use_container_width=True, type="primary",on_click=on_press_confirm_content,args=[group_options]) 
 
@@ -1142,54 +1247,55 @@ def form_layout(group_option,col, c_form):
 
 
 
-def display_helper_input(col, in_column, in_column_move, move_arrow):
+def display_helper_input(col, c_help, c_move, move_arrow):
     helper_input_key = f"helper_{col}"
-    
-    if col not in helper_map: # TODO make helper_map a config file
-        # Display a disabled text input for alignment purposes
-        # st.text_input(f"{col}", '', key=f"disabled_helper_{col}", disabled=True)
-        pass
-    else:
-        helper_key = helper_map[col]
-        hint_type = helper_key.split('_')
-        suggested_value = str(st.session_state.data[helper_key][st.session_state.row_to_edit])
-        if suggested_value:
 
-            # Initialize the session state variable before widget creation
-            if helper_input_key not in st.session_state:
-                st.session_state[helper_input_key] = suggested_value
-                
-            hint = None
-            with in_column:
-                # helper_key = helper_map[col]
-                # suggested_value = str(st.session_state.data[helper_key][st.session_state.row_to_edit])
-                if col == "order":
-                    suggested_value = suggested_value.split("|")[3]
-                elif col == "family":
-                    suggested_value = suggested_value.split("|")[4]
-                elif col == "scientificName":
-                    suggested_value = " ".join([suggested_value.split(" ")[0],suggested_value.split(" ")[1]])
-                elif col == "scientificNameAuthorship":
-                    pts = suggested_value.split(" ")[2:]
-                    suggested_value = " ".join(pts)
-                elif col == "genus":
-                    suggested_value = suggested_value.split("|")[5]
-                elif col == "specificEpithet":
-                    suggested_value = suggested_value.split("|")[6]
+    if st.session_state.tool_access.get('hints'):
+        if col not in helper_map: # TODO make helper_map a config file
+            # Display a disabled text input for alignment purposes
+            # st.text_input(f"{col}", '', key=f"disabled_helper_{col}", disabled=True)
+            pass
+        else:
+            helper_key = helper_map[col]
+            hint_type = helper_key.split('_')
+            suggested_value = str(st.session_state.data[helper_key][st.session_state.row_to_edit])
+            if suggested_value:
 
-                
-                if 'GEO' in hint_type:
-                    st.text_input(f"{col} (GEO)", value=suggested_value, key=f"{helper_input_key}_input", placeholder=suggested_value)
-                elif 'WFO' in hint_type:
-                    if col == 'specificEpithet':
-                        temp_sp = suggested_value.split('$')[0]
-                        st.text_input(f"{col} (WFO)", value=temp_sp, key=f"{helper_input_key}_input", placeholder=temp_sp)
+                # Initialize the session state variable before widget creation
+                if helper_input_key not in st.session_state:
+                    st.session_state[helper_input_key] = suggested_value
+                    
+                hint = None
+                with c_help:
+                    # helper_key = helper_map[col]
+                    # suggested_value = str(st.session_state.data[helper_key][st.session_state.row_to_edit])
+                    if col == "order":
+                        suggested_value = suggested_value.split("|")[3]
+                    elif col == "family":
+                        suggested_value = suggested_value.split("|")[4]
+                    elif col == "scientificName":
+                        suggested_value = " ".join([suggested_value.split(" ")[0],suggested_value.split(" ")[1]])
+                    elif col == "scientificNameAuthorship":
+                        pts = suggested_value.split(" ")[2:]
+                        suggested_value = " ".join(pts)
+                    elif col == "genus":
+                        suggested_value = suggested_value.split("|")[5]
+                    elif col == "specificEpithet":
+                        suggested_value = suggested_value.split("|")[6]
+
+                    
+                    if 'GEO' in hint_type:
+                        st.text_input(f"{col} (GEO)", value=suggested_value, key=f"{helper_input_key}_input", placeholder=suggested_value)
+                    elif 'WFO' in hint_type:
+                        if col == 'specificEpithet':
+                            temp_sp = suggested_value.split('$')[0]
+                            st.text_input(f"{col} (WFO)", value=temp_sp, key=f"{helper_input_key}_input", placeholder=temp_sp)
+                        else:
+                            st.text_input(f"{col} (WFO)", value=suggested_value, key=f"{helper_input_key}_input", placeholder=suggested_value)
                     else:
-                        st.text_input(f"{col} (WFO)", value=suggested_value, key=f"{helper_input_key}_input", placeholder=suggested_value)
-                else:
-                    st.text_input(f"{col} (hint)", value=suggested_value, key=f"{helper_input_key}_input", placeholder=suggested_value)
-            
-            display_move_button(col, in_column_move, move_arrow)
+                        st.text_input(f"{col} (hint)", value=suggested_value, key=f"{helper_input_key}_input", placeholder=suggested_value)
+                
+                display_move_button(col, c_move, move_arrow)
 
 
 
@@ -1262,15 +1368,16 @@ def update_data_if_changed(col, original_value):
 #         st.write(f"Suggested {col}: {suggested_value}")
 
 def display_move_button(col, in_column, move_arrow):
-    with in_column:
-        #"""Display a move button for the given column."""
-        if col in helper_map:
-            move_key = f"{col}_to_{helper_map[col]}"
-            st.write("")
-            st.write("")
-            st.button(move_arrow, key=move_key,on_click=move_suggested_data, args=[col, helper_map],use_container_width=True)
-        else:
-            pass
+    if st.session_state.tool_access.get('arrow'):
+        with in_column:
+            #"""Display a move button for the given column."""
+            if col in helper_map:
+                move_key = f"{col}_to_{helper_map[col]}"
+                st.write("")
+                st.write("")
+                st.button(move_arrow, key=move_key,on_click=move_suggested_data, args=[col, helper_map],use_container_width=True)
+            else:
+                pass
 
 
 def move_suggested_data(col_to, helper_map):
@@ -1393,21 +1500,21 @@ def load_yaml_to_json(fullpath):
 ###############################################################
 ################# Display JSON Helper Text ####################
 ###############################################################
-@st.cache_data
 def display_WFO_partial_match():
-    if st.session_state.wfo_match_level == "Partial Match":
-        with st.expander(f"{get_color('scientificName')}[**WFO** Suggested Taxonomy]"):
-            partial_matches = st.session_state.data['WFO_candidate_names'][st.session_state.row_to_edit].split('|')
-            temp = []
-            ii = 0
-            for partial_match in partial_matches:
-                if partial_match not in temp:
-                    ii += 1
-                    temp.append(partial_match)
-                    partial_match_url, partial_match_url_search = get_wfo_url(partial_match)
-                    if partial_match_url:
-                        st.link_button(label=partial_match,url=partial_match_url)
-                    # st.write(f"{ii}) {partial_match}")
+    if st.session_state.tool_access.get('wfo_links'):
+        if st.session_state.wfo_match_level == "Partial Match":
+            with st.expander(f"{get_color('scientificName')}[**WFO** Suggested Taxonomy]"):
+                partial_matches = st.session_state.data['WFO_candidate_names'][st.session_state.row_to_edit].split('|')
+                temp = []
+                ii = 0
+                for partial_match in partial_matches:
+                    if partial_match not in temp:
+                        ii += 1
+                        temp.append(partial_match)
+                        partial_match_url, partial_match_url_search = get_wfo_url(partial_match)
+                        if partial_match_url:
+                            st.link_button(label=partial_match,url=partial_match_url)
+                        # st.write(f"{ii}) {partial_match}")
 
 @st.cache_data
 def display_prompt_template():
@@ -1477,44 +1584,44 @@ def on_press_show_helper_text():
         elif st.session_state.show_helper_text == False:
             st.session_state.show_helper_text = True
 
-@st.cache_data
 def display_wiki_taxa_main_links():
-    fname = st.session_state.data['filename'][st.session_state.row_to_edit]
-    wiki_json_path = st.session_state.wiki_file_dict[fname]
+    if st.session_state.tool_access.get('taxa_links'):
+        fname = st.session_state.data['filename'][st.session_state.row_to_edit]
+        wiki_json_path = st.session_state.wiki_file_dict[fname]
 
-    if wiki_json_path:
-        with open(wiki_json_path, "r") as file:
-            wiki_json = json.load(file)
+        if wiki_json_path:
+            with open(wiki_json_path, "r") as file:
+                wiki_json = json.load(file)
 
-        wiki_taxa = wiki_json.get('WIKI_TAXA', None)
-        wiki_taxa_data = wiki_taxa.get('DATA', None)
-        wiki_taxa_page_title = wiki_taxa.get('PAGE_TITLE', None)
-        wiki_taxa_page_link = wiki_taxa.get('PAGE_LINK', None)
+            wiki_taxa = wiki_json.get('WIKI_TAXA', None)
+            wiki_taxa_data = wiki_taxa.get('DATA', None)
+            wiki_taxa_page_title = wiki_taxa.get('PAGE_TITLE', None)
+            wiki_taxa_page_link = wiki_taxa.get('PAGE_LINK', None)
 
-        c_help_left, c_help_right = st.columns([1,1])
+            c_help_left, c_help_right = st.columns([1,1])
 
-        with c_help_left:
-            if wiki_taxa_page_title and wiki_taxa_page_link:
-                st.link_button(label=f":blue[:information_source: {wiki_taxa_page_title}]",url=wiki_taxa_page_link)
+            with c_help_left:
+                if wiki_taxa_page_title and wiki_taxa_page_link:
+                    st.link_button(label=f":blue[:information_source: {wiki_taxa_page_title}]",url=wiki_taxa_page_link)
 
-        with c_help_right:
-            if wiki_taxa_data:
-                if 'GRIN' in wiki_taxa_data:
-                    if wiki_taxa_data.get('GRIN',None):
-                        st.link_button(label=f"{get_color('scientificName')}[GRIN]",url=wiki_taxa_data.get('GRIN', None))
-        c_help_left, c_help_right = st.columns([1,1])
+            with c_help_right:
+                if wiki_taxa_data:
+                    if 'GRIN' in wiki_taxa_data:
+                        if wiki_taxa_data.get('GRIN',None):
+                            st.link_button(label=f"{get_color('scientificName')}[GRIN]",url=wiki_taxa_data.get('GRIN', None))
+            c_help_left, c_help_right = st.columns([1,1])
 
-        with c_help_left:
-            if wiki_taxa_data:
-                if 'POWOID' in wiki_taxa_data:
-                    if wiki_taxa_data.get('POWOID',None):
-                        st.link_button(label=f"{get_color('scientificName')}[POWO]",url=wiki_taxa_data.get('POWOID', None))
+            with c_help_left:
+                if wiki_taxa_data:
+                    if 'POWOID' in wiki_taxa_data:
+                        if wiki_taxa_data.get('POWOID',None):
+                            st.link_button(label=f"{get_color('scientificName')}[POWO]",url=wiki_taxa_data.get('POWOID', None))
 
-        with c_help_right:
-            if wiki_taxa_data:
-                if 'POWOID_syn' in wiki_taxa_data:
-                    if wiki_taxa_data.get('POWOID_syn',None):
-                        st.link_button(label=f"{get_color('scientificName')}[POWO Syn.]",url=wiki_taxa_data.get('POWOID_syn', None))
+            # with c_help_right:
+            #     if wiki_taxa_data:
+            #         if 'POWOID_syn' in wiki_taxa_data:
+            #             if wiki_taxa_data.get('POWOID_syn',None):
+            #                 st.link_button(label=f"{get_color('scientificName')}[POWO Syn.]",url=wiki_taxa_data.get('POWOID_syn', None))
   
 
 @st.cache_data
@@ -1879,9 +1986,10 @@ def display_image_options_buttons(relative_path_to_static, zoom_1, zoom_2, zoom_
             if st.button('Toggle Fitted', use_container_width=True):
                 st.session_state.is_fitted_image = not st.session_state.is_fitted_image
                 st.session_state.set_image_size = 'Fitted' if st.session_state.is_fitted_image else st.session_state.set_image_size_previous
-        with zoom_4:
-            if st.button('Collage', use_container_width=True):
-                st.session_state.image_option = 'Cropped'
+        if st.session_state.tool_access.get('ocr'):
+            with zoom_4:
+                if st.button('Collage', use_container_width=True):
+                    st.session_state.image_option = 'Cropped'
     else:
         with zoom_1:
             if st.button('Original', use_container_width=True):
@@ -1892,9 +2000,10 @@ def display_image_options_buttons(relative_path_to_static, zoom_1, zoom_2, zoom_
         with zoom_3:
             if st.button('Collage', use_container_width=True):
                 st.session_state.image_option = 'Cropped'
-        with zoom_4:
-            if st.button('OCR', use_container_width=True):
-                st.session_state.image_option = 'Helper'
+        if st.session_state.tool_access.get('ocr'):
+            with zoom_4:
+                if st.button('OCR', use_container_width=True):
+                    st.session_state.image_option = 'Helper'
     last_image_option = st.session_state.image_option
     if current_image != last_image_option:
         st.rerun()
@@ -2168,13 +2277,13 @@ if st.session_state.data is not None:
 
         display_wiki_taxa_main_links()
 
-        display_wiki_geo_main_links()
+        # display_wiki_geo_main_links()
 
         display_coordinates()
         
         display_WFO_partial_match()
         
-        display_wiki_taxa_summary()
+        # display_wiki_taxa_summary()
         
         display_json_helper_text()
 
@@ -2192,7 +2301,11 @@ if st.session_state.data is not None:
     with c_right:
         image_path_and_load()
 
-        r1, r2, zoom_1, zoom_2, zoom_3, zoom_4, r3, r4 = st.columns([1,1,2,2,2,2,1,1])
+        if st.session_state.tool_access.get('ocr'):
+            r1, r2, zoom_1, zoom_2, zoom_3, zoom_4, r3, r4 = st.columns([1,1,2,2,2,2,1,1])
+        else:
+            r1, r2, zoom_1, zoom_2, zoom_3, r3, r4 = st.columns([1,1,2,2,2,1,1])
+
         if st.session_state.location_google_search == 'Top':
             display_google_search()
         con_image = st.container()
@@ -2202,8 +2315,11 @@ if st.session_state.data is not None:
         # Add the image to the local server for the zoom functionality
 
         # Two options for the image viewing buttons
-        display_image_options_buttons(st.session_state.relative_path_to_static, zoom_1, zoom_2, zoom_3, zoom_4)
-        
+        if st.session_state.tool_access.get('ocr'):
+            display_image_options_buttons(st.session_state.relative_path_to_static, zoom_1, zoom_2, zoom_3, zoom_4)
+        else:
+            display_image_options_buttons(st.session_state.relative_path_to_static, zoom_1, zoom_2, zoom_3, zoom_4=None)
+            
 
         # Display the configurable image viewer
         display_scrollable_image(con_image)
@@ -2216,8 +2332,10 @@ if st.session_state.data is not None:
 
     if st.session_state.location_google_search == 'Bottom':
         display_google_search()
-    st.header("Additional Project Information")
-    display_prompt_template()
+    
+    if st.session_state.tool_access.get('additional_info'):
+        st.header("Additional Project Information")
+        display_prompt_template()
     
     st.header('Project Progress')
     # col_low_1, col_low_2, col_low_3, col_low_4, col_low_5, col_low_6, col_low_7, col_low_8,  = st.columns([1,1,1,1,1,1,1,1])
