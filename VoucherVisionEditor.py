@@ -14,6 +14,7 @@ import cProfile
 import pstats
 
 from utils import get_wfo_url
+from text import HelpText
 
 # pip install streamlit pandas Pillow openpyxl streamlit-aggrid
 # Windows
@@ -37,6 +38,8 @@ st.set_page_config(layout="wide",
                    menu_items={"Report a Bug": "https://forms.gle/kP8imC9JQTPLrXgg8","About":"VoucherVision was created and is maintained by William Weaver, University of Michigan. Please see doi:10.1002/ajb2.16256 for more information."},
                    initial_sidebar_state="expanded",)
 
+if "start_editing" not in st.session_state:
+    st.session_state.start_editing = False
 
 if "hide_columns_in_editor" not in st.session_state:
     st.session_state.hide_columns_in_editor = []
@@ -168,6 +171,13 @@ if 'image_path' not in st.session_state:
 
 if 'current_time' not in st.session_state:
     st.session_state.current_time = 'NA'
+
+if 'hide_fields' not in st.session_state:
+    st.session_state.hide_fields = []
+
+if 'add_fields' not in st.session_state:
+    st.session_state.add_fields = {}
+    
     
     
 if 'tool_access' not in st.session_state:
@@ -197,7 +207,7 @@ if "button_clicked" not in st.session_state:
     st.session_state.button_clicked = False
 
 if "form_width" not in st.session_state:
-    st.session_state.form_width = 30
+    st.session_state.wrap_len = 30
     st.session_state.form_width_1 = 30
     st.session_state.form_width_2 = 50
 
@@ -218,6 +228,8 @@ if 'fullpath_working_file' not in st.session_state:
 
 if 'dir_home' not in st.session_state:
     st.session_state.dir_home = os.path.dirname(__file__)
+    st.session_state.dir_settings = os.path.join(st.session_state.dir_home,'settings')
+    st.session_state.settings_file = ""
 
 if 'data_transcription' not in st.session_state:
     st.session_state.data_transcription = None
@@ -385,21 +397,48 @@ def setup_streamlit_config(mapbox_key=None):
 #     else:
 #         raise
 def set_column_groups(prompt_json):
+    with open(st.session_state.settings_file, 'r') as file:
+        st.session_state.settings_file_dict = yaml.safe_load(file)
+    st.session_state.add_fields = st.session_state.settings_file_dict['editor']['add_fields']
+    st.session_state.hide_fields = st.session_state.settings_file_dict['editor']['hide_fields']
+    
+
+
     mapping = prompt_json['mapping']
     # Initialize an empty dictionary for the new grouping
     new_grouping = {}
 
     ind = 0
+    temp_map = {}
     # Iterate over the mapping
     for group, columns in mapping.items():
+        temp_map[group] = ind
         # Create a new group in the new_grouping dictionary with the list of columns
         if columns:
             new_grouping[group] = columns
             st.session_state.color_map_json[group] = st.session_state.color_map_order[ind]
             st.session_state.color_map_text[group] = st.session_state.color_map_order_text[ind]
             ind += 1
+            
 
-    # TODO add manual_columns_in_editor: from exampl.yaml ############################################################################################################################## TODO
+    # Add the new columsn to the list
+    for group, columns in st.session_state.add_fields.items():
+        if (group in new_grouping) and columns:
+            # Group exists, append the columns if not empty
+            if not isinstance(new_grouping[group], list):
+                new_grouping[group] = [new_grouping[group]]  # Ensure it's a list
+            new_grouping[group].extend(columns)  # Append new columns
+            
+        else:
+            st.session_state.color_map_json[group] = st.session_state.color_map_order[ind]
+            st.session_state.color_map_text[group] = st.session_state.color_map_order_text[ind]
+            # Group doesn't exist or has no columns, assign new columns
+            new_grouping[group] = (columns)
+            ind += 1
+
+     
+    # Add the new columns to the CSV
+
             
     # Update the st.session_state.grouping with the new grouping
     st.session_state.grouping = new_grouping
@@ -481,7 +520,9 @@ def upload_and_unzip():
         st.info(f"Working from: {st.session_state.BASE_PATH}")
     else:
         pass
-        
+
+
+    
 
     
 
@@ -594,6 +635,8 @@ def load_data():
                     with open(st.session_state.fullpath_prompt, 'r') as file:
                         st.session_state.prompt_json = yaml.safe_load(file)
 
+                    
+
                     data = pd.read_excel(st.session_state.fullpath_working_file, dtype=str)
                     st.session_state.data_transcription = data
                     st.session_state.n_columns = data.shape[1]
@@ -644,11 +687,33 @@ def load_data():
                         if not os.path.exists(st.session_state.SAVE_DIR):
                             print("UH OH! new dir created but it should not be")
                             os.makedirs(st.session_state.SAVE_DIR)
-
-
+                    
+                    ######### Add new fields to the XLSX
+                    for group, columns in st.session_state.add_fields.items():
+                        # Check if 'filename' column exists in the DataFrame
+                        if 'filename' in st.session_state.data.columns:
+                            # Find the index of the 'filename' column
+                            filename_col_index = st.session_state.data.columns.get_loc('filename')
+                            
+                            # Insert new columns before 'filename'
+                            # Assuming `columns` is a list of column names to be added
+                            for col in columns:
+                                # Check if column already exists, if not, insert new column with empty list
+                                if col not in st.session_state.data.columns:
+                                    st.session_state.data.insert(filename_col_index, col, ["" for _ in range(len(st.session_state.data))])
+                                    # Update the index for next column to insert in sequence
+                                    filename_col_index += 1
+                        else:
+                            # If 'filename' column does not exist and you still want to add the columns, append them
+                            # Or, if you prefer not to add the columns when 'filename' is missing, you can continue to the next iteration
+                            # For example, to append at the end:
+                            for col in columns:
+                                if col not in st.session_state.data.columns:
+                                    st.session_state.data[col] = ["" for _ in range(len(st.session_state.data))]
+                st.button("Start Editing", on_click=start_editing_btn, type="primary")
         
-    
-
+def start_editing_btn():
+    st.session_state.start_editing = True
 # def load_data(mapbox_key):
 #     if 'data' not in st.session_state or st.session_state.data is None:
 #         uploaded_file = st.file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
@@ -915,6 +980,8 @@ def show_header_main():
             image_sizes = list(range(20, 201, 5))
             st.session_state.set_image_size_pxh = st.select_slider('Set Viewing Height', options=image_sizes, value=80)
 
+        wrap_len = list(range(10, 100, 1))
+        st.session_state.form_width = st.select_slider('Text wrapping length for form values', options=wrap_len, value=20)
         # Location of the form record TRUTH
         st.session_state.form_hint_location = st.sidebar.selectbox("Position of the form hints", ["Left", "Right"])
 
@@ -941,10 +1008,10 @@ def show_header_main():
             st.session_state.tool_access['hints'] = st.checkbox("Display WFO and GEO form hints",value=st.session_state.tool_access.get('hints'))
             if not st.session_state.tool_access['hints']:
                 st.session_state.tool_access['arrow'] = False
-                st.session_state.form_width = st.session_state.form_width_2
+                # st.session_state.form_width = st.session_state.form_width_2
                 st.session_state.tool_access['arrow'] = st.checkbox("Display move arrow button for form hints",value=st.session_state.tool_access.get('hints'),disabled=True)
             else:
-                st.session_state.form_width = st.session_state.form_width_1
+                # st.session_state.form_width = st.session_state.form_width_1
                 st.session_state.tool_access['arrow'] = st.checkbox("Display move arrow button for form hints",value=st.session_state.tool_access.get('arrow'),disabled=False)
 
             st.session_state.tool_access['ocr'] = st.checkbox("Display button to view OCR image",value=st.session_state.tool_access.get('ocr'))
@@ -1241,10 +1308,10 @@ def display_layout_with_helpers(group_option):
 
 
 
-def form_layout(group_option,col, c_form):
+def form_layout(group_option, col, c_form):
     with c_form:
         # Determine columns to show
-        if col not in ['track_view', 'track_edit']:
+        if (col not in ['track_view', 'track_edit']) and (col not in st.session_state.hide_fields):
             unique_key, color = prepare_column(col)
             handle_column_input(col, unique_key, color)
 
@@ -1254,7 +1321,7 @@ def display_helper_input(col, c_help, c_move, move_arrow):
     helper_input_key = f"helper_{col}"
 
     if st.session_state.tool_access.get('hints'):
-        if col not in helper_map: # TODO make helper_map a config file
+        if (col not in helper_map) or (col in st.session_state.hide_fields): # TODO make helper_map a config file
             # Display a disabled text input for alignment purposes
             # st.text_input(f"{col}", '', key=f"disabled_helper_{col}", disabled=True)
             pass
@@ -1396,16 +1463,16 @@ def move_suggested_data(col_to, helper_map):
 
 
 def display_lower_case_button(col, in_column):
-    symbol = ":arrow_double_down:"
-    with in_column:
-        #"""Display a move button for the given column."""
-        # if col in helper_map:
-        true_key = f"{col}_lower_"
-        st.write("")
-        st.write("")
-        st.button(symbol, key=true_key,on_click=apply_lower_case, args=[col],use_container_width=True)
-        # else:
-            # pass
+    if col not in st.session_state.hide_fields:
+        symbol = ":arrow_double_down:"
+        with in_column:
+            #"""Display a move button for the given column."""
+            # if col in helper_map:
+            true_key = f"{col}_lower_"
+            st.write("")
+            st.write("")
+            st.button(symbol, key=true_key,on_click=apply_lower_case, args=[col],use_container_width=True)
+
 
 def apply_lower_case(col_to):
     if st.session_state.data.at[st.session_state.row_to_edit, col_to] is not None:
@@ -1417,16 +1484,16 @@ def apply_lower_case(col_to):
             pass
 
 def display_cap_case_button(col, in_column):
-    symbol = ":eject:"
-    with in_column:
-        #"""Display a move button for the given column."""
-        # if col in helper_map:
-        true_key = f"{col}_cap_"
-        st.write("")
-        st.write("")
-        st.button(symbol, key=true_key,on_click=apply_cap_case, args=[col], use_container_width=True)
-        # else:
-            # pass
+    if col not in st.session_state.hide_fields:
+        symbol = ":eject:"
+        with in_column:
+            #"""Display a move button for the given column."""
+            # if col in helper_map:
+            true_key = f"{col}_cap_"
+            st.write("")
+            st.write("")
+            st.button(symbol, key=true_key,on_click=apply_cap_case, args=[col], use_container_width=True)
+
 
 def apply_cap_case(col_to):
     if st.session_state.data.at[st.session_state.row_to_edit, col_to] is not None:
@@ -1438,14 +1505,15 @@ def apply_cap_case(col_to):
             pass
 
 def display_search_button(col, in_column):
-    symbol = ":mag:"
-    with in_column:
-        #"""Display a move button for the given column."""
-        # if col in helper_map:
-        true_key = f"{col}_search_"
-        st.write("")
-        st.write("")
-        st.button(symbol, key=true_key,on_click=apply_search, args=[col], use_container_width=True)
+    if col not in st.session_state.hide_fields:
+        symbol = ":mag:"
+        with in_column:
+            #"""Display a move button for the given column."""
+            # if col in helper_map:
+            true_key = f"{col}_search_"
+            st.write("")
+            st.write("")
+            st.button(symbol, key=true_key,on_click=apply_search, args=[col], use_container_width=True)
 
 def apply_search(col_to):
     wrapper = DuckDuckGoSearchAPIWrapper(max_results=2)
@@ -2122,6 +2190,153 @@ def display_scrollable_image_method():
         st.markdown(css, unsafe_allow_html=True)
     st.markdown(img_html, unsafe_allow_html=True)
 
+
+
+def display_help():
+    with st.expander(":grey_question: Image Buttons"):
+        st.write("**Buttons**")
+        st.write(HelpText.help_btns)
+    with st.expander(":grey_question: Tool Hints"):
+        st.write("**Buttons**")
+        st.write(HelpText.help_form_btns)
+        st.write("**Tool Hints**")
+        st.write(HelpText.help_form)
+    with st.expander(":grey_question: Specimen Record"):
+        st.write("**Specimen Record**")
+        st.write(HelpText.help_specimen)
+    with st.expander(":grey_question: Enabling/Hiding Tools"):
+        st.write("**Enabling/Hiding Tools**")
+        st.write(HelpText.help_hide_tools)
+    with st.expander(":grey_question: Categories"):
+        st.write("**Categories**")
+        st.write(HelpText.help_categories)
+    with st.expander(":grey_question: Other"):
+        st.write("**World Flora Online Badge**")
+        st.write(HelpText.help_WFO_badge)
+        st.write("**Categories**")
+        st.write(HelpText.help_WFO_badge)
+
+
+
+
+def load_yaml_settings(file_path):
+    """Load YAML settings from a file."""
+    try:
+        with open(file_path, 'r') as file:
+            return yaml.safe_load(file)
+    except Exception as e:
+        st.error(f"Failed to load settings: {e}")
+        return None
+
+def save_yaml_settings(file_path, data):
+    """Save YAML settings to a file."""
+    try:
+        with open(file_path, 'w') as file:
+            yaml.dump(data, file)
+        st.success("Settings saved successfully.")
+    except Exception as e:
+        st.error(f"Failed to save settings: {e}")
+
+def dynamic_fields_section(section_name, data):
+    """Generate dynamic input fields for a section and handle changes."""
+    temp_data = data.copy()  # Create a copy of the data to work with
+    for key, value in temp_data.items():
+        if key == "mapping":
+            for key2, value2 in temp_data.items():
+                user_input = st.text_input(f"{key2} (comma-separated)", value=value2, key=f"{section_name}_{key2}_{value2}")
+                temp_data['mapping'][key2] = value2
+
+    if section_name == 'mapping':
+        # Apply collected changes to the original data
+        for key, value in temp_data.items():
+            data['mapping'][key] = value
+    return data
+
+        
+def edit_default_settings_yaml():
+    dir_home = st.session_state.dir_home  # Ensure this is defined in your Streamlit session_state
+    file_path = os.path.join(dir_home, 'settings', 'default.yaml')
+
+    # Load existing settings
+    settings = load_yaml_settings(file_path)
+    if settings is None:
+        settings = {
+            'editor': {
+                'hide_fields': [],
+                'add_fields': {}
+            }
+        }
+        save_yaml_settings(file_path, settings)
+
+    
+    # Start a form for user inputs
+    with st.form("edit_settings"):
+        st.write("NOTE: Spaces, dashes, and special symbols in keys and values is not allowed.")
+        hide_fields = st.text_input("Hide Fields (comma-separated)", value=",".join(settings['editor']['hide_fields']))
+        
+        f1, f2 = st.columns([1,2])
+        # Use session state to keep track of dynamic add_field keys
+        if 'add_fields_count' not in st.session_state:
+            st.session_state.add_fields_count = len(settings['editor']['add_fields'])
+
+        # Generate inputs for existing add_fields
+        for key, value in list(settings['editor']['add_fields'].items()):
+            user_input = st.text_input(f"{key} (added category)", value=",".join(value), key=key)
+            settings['editor']['add_fields'][key] = [field.strip() for field in user_input.split(",") if field.strip()]
+
+        
+        # # Dynamic fields for add_fields
+        # dynamic_fields_section("Add Fields", settings['editor'].get('add_fields', {}))
+
+        # if st.session_state.data is None:
+        #     st.write("#### Select a transcription.xlsx file to see the full current configuration")
+        # else:
+        #     # Dynamic fields for mapping
+        #     dynamic_fields_section("Mapping", st.session_state.prompt_json)
+
+        # Placeholder for new field inputs
+        for i in range(st.session_state.add_fields_count - len(settings['editor']['add_fields'])):
+            with f1:
+                new_key = st.text_input("New Field Key (single new or existing category)", key=f"new_key_{i}")
+            with f2:
+                new_value = st.text_input("New Field Values (comma-separated list)", key=f"new_value_{i}")
+            if new_key and new_value:
+                settings['editor']['add_fields'][new_key] = [field.strip() for field in new_value.split(",") if field.strip()]
+
+        # Form submission
+        submitted = st.form_submit_button("Save")
+        if submitted:
+            # Update settings based on user inputs
+            settings['editor']['hide_fields'] = [field.strip() for field in hide_fields.split(",") if field.strip()]
+
+            # Save updated settings back to YAML
+            save_yaml_settings(file_path, settings)
+
+    # Button to add more fields
+    if st.button("Add new fields"):
+        st.session_state.add_fields_count += 1
+        # st.rerun()
+
+
+def show_settings_selection():
+    st.write('---')
+    st.subheader('Load VVE Configuration File')
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        # show the settings files
+        subfiles_settings = [f for f in os.listdir(st.session_state.dir_settings) if os.path.isfile(os.path.join(st.session_state.dir_settings, f))]
+        selected_settings_file = st.selectbox("Select a configuration file", subfiles_settings,help=HelpText.splash_config)
+        if selected_settings_file:
+            st.session_state.settings_file = os.path.join(st.session_state.dir_settings, selected_settings_file)
+
+        st.write(HelpText.splash_config_explain_1)
+        st.write(HelpText.splash_config_explain_2)
+
+        st.subheader("Edit the default.yaml file")
+        edit_default_settings_yaml()
+    with c2:
+        st.write("Example configuration .yaml file format")
+        st.text(HelpText.splash_config_json_str)
 ###############################################################
 ####################                    #######################
 ####################    Welcome Page    #######################
@@ -2130,29 +2345,29 @@ def display_scrollable_image_method():
 if 'data' not in st.session_state:
     st.session_state.data = None
 
-if st.session_state.data is None:
+if st.session_state.data is None or not st.session_state.start_editing:
     clear_directory()
     start_server()
 
     show_header_welcome()
 
     get_directory_paths(args)
-    # mapbox_key = prompt_for_mapbox_key()
-    # setup_streamlit_config(mapbox_key)
 
     load_data()
 
-    st.markdown(st.session_state.bp_text)
+    show_settings_selection()
+    # st.markdown(st.session_state.bp_text) ############################################ TODO
 
-    if st.session_state.data is not None:
-        st.rerun()
+    # if st.session_state.start_editing:
+    # if st.session_state.data is not None and not st.session_state.start_editing:
+        # st.rerun()
 
 ###############################################################
 ####################                    #######################
 ####################      Main App      #######################
 ####################                    #######################
 ###############################################################
-if st.session_state.data is not None:
+if st.session_state.start_editing:
     do_print_profiler = False
     if do_print_profiler:
         profiler = cProfile.Profile()
@@ -2296,6 +2511,8 @@ if st.session_state.data is not None:
 
         if st.session_state.location_google_search == "Hint Panel":
             display_google_search()
+
+        display_help()
 
 
 

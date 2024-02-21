@@ -1,11 +1,10 @@
-hide_columns_in_editor:
-  - order
-  - family 
-add_manual_columns_in_editor:
-  TAXONOMY:
-    - forma
-    - infraspecificEpithet
-default_values:
-  no date:
-    - s.d.
-  
+editor:
+  hide_fields:
+      - order
+      - family
+  add_fields:
+      TAXONOMY:
+          - forma
+          - variety
+      NEW_CATEGORY:
+          - anotherFieldName
