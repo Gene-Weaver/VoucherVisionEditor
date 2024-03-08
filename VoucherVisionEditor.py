@@ -664,9 +664,11 @@ def load_data():
                     # Does the working_file already have __edited__
                     tracker = '__edited__'
                     if tracker in st.session_state.working_file:
+                        print("OPT1")
                         base = st.session_state.working_file.split(tracker)[0]
                         st.session_state.file_name = f"{base}{tracker}{st.session_state.current_time}.xlsx" 
                     else: # new transcription 
+                        print("OPT2")
                         st.session_state.file_name = f"{st.session_state.working_file.split('.')[0]}{tracker}{st.session_state.current_time}.xlsx" 
 
                     # If BASE_PATH is provided, replace old base paths in the dataframe
@@ -675,7 +677,10 @@ def load_data():
                         st.session_state.data['path_to_original'] = st.session_state.data['path_to_original'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'original'))
                         st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'jpg'))
                         st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'json'))
-                    
+                        print(st.session_state.data['path_to_crop'])
+                        print(st.session_state.data['path_to_original'])
+                        print(st.session_state.data['path_to_helper'])
+                        print(st.session_state.data['path_to_content'])
                     # Determine SAVE_DIR from the 'path_to_content' column
                     first_path_to_content = st.session_state.data['path_to_content'][0]
                     print("")
