@@ -9,6 +9,7 @@ from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
 from annotated_text import annotated_text
 from datetime import datetime
+from contextlib import contextmanager
 
 import cProfile
 import pstats
@@ -182,6 +183,7 @@ if 'add_fields' not in st.session_state:
     
 if 'tool_access' not in st.session_state:
     st.session_state.tool_access = {
+        'form': True, #ALWAYS TRUE
         'arrow': True,
         'hints': True,
         'ocr': True,
@@ -189,6 +191,8 @@ if 'tool_access' not in st.session_state:
         'taxa_links': True,
         'wfo_links': True,
         'additional_info': True,
+        'cap': True,
+        'search': True,
     }  
 if 'pwd' not in st.session_state:
     st.session_state.pwd = 'vouchervisionadmin'
@@ -198,6 +202,10 @@ if 'image_rotation_previous' not in st.session_state:
 
 if 'location_google_search' not in st.session_state:
     st.session_state.location_google_search = "Top" # "Top", "Hint Panel", "Bottom"
+
+if 'google_search_new_window' not in st.session_state:
+    st.session_state.google_search_new_window = False #TODO
+
 
 if 'grouping' not in st.session_state:
     st.session_state.grouping = None
@@ -929,6 +937,9 @@ def layout_image_proportion():
         c_right, c_left, c_help = st.columns([9, 6, 4])
     elif st.session_state.image_fill == "Balanced - Image Left":
         c_right, c_left, c_help = st.columns([8, 8, 3])
+    elif st.session_state.image_fill == "Small Screen":
+        c_left, c_right = st.columns([8, 8])
+        c_help = None
     else:
         c_left, c_right, c_help = st.columns([8, 8, 3])
     
@@ -965,6 +976,7 @@ def show_header_main():
 
         # Image Layout Focus selectbox
         st.session_state.image_fill = st.sidebar.selectbox("Image Layout Focus", ["More - Image Right", "Balanced - Image Right",  "Maximum - Image Right",
+                                                                                  "Small Screen",
                                                                                   "More - Image Left", "Balanced - Image Left", "Maximum - Image Left",])
 
         # Image Size selectbox
@@ -980,15 +992,18 @@ def show_header_main():
             image_sizes = list(range(20, 201, 5))
             st.session_state.set_image_size_pxh = st.select_slider('Set Viewing Height', options=image_sizes, value=80)
 
-        wrap_len = list(range(10, 100, 1))
+        wrap_len = list(range(10, 101, 1))
         st.session_state.form_width = st.select_slider('Text wrapping length for form values', options=wrap_len, value=20)
         # Location of the form record TRUTH
-        st.session_state.form_hint_location = st.sidebar.selectbox("Position of the form hints", ["Left", "Right"])
 
         # Location of the Google Search
-        st.session_state.location_google_search = st.sidebar.selectbox("Location of Google Search", ["Top", "Hint Panel", "Bottom"])
-
+        if st.session_state.image_fill == "Small Screen":
+            st.session_state.location_google_search = st.sidebar.selectbox("Location of Google Search - Small Screen", ["Top", "Bottom"])
+        else:
+            st.session_state.location_google_search = st.sidebar.selectbox("Location of Google Search", ["Top", "Hint Panel", "Bottom"])
         
+        st.session_state.google_search_new_window = st.sidebar.checkbox("Open Google search in new browser tab", value=st.session_state.google_search_new_window)
+
 
         ######## Additional Options ################
         st.sidebar.header('Options') #,help='Visible as Admin')
@@ -1001,6 +1016,7 @@ def show_header_main():
             st.session_state.access_option = st.sidebar.selectbox("Access", ["Labeler", "Admin"], disabled=True)
 
         if st.session_state.access_option in ["Admin",] and user_pwd == st.session_state.pwd:
+            st.session_state.form_hint_location = st.sidebar.selectbox("Position of the form hints", ["Left", "Right"])
             # Warning message for 
             distances_GPS = list(range(0, 501, 10))
             st.session_state.distance_GPS_warn = st.select_slider('Display warning message if Verbarim/Decimal coordinates disagree by more than X km.', options=distances_GPS, value=100)
@@ -1009,16 +1025,18 @@ def show_header_main():
             if not st.session_state.tool_access['hints']:
                 st.session_state.tool_access['arrow'] = False
                 # st.session_state.form_width = st.session_state.form_width_2
-                st.session_state.tool_access['arrow'] = st.checkbox("Display move arrow button for form hints",value=st.session_state.tool_access.get('hints'),disabled=True)
+                st.session_state.tool_access['arrow'] = st.checkbox("Display move arrow button for form hints :arrow_forward:",value=st.session_state.tool_access.get('hints'),disabled=True)
             else:
                 # st.session_state.form_width = st.session_state.form_width_1
-                st.session_state.tool_access['arrow'] = st.checkbox("Display move arrow button for form hints",value=st.session_state.tool_access.get('arrow'),disabled=False)
+                st.session_state.tool_access['arrow'] = st.checkbox("Display move arrow button for form hints :arrow_forward:",value=st.session_state.tool_access.get('arrow'),disabled=False)
 
             st.session_state.tool_access['ocr'] = st.checkbox("Display button to view OCR image",value=st.session_state.tool_access.get('ocr'))
             st.session_state.tool_access['wfo_badge'] = st.checkbox("Display WFO badge",value=st.session_state.tool_access.get('wfo_badge'))
             st.session_state.tool_access['taxa_links'] = st.checkbox("Display buttons for Wikipedia (taxonomy), POWO, GRIN",value=st.session_state.tool_access.get('taxa_links'))
             st.session_state.tool_access['wfo_links'] = st.checkbox("Display top 10 list of WFO taxa (WFO partial matches)",value=st.session_state.tool_access.get('wfo_links'))
             st.session_state.tool_access['additional_info'] = st.checkbox("Display additional project information at page bottom",value=st.session_state.tool_access.get('additional_info'))
+            st.session_state.tool_access['cap'] = st.checkbox("Display capitalization buttons :eject: and :arrow_double_down:",value=st.session_state.tool_access.get('cap'))
+            st.session_state.tool_access['search'] = st.checkbox("Display quick search buttons :mag:",value=st.session_state.tool_access.get('search'))
        
             # # Choose a View selectbox
             # st.session_state.view_option = st.sidebar.selectbox("Choose a View", ["Form View", "Data Editor"], disabled=True)
@@ -1237,17 +1255,109 @@ def display_wfo_badge():
             if hint:    
                 annotated_text(hint)
 
+@contextmanager
+def noop_context():
+    yield None
+
+def get_move_format():
+    # Initialize the move_format list
+    move_format = []
+    c_help = noop_context()  # Use noop_context as the default
+    c_move = noop_context()
+    c_form = noop_context()
+    c_cap = noop_context()
+    c_lower = noop_context()
+    c_search = noop_context()
+
+    if not st.session_state.tool_access.get('hints'):
+        st.session_state.tool_access['arrow'] = False
+    
+    # Check each condition and modify move_format accordingly
+    if st.session_state.tool_access.get('hints'):
+        move_format.extend([6])  # Adjust these values as needed
+
+    
+    if st.session_state.tool_access.get('arrow'):
+        move_format.extend([1])  
+
+    if st.session_state.tool_access.get('form'): # ALWAYS TRUE
+        move_format.extend([6])  # MAIN FORM
+    
+    if st.session_state.tool_access.get('cap'):
+        move_format.extend([1])  
+        move_format.extend([1])  
+    
+    if st.session_state.tool_access.get('search'):
+        move_format.extend([1])  
+    
+    # Default case if none of the above conditions are met, adjust as necessary
+    # if not move_format:
+    #     move_format = [10, 1, 1, 1]  # Default format
+        
+    if (not st.session_state.tool_access.get('hints') 
+        and not st.session_state.tool_access.get('arrow') 
+        and not st.session_state.tool_access.get('cap')
+        and not st.session_state.tool_access.get('search')):
+        c_form = st.columns([1])
+    elif (st.session_state.tool_access.get('hints') 
+        and not st.session_state.tool_access.get('arrow') 
+        and not st.session_state.tool_access.get('cap')
+        and not st.session_state.tool_access.get('search')):
+        c_help, c_form = st.columns(move_format)
+    elif (st.session_state.tool_access.get('hints') 
+        and st.session_state.tool_access.get('arrow') 
+        and not st.session_state.tool_access.get('cap')
+        and not st.session_state.tool_access.get('search')):
+        c_help, c_move, c_form = st.columns(move_format)
+    elif (st.session_state.tool_access.get('hints') 
+        and st.session_state.tool_access.get('arrow') 
+        and st.session_state.tool_access.get('cap')
+        and not st.session_state.tool_access.get('search')):
+        c_help, c_move, c_form, c_cap, c_lower = st.columns(move_format)
+    elif (st.session_state.tool_access.get('hints') 
+        and st.session_state.tool_access.get('arrow') 
+        and st.session_state.tool_access.get('cap')
+        and st.session_state.tool_access.get('search')):
+        c_help, c_move, c_form, c_cap, c_lower, c_search = st.columns(move_format)
+    elif (not st.session_state.tool_access.get('hints') 
+        and st.session_state.tool_access.get('cap')
+        and st.session_state.tool_access.get('search')):
+        c_form, c_cap, c_lower, c_search = st.columns(move_format)
+    elif (not st.session_state.tool_access.get('hints') 
+        and not st.session_state.tool_access.get('cap')
+        and st.session_state.tool_access.get('search')):
+        c_form, c_search = st.columns(move_format)
+    elif (not st.session_state.tool_access.get('hints') 
+        and st.session_state.tool_access.get('cap')
+        and not st.session_state.tool_access.get('search')):
+        c_form, c_cap, c_lower,  = st.columns(move_format)
+    else:
+        move_format = [6]
+        c_form  = st.columns(move_format)
+
+    if isinstance(c_form, list):
+        c_form = c_form[0]
+
+    
+    return move_format, c_help, c_move, c_form, c_cap, c_lower, c_search
 
 def display_layout_with_helpers(group_option):
     display_wfo_badge()
 
-    if st.session_state.tool_access.get('arrow') and st.session_state.tool_access.get('hints'):
-        move_format = [6, 1, 6, 1, 1, 1]
-    elif not st.session_state.tool_access.get('arrow') and st.session_state.tool_access.get('hints'):
-        move_format = [6, 6, 1, 1, 1]
-    else:
-        move_format = [10, 1, 1, 1]
-        
+    # if ( st.session_state.tool_access.get('arrow') and 
+    #         st.session_state.tool_access.get('hints') and
+    #         st.session_state.tool_access.get('cap') and
+    #         st.session_state.tool_access.get('search')
+    # ):
+    #     move_format = [6, 1, 6, 1, 1, 1]
+    # elif (not st.session_state.tool_access.get('arrow') and 
+    #         st.session_state.tool_access.get('hints') and 
+    #         st.session_state.tool_access.get('cap') and
+    #         st.session_state.tool_access.get('search')
+    # ):
+    #     move_format = [6, 6, 1, 1, 1]
+    # else:
+    #     move_format = [10, 1, 1, 1]
 
     i = 0
     # Display helper data and move buttons
@@ -1257,43 +1367,53 @@ def display_layout_with_helpers(group_option):
             with st.container():
                 if st.session_state.tool_access.get('arrow') and st.session_state.tool_access.get('hints'):
                     if st.session_state.form_hint_location == 'Left':
-                        c_help, c_move, c_form, c_cap, c_lower, c_search = st.columns(move_format)
+                        # c_help, c_move, c_form, c_cap, c_lower, c_search = st.columns(move_format)
+                        move_format, c_help, c_move, c_form, c_cap, c_lower, c_search = get_move_format()
                         # move_arrow = "==:arrow_forward:"
                         move_arrow = ":arrow_forward:"
                     elif st.session_state.form_hint_location == 'Right':
-                        c_form, c_move, c_help, c_cap, c_lower, c_search = st.columns(move_format)
+                        # c_form, c_move, c_help, c_cap, c_lower, c_search = st.columns(move_format)
+                        move_format, c_form, c_move, c_help, c_cap, c_lower, c_search = get_move_format()
                         # move_arrow = ":arrow_backward:=="
                         move_arrow = ":arrow_backward:"
 
                     else:
-                        c_help, c_move, c_form, c_cap, c_lower, c_search = st.columns(move_format)
+                        move_format, c_help, c_move, c_form, c_cap, c_lower, c_search = get_move_format()
+
                 else:
-                    if st.session_state.tool_access.get('hints'):
-                        c_help, c_form, c_cap, c_lower, c_search = st.columns(move_format)
-                    else:
-                        c_form, c_cap, c_lower, c_search = st.columns(move_format)
+                    # if st.session_state.tool_access.get('hints'):
+                    #     c_help, c_form, c_cap, c_lower, c_search = st.columns(move_format)
+                    # else:
+                    #     c_form, c_cap, c_lower, c_search = st.columns(move_format)
+                    move_format, c_help, c_move, c_form, c_cap, c_lower, c_search = get_move_format()
+
 
 
                 if i == 1:
-                    with c_form:
-                        st.markdown(f"<u>Specimen Record</u>", unsafe_allow_html=True)
+                    if st.session_state.tool_access.get('form'):
+                        with c_form:
+                            st.markdown(f"<u>Specimen Record</u>", unsafe_allow_html=True)
                     if st.session_state.tool_access.get('arrow') and st.session_state.tool_access.get('hints'):
                         with c_move:
                             st.markdown(move_arrow)
                     if st.session_state.tool_access.get('hints'):
                         with c_help:
                             st.text("Tool Hints")
-                    with c_cap:
-                        st.text("Cap")
-                    with c_lower:
-                        st.text("Low")
-                    with c_search:
-                        st.text("Web")
+                    if st.session_state.tool_access.get('cap'):
+                        with c_cap:
+                            st.text("Cap")
+                        with c_lower:
+                            st.text("Low")
+                    if st.session_state.tool_access.get('search'):
+                        with c_search:
+                            st.text("Web")
                 form_layout(group_option,col, c_form)
                 # display_move_button(col, c_move, move_arrow=move_arrow)
-                display_cap_case_button(col, c_cap)
-                display_lower_case_button(col, c_lower)
-                display_search_button(col, c_search)
+                if st.session_state.tool_access.get('cap'):
+                    display_cap_case_button(col, c_cap)
+                    display_lower_case_button(col, c_lower)
+                if st.session_state.tool_access.get('search'):
+                    display_search_button(col, c_search)
                 if st.session_state.tool_access.get('arrow') and st.session_state.tool_access.get('hints'):
                     display_helper_input(col, c_help, c_move=c_move, move_arrow=move_arrow)
                 elif not st.session_state.tool_access.get('arrow') and st.session_state.tool_access.get('hints'):
@@ -1463,15 +1583,16 @@ def move_suggested_data(col_to, helper_map):
 
 
 def display_lower_case_button(col, in_column):
-    if col not in st.session_state.hide_fields:
-        symbol = ":arrow_double_down:"
-        with in_column:
-            #"""Display a move button for the given column."""
-            # if col in helper_map:
-            true_key = f"{col}_lower_"
-            st.write("")
-            st.write("")
-            st.button(symbol, key=true_key,on_click=apply_lower_case, args=[col],use_container_width=True)
+    if st.session_state.tool_access.get('cap'):
+        if col not in st.session_state.hide_fields:
+            symbol = ":arrow_double_down:"
+            with in_column:
+                #"""Display a move button for the given column."""
+                # if col in helper_map:
+                true_key = f"{col}_lower_"
+                st.write("")
+                st.write("")
+                st.button(symbol, key=true_key,on_click=apply_lower_case, args=[col],use_container_width=True)
 
 
 def apply_lower_case(col_to):
@@ -1484,15 +1605,16 @@ def apply_lower_case(col_to):
             pass
 
 def display_cap_case_button(col, in_column):
-    if col not in st.session_state.hide_fields:
-        symbol = ":eject:"
-        with in_column:
-            #"""Display a move button for the given column."""
-            # if col in helper_map:
-            true_key = f"{col}_cap_"
-            st.write("")
-            st.write("")
-            st.button(symbol, key=true_key,on_click=apply_cap_case, args=[col], use_container_width=True)
+    if st.session_state.tool_access.get('cap'):
+        if col not in st.session_state.hide_fields:
+            symbol = ":eject:"
+            with in_column:
+                #"""Display a move button for the given column."""
+                # if col in helper_map:
+                true_key = f"{col}_cap_"
+                st.write("")
+                st.write("")
+                st.button(symbol, key=true_key,on_click=apply_cap_case, args=[col], use_container_width=True)
 
 
 def apply_cap_case(col_to):
@@ -1514,6 +1636,7 @@ def display_search_button(col, in_column):
             st.write("")
             st.write("")
             st.button(symbol, key=true_key,on_click=apply_search, args=[col], use_container_width=True)
+
 
 def apply_search(col_to):
     wrapper = DuckDuckGoSearchAPIWrapper(max_results=2)
@@ -1553,6 +1676,11 @@ def apply_search(col_to):
                 search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
                 st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
             st.session_state.search_term = query
+
+            if st.session_state.google_search_new_window:
+                google_search_url = f"https://www.google.com/search?q={st.session_state.search_term.replace(' ', '+')}"
+                link_html = f'<a href="{google_search_url}" target="_blank">Search Google for "{st.session_state.search_term}"</a>'
+                st.markdown(link_html, unsafe_allow_html=True)
 
         except Exception as e:
             print(e)
@@ -1774,15 +1902,15 @@ def display_search_results():
 def display_google_search():
     loc = st.session_state.location_google_search
     if loc == 'Top':
-        with st.expander("Google Search"):#,key=f"Google Search{loc}"):
+        with st.expander(":rainbow[Google Search]"):#,key=f"Google Search{loc}"):
             # search = st.text_input("What do you want to search for?")
             components.iframe(f"https://www.google.com/search?igu=1&ei=&q={st.session_state.search_term}", height=500,scrolling=True)
     elif loc == 'Hint Panel':
-        with st.expander("Google Search"):#,key=f"Google Search{loc}"):
+        with st.expander(":rainbow[Google Search]"):#,key=f"Google Search{loc}"):
             # search = st.text_input("What do you want to search for?")
             components.iframe(f"https://www.google.com/search?igu=1&ei=&q={st.session_state.search_term}", height=500,scrolling=True)
     elif loc == 'Bottom':
-        with st.expander("Google Search"):#,key=f"Google Search{loc}"):
+        with st.expander(":rainbow[Google Search]"):#,key=f"Google Search{loc}"):
             # search = st.text_input("What do you want to search for?")
             components.iframe(f"https://www.google.com/search?igu=1&ei=&q={st.session_state.search_term}", height=1000,scrolling=True)
         
@@ -1790,7 +1918,7 @@ def display_google_search():
 ###############################################################
 ###################### Validate Fields ########################
 ###############################################################
-def display_coordinates():
+def display_coordinates(n):
     with st.expander(f":earth_africa: {get_color('country')}[Mapped Coordinates]"):
         verbatim_coordinates = st.session_state.data.loc[st.session_state.row_to_edit, 'verbatimCoordinates']
 
@@ -1842,7 +1970,7 @@ def display_coordinates():
 
             # Concatenate all valid DataFrames and reset the index
             combined_map_data = pd.concat(map_data_frames).reset_index(drop=True)
-            display_map(combined_map_data, zoom_out)
+            display_map(combined_map_data, zoom_out, n)
         else:
             # Handle the case where all map data is None, if needed
             st.write("No valid coordinates to display.")
@@ -1897,7 +2025,7 @@ def get_map_data(coords_string, coordinate_type):
 
 
 
-def display_map(map_data, zoom_out):
+def display_map(map_data, zoom_out, n):
     if map_data is not None and not map_data.empty:
         if zoom_out:
             z = 0
@@ -1917,7 +2045,7 @@ def display_map(map_data, zoom_out):
                 st.info(f':white_check_mark: Verbatim and Decimal coordinates are the same')
 
         current_map_size = st.session_state.pinpoint
-        st.session_state.pinpoint = st.radio('Map Dot Size', options=["Broad", "Pinpoint"], index=0)
+        st.session_state.pinpoint = st.radio('Map Dot Size', options=["Broad", "Pinpoint"], index=0, key=f'Map Dot Size{n}')
         if current_map_size != st.session_state.pinpoint:
             st.rerun()
 
@@ -2193,6 +2321,8 @@ def display_scrollable_image_method():
 
 
 def display_help():
+    st.write('---')
+    st.subheader("Help")
     with st.expander(":grey_question: Image Buttons"):
         st.write("**Buttons**")
         st.write(HelpText.help_btns)
@@ -2429,11 +2559,11 @@ if st.session_state.start_editing:
             # Get the current row from the spreadsheet, show the index
             n_rows = len(st.session_state.data)
             with c_index:
-                st.write(f"**Editing Image {st.session_state.row_to_edit+1} / {n_rows}**")
+                st.write(f"**Image {st.session_state.row_to_edit+1} / {n_rows}**")
             
             # Create the skip to bookmark button
             with c_skip:
-                st.button('Skip to last viewed image',key=f"Skip_to_last_viewed2", use_container_width=True, on_click=on_press_skip_to_bookmark)
+                st.button('Skip ahead',key=f"Skip_to_last_viewed2", use_container_width=True, on_click=on_press_skip_to_bookmark)
 
             display_layout_with_helpers(group_option)
           
@@ -2489,30 +2619,30 @@ if st.session_state.start_editing:
 
 
     # Only load JSON if row has changed
-    with c_help:
-        
-        load_json_helper_files()
+    if c_help:
+        with c_help:
+            
+            load_json_helper_files()
 
-        display_wiki_taxa_main_links()
+            display_wiki_taxa_main_links()
 
-        # display_wiki_geo_main_links()
+            # display_wiki_geo_main_links()
 
-        display_coordinates()
-        
-        display_WFO_partial_match()
-        
-        # display_wiki_taxa_summary()
-        
-        display_json_helper_text()
+            display_coordinates(0)
+            
+            display_WFO_partial_match()
+            
+            # display_wiki_taxa_summary()
+            
+            display_json_helper_text()
 
-        # display_wiki_taxa_sub_links()
-        
-        # display_search_results()
+            # display_wiki_taxa_sub_links()
+            
+            # display_search_results()
 
-        if st.session_state.location_google_search == "Hint Panel":
-            display_google_search()
+            if st.session_state.location_google_search == "Hint Panel":
+                display_google_search()        
 
-        display_help()
 
 
 
@@ -2528,6 +2658,8 @@ if st.session_state.start_editing:
 
         if st.session_state.location_google_search == 'Top':
             display_google_search()
+
+
         con_image = st.container()
 
 
@@ -2547,11 +2679,36 @@ if st.session_state.start_editing:
         display_image_rotation_buttons(r1, r2, r3, r4)
         # relative_path_to_static = image_to_server()
 
-        st.write('')
+
+
+        
 
 
     if st.session_state.location_google_search == 'Bottom':
         display_google_search()
+    
+    if not c_help:
+        load_json_helper_files()
+
+        display_wiki_taxa_main_links()
+
+        # display_wiki_geo_main_links()
+
+        display_coordinates(1)
+        
+        display_WFO_partial_match()
+        
+        # display_wiki_taxa_summary()
+        
+        display_json_helper_text()
+
+        # display_wiki_taxa_sub_links()
+        
+        # display_search_results()
+
+            
+    display_help()
+
     
     if st.session_state.tool_access.get('additional_info'):
         st.header("Additional Project Information")

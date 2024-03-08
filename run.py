@@ -40,6 +40,7 @@ if __name__ == "__main__":
             "run",
             resolve_path(os.path.join(os.path.dirname(__file__),"VoucherVisionEditor.py")),
             "--global.developmentMode=false",
+            f"--server.maxUploadSize=51200",
             f"--server.port={free_port}",
         ]
         sys.exit(stcli.main())

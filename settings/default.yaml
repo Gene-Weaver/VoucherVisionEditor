@@ -1,3 +1,7 @@
 editor:
-  add_fields: {}
-  hide_fields: []
+  add_fields:
+    TAXONOMY:
+    - otherCatalogNumber
+  hide_fields:
+  - order
+  - family
