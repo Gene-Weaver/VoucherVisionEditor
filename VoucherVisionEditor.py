@@ -1324,6 +1324,21 @@ def get_move_format():
         and st.session_state.tool_access.get('cap')
         and st.session_state.tool_access.get('search')):
         c_help, c_move, c_form, c_cap, c_lower, c_search = st.columns(move_format)
+    elif (st.session_state.tool_access.get('hints') 
+        and not st.session_state.tool_access.get('arrow') 
+        and st.session_state.tool_access.get('cap')
+        and not st.session_state.tool_access.get('search')):
+        c_help, c_form, c_cap, c_lower = st.columns(move_format)
+    elif (st.session_state.tool_access.get('hints') 
+        and not st.session_state.tool_access.get('arrow') 
+        and st.session_state.tool_access.get('cap')
+        and st.session_state.tool_access.get('search')):
+        c_help, c_form, c_cap, c_lower, c_search = st.columns(move_format)
+    elif (st.session_state.tool_access.get('hints') 
+        and st.session_state.tool_access.get('arrow') 
+        and not st.session_state.tool_access.get('cap')
+        and st.session_state.tool_access.get('search')):
+        c_help, c_move, c_form, c_search = st.columns(move_format)
     elif (not st.session_state.tool_access.get('hints') 
         and st.session_state.tool_access.get('cap')
         and st.session_state.tool_access.get('search')):
@@ -2453,6 +2468,63 @@ def edit_default_settings_yaml():
         # st.rerun()
 
 
+def edit_mapping():
+    st.header("Edit Mapping")
+    st.write("Assign each column name to a single category.")
+    st.session_state['refresh_mapping'] = False
+
+    # Dynamically create a list of all column names that can be assigned
+    # This assumes that the column names are the keys in the dictionary under 'rules'
+    if st.session_state.prompt_json:
+        all_column_names = list(st.session_state.prompt_json['mapping'].keys())
+
+        categories = ['TAXONOMY', 'GEOGRAPHY', 'LOCALITY', 'COLLECTING', 'MISC']
+
+        if ('mapping' not in st.session_state) or (st.session_state['mapping'] == {}):
+            st.session_state['mapping'] = {category: [] for category in categories}
+
+        if 'assigned_columns' not in st.session_state:
+            st.session_state['assigned_columns'] = []
+            for category in categories:
+                list_of_maps = st.session_state.prompt_json['mapping'][category]
+                for m in list_of_maps:
+                    st.session_state['assigned_columns'].append(m)
+
+        for category in categories:
+            # Filter out the already assigned columns
+            available_columns = [col for col in all_column_names if col not in st.session_state['assigned_columns'] or col in st.session_state['mapping'].get(category, [])]
+
+            # Ensure the current mapping is a subset of the available options
+            current_mapping = [col for col in st.session_state['mapping'].get(category, []) if col in available_columns]
+
+            # Provide a safe default if the current mapping is empty or contains invalid options
+            safe_default = current_mapping if all(col in available_columns for col in current_mapping) else []
+
+            # Create a multi-select widget for the category with a safe default
+            selected_columns = st.multiselect(
+                f"Select columns for {category}:",
+                available_columns,
+                default=safe_default,
+                key=f"mapping_{category}"
+            )
+            # Update the assigned_columns based on the selections
+            for col in current_mapping:
+                if col not in selected_columns and col in st.session_state['assigned_columns']:
+                    st.session_state['assigned_columns'].remove(col)
+                    st.session_state['refresh_mapping'] = True
+
+            for col in selected_columns:
+                if col not in st.session_state['assigned_columns']:
+                    st.session_state['assigned_columns'].append(col)
+                    st.session_state['refresh_mapping'] = True
+
+            # Update the mapping in session state when there's a change
+            st.session_state['mapping'][category] = selected_columns
+
+        if st.button('Update Mapping'):
+            set_column_groups(st.session_state.prompt_json)
+
+
 def show_settings_selection():
     st.write('---')
     st.subheader('Load VVE Configuration File')
@@ -2460,7 +2532,7 @@ def show_settings_selection():
     with c1:
         # show the settings files
         subfiles_settings = [f for f in os.listdir(st.session_state.dir_settings) if os.path.isfile(os.path.join(st.session_state.dir_settings, f))]
-        selected_settings_file = st.selectbox("Select a configuration file", subfiles_settings,help=HelpText.splash_config)
+        selected_settings_file = st.selectbox("Select a configuration file", subfiles_settings,help=HelpText.splash_config,)
         if selected_settings_file:
             st.session_state.settings_file = os.path.join(st.session_state.dir_settings, selected_settings_file)
 
@@ -2469,6 +2541,7 @@ def show_settings_selection():
 
         st.subheader("Edit the default.yaml file")
         edit_default_settings_yaml()
+        # edit_mapping()
     with c2:
         st.write("Example configuration .yaml file format")
         st.text(HelpText.splash_config_json_str)

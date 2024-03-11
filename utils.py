@@ -133,7 +133,9 @@ def replace_base_path(old_path, new_base_path, opt):
     
     if target_dir is None:
         raise ValueError(f"Invalid option: {opt}")
-    
+
+    normalized_old_path = normalized_old_path.replace('\\', os.path.sep)
+
     # Split the normalized path into parts
     parts = normalized_old_path.split(os.path.sep)
     
