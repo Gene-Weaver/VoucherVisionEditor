@@ -138,7 +138,7 @@ if 'prompt_json' not in st.session_state:
     st.session_state.prompt_json = None  
 
 if 'form_hint_location' not in st.session_state:
-    st.session_state.form_hint_location = 'Right'     
+    st.session_state.form_hint_location = 'Left'     
 
 if 'search_term' not in st.session_state:
     st.session_state.search_term = ''
