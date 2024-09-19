@@ -81,6 +81,8 @@ if "progress_index" not in st.session_state:
 if "access_option" not in st.session_state:
     st.session_state.access_option = 'Labeler'
 
+if "prompt_mapping" not in st.session_state:
+    st.session_state.prompt_mapping = None
 # Store the previous value of st.session_state.access_option
 if 'previous_access_option' not in st.session_state:
     st.session_state.previous_access_option = 'Labeler'
@@ -403,7 +405,7 @@ def setup_streamlit_config(mapbox_key=None):
 #         }
 #     else:
 #         raise
-def set_column_groups(prompt_json):
+def set_column_groups():
     with open(st.session_state.settings_file, 'r') as file:
         st.session_state.settings_file_dict = yaml.safe_load(file)
     st.session_state.add_fields = st.session_state.settings_file_dict['editor']['add_fields']
@@ -411,7 +413,7 @@ def set_column_groups(prompt_json):
     
 
 
-    mapping = prompt_json['mapping']
+    mapping = st.session_state.prompt_mapping
     # Initialize an empty dictionary for the new grouping
     new_grouping = {}
 
@@ -594,7 +596,7 @@ def save_data():
     # elif st.session_state.file_name.endswith('.xlsx'):
     try:
         file_path = os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name)
-        st.session_state.data.to_excel(file_path, index=False)
+        st.session_state.data_edited.to_excel(file_path, index=False)
         # st.success('Saved (XLSX)')
         print(f"Saved (XLSX) {file_path}")
     except:
@@ -615,7 +617,7 @@ def get_current_datetime():
 def load_data():
     if 'data' not in st.session_state or st.session_state.data is None:
         if st.session_state.BASE_PATH:
-            st.session_state.BASE_PATH_transcription = os.path.join(st.session_state.BASE_PATH,'Transcription')
+            st.session_state.BASE_PATH_transcription = os.path.join(st.session_state.BASE_PATH, 'Transcription')
 
             xlsx_files = [file for file in os.listdir(st.session_state.BASE_PATH_transcription) if file.endswith('.xlsx')]
             st.session_state.working_file = st.selectbox(
@@ -623,33 +625,30 @@ def load_data():
                 xlsx_files,
                 index=None,
                 placeholder="",
-                )
+            )
 
             if st.session_state.working_file:
                 st.session_state.fullpath_working_file = os.path.join(st.session_state.BASE_PATH_transcription, st.session_state.working_file)
-                
-                if os.path.exists(st.session_state.fullpath_working_file):
-                    st.session_state.prompt_name = [file for file in os.listdir(os.path.join(st.session_state.BASE_PATH_transcription,'Prompt_Template')) if file.endswith('.yaml')][0] # Only take 1 prompt
-                    st.session_state.fullpath_prompt = os.path.join(st.session_state.BASE_PATH_transcription, 'Prompt_Template',st.session_state.prompt_name)
 
-                    st.session_state.wiki_file_list = [file for file in os.listdir(os.path.join(st.session_state.BASE_PATH_transcription,'Individual_Wikipedia')) if file.endswith('.json')]
+                if os.path.exists(st.session_state.fullpath_working_file):
+                    st.session_state.prompt_name = [file for file in os.listdir(os.path.join(st.session_state.BASE_PATH_transcription, 'Prompt_Template')) if file.endswith('.yaml')][0]
+                    st.session_state.fullpath_prompt = os.path.join(st.session_state.BASE_PATH_transcription, 'Prompt_Template', st.session_state.prompt_name)
+
+                    st.session_state.wiki_file_list = [file for file in os.listdir(os.path.join(st.session_state.BASE_PATH_transcription, 'Individual_Wikipedia')) if file.endswith('.json')]
                     for wiki_file in st.session_state.wiki_file_list:
                         fname = os.path.basename(wiki_file).split(".")[0]
-                        st.session_state.wiki_file_dict[fname] = os.path.join(st.session_state.BASE_PATH_transcription,'Individual_Wikipedia',wiki_file)
-
+                        st.session_state.wiki_file_dict[fname] = os.path.join(st.session_state.BASE_PATH_transcription, 'Individual_Wikipedia', wiki_file)
 
                     # Read the YAML file and convert it to a JSON object
                     with open(st.session_state.fullpath_prompt, 'r') as file:
                         st.session_state.prompt_json = yaml.safe_load(file)
-
-                    
+                        st.session_state.prompt_mapping = st.session_state.prompt_json['mapping']
 
                     data = pd.read_excel(st.session_state.fullpath_working_file, dtype=str)
                     st.session_state.data_transcription = data
                     st.session_state.n_columns = data.shape[1]
 
-                    set_column_groups(st.session_state.prompt_json)
-
+                    set_column_groups()
 
                     if "track_view" not in data.columns:
                         data["track_view"] = 'False'
@@ -658,17 +657,16 @@ def load_data():
 
                     st.session_state.data = data.fillna('')
 
-                    ### Rename the new file at the time of editing
+                    # Rename the new file at the time of editing
                     st.session_state.current_time = get_current_datetime()
-                    # Does the working_file already have __edited__
                     tracker = '__edited__'
                     if tracker in st.session_state.working_file:
                         print("OPT1")
                         base = st.session_state.working_file.split(tracker)[0]
-                        st.session_state.file_name = f"{base}{tracker}{st.session_state.current_time}.xlsx" 
-                    else: # new transcription 
+                        st.session_state.file_name = f"{base}{tracker}{st.session_state.current_time}.xlsx"
+                    else:  # new transcription
                         print("OPT2")
-                        st.session_state.file_name = f"{st.session_state.working_file.split('.')[0]}{tracker}{st.session_state.current_time}.xlsx" 
+                        st.session_state.file_name = f"{st.session_state.working_file.split('.')[0]}{tracker}{st.session_state.current_time}.xlsx"
 
                     # If BASE_PATH is provided, replace old base paths in the dataframe
                     if st.session_state.BASE_PATH != '':
@@ -676,53 +674,71 @@ def load_data():
                         st.session_state.data['path_to_original'] = st.session_state.data['path_to_original'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'original'))
                         st.session_state.data['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'jpg'))
                         st.session_state.data['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'json'))
-                        print(st.session_state.data['path_to_crop'])
-                        print(st.session_state.data['path_to_original'])
-                        print(st.session_state.data['path_to_helper'])
-                        print(st.session_state.data['path_to_content'])
+
                     # Determine SAVE_DIR from the 'path_to_content' column
                     first_path_to_content = st.session_state.data['path_to_content'][0]
-                    print("")
-                    print(first_path_to_content)
-                    print("")
                     parts = first_path_to_content.split(os.path.sep)
                     transcription_index = parts.index('Transcription') if 'Transcription' in parts else None
-                    print("")
-                    print(parts)
-                    print("")
                     if transcription_index is not None:
-                        # add a slash after the drive letter if it is missing
                         if len(parts[0]) == 2 and parts[0][1] == ":":
                             parts[0] += os.path.sep
-                        st.session_state.SAVE_DIR = os.path.join(*parts[:transcription_index+1])
-                        print(f"Saving edited file to {st.session_state.SAVE_DIR}")
+                        st.session_state.SAVE_DIR = os.path.join(*parts[:transcription_index + 1])
                         if not os.path.exists(st.session_state.SAVE_DIR):
-                            print("UH OH! new dir created but it should not be")
                             os.makedirs(st.session_state.SAVE_DIR)
-                    
+
                     ######### Add new fields to the XLSX
                     for group, columns in st.session_state.add_fields.items():
-                        # Check if 'filename' column exists in the DataFrame
                         if 'filename' in st.session_state.data.columns:
-                            # Find the index of the 'filename' column
                             filename_col_index = st.session_state.data.columns.get_loc('filename')
-                            
-                            # Insert new columns before 'filename'
-                            # Assuming `columns` is a list of column names to be added
                             for col in columns:
-                                # Check if column already exists, if not, insert new column with empty list
                                 if col not in st.session_state.data.columns:
-                                    st.session_state.data.insert(filename_col_index, col, ["" for _ in range(len(st.session_state.data))])
-                                    # Update the index for next column to insert in sequence
+                                    st.session_state.data.insert(filename_col_index, col, [""] * len(st.session_state.data))
                                     filename_col_index += 1
                         else:
-                            # If 'filename' column does not exist and you still want to add the columns, append them
-                            # Or, if you prefer not to add the columns when 'filename' is missing, you can continue to the next iteration
-                            # For example, to append at the end:
                             for col in columns:
                                 if col not in st.session_state.data.columns:
-                                    st.session_state.data[col] = ["" for _ in range(len(st.session_state.data))]
+                                    st.session_state.data[col] = [""] * len(st.session_state.data)
+
+                    # Create data_edited DataFrame
+                    st.session_state.data_edited = pd.DataFrame(columns=st.session_state.data.columns)
+                    st.session_state.data_edited['catalogNumber'] = st.session_state.data['catalogNumber']
+
+                    # Initialize columns before 'filename' to empty strings
+                    for col in st.session_state.data.columns:
+                        if col != 'catalogNumber' and st.session_state.data.columns.get_loc(col) < st.session_state.data.columns.get_loc('filename'):
+                            st.session_state.data_edited[col] = [''] * len(st.session_state.data)
+                        else:
+                            # Retain the values for 'filename' and subsequent columns
+                            st.session_state.data_edited[col] = st.session_state.data[col]
+
+
+                        # for col in st.session_state.data.columns:
+                        #     if col != 'catalogNumber':
+                        #         st.session_state.data_edited[col] = [''] * len(st.session_state.data)
+                    # print(st.session_state.data_edited.head())
+                    # print('---DE empty')
+                    # print(st.session_state.data_edited['genus'][2])
+                    # print('---DE')
+                    # print('---D full')
+                    # print(st.session_state.data['genus'][2])
+                    # print('---D\n')
+
+                    # print('---DE full')
+                    # print(st.session_state.data_edited['WFO_override_OCR'][2])
+                    # print('---DE')
+                    # print('---D full')
+                    # print(st.session_state.data['WFO_override_OCR'][2])
+                    # print('---D\n')
+
+                    # print('---DE full')
+                    # print(st.session_state.data_edited['filename'][2])
+                    # print('---DE')
+                    # print('---D full')
+                    # print(st.session_state.data['filename'][2])
+                    # print('---D\n')
+
                 st.button("Start Editing", on_click=start_editing_btn, type="primary")
+
         
 def start_editing_btn():
     st.session_state.start_editing = True
@@ -862,18 +878,18 @@ def get_directory_paths(args):
 
 def add_default_option_if_not_present():
     # Add default option if "track_edit" is empty and doesn't contain the default option already
-    if group_options[0] not in st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"].split(","):
-        if st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"]:
-            st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] += "," + group_options[0]
+    if group_options[0] not in st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"].split(","):
+        if st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"]:
+            st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"] += "," + group_options[0]
         else:
-            st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] = group_options[0]
+            st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"] = group_options[0]
 
 ###############################################################
 #################      Progress Bars       ####################
 ###############################################################
 def update_progress_bar():
     # Split the "track_edit" field into a list of options
-    current_options = st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"].split(",")
+    current_options = st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"].split(",")
 
     # Count how many of the options are in group_options
     pg = len([option for option in current_options if option in group_options])
@@ -893,13 +909,13 @@ def update_progress_bar():
 
 def update_progress_bar_overall():
     # Get the index of the last True value in "track_view"
-    last_true_index = st.session_state.data[st.session_state.data["track_view"] == 'True'].index.max()
+    last_true_index = st.session_state.data_edited[st.session_state.data_edited["track_view"] == 'True'].index.max()
 
     # Get total number of rows
-    total_rows = len(st.session_state.data)
+    total_rows = len(st.session_state.data_edited)
 
     # Find the last row where "track_edit" has all group options
-    last_full_view_index = st.session_state.data[st.session_state.data["track_edit"].apply(lambda x: set(group_options).issubset(set(x.split(','))))].index.max()
+    last_full_view_index = st.session_state.data_edited[st.session_state.data_edited["track_edit"].apply(lambda x: set(group_options).issubset(set(x.split(','))))].index.max()
     # Handle NaN last_full_view_index
     if pd.isnull(last_full_view_index):
         last_full_view_index = 0
@@ -1072,14 +1088,14 @@ def load_json_helper_files():
     Updates the st.session_state with 'json_dict' for the helper JSON and 'OCR_JSON' for the OCR data.
     """
     if st.session_state['last_row_to_edit'] != st.session_state.row_to_edit:
-        JSON_path = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_content"]
+        JSON_path = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_content"]
 
         if JSON_path:
             with open(JSON_path, "r") as file:
                 st.session_state['json_dict'] = json.load(file)
 
         # Load second JSON (OCR)
-        original_JSON_path = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_content"]
+        original_JSON_path = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_content"]
         
         if original_JSON_path:
             # Breakdown the path into parts
@@ -1107,13 +1123,13 @@ def on_press_previous():
     st.session_state.progress_counter = 0
     if st.session_state.current_options:
         # Store current options as a list in "track_edit" column
-        st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] = st.session_state.current_options
+        st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"] = st.session_state.current_options
     # Add default option if "track_edit" is empty and doesn't contain the default option already
     add_default_option_if_not_present()
 
-    if st.session_state.row_to_edit == st.session_state.data.index[0]:
+    if st.session_state.row_to_edit == st.session_state.data_edited.index[0]:
         if st.session_state.access_option == 'Admin':
-            st.session_state.row_to_edit = st.session_state.data.index[-1]
+            st.session_state.row_to_edit = st.session_state.data_edited.index[-1]
     else:
         st.session_state.row_to_edit -= 1
 
@@ -1130,12 +1146,12 @@ def on_press_next(group_options):
         st.session_state.progress_index = 0
         if st.session_state.current_options:
             # Store current options as a list in "track_edit" column
-            st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] = st.session_state.current_options
+            st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"] = st.session_state.current_options
         # Add default option if "track_edit" is empty and doesn't contain the default option already
         add_default_option_if_not_present()
 
-        if st.session_state.row_to_edit == st.session_state.data.index[-1]:
-            st.session_state.row_to_edit = st.session_state.data.index[0]
+        if st.session_state.row_to_edit == st.session_state.data_edited.index[-1]:
+            st.session_state.row_to_edit = st.session_state.data_edited.index[0]
         else:
             st.session_state.row_to_edit += 1
 
@@ -1159,21 +1175,22 @@ def on_press_confirm_content(group_options):
             st.session_state["group_option"] = option
             group_option = option
 
-            if "track_edit" not in st.session_state.data.columns:
-                st.session_state.data["track_edit"] = [[group_options[0]] if group_options[0] else [] for _ in range(len(st.session_state.data))]
+            if "track_edit" not in st.session_state.data_edited.columns:
+                st.session_state.data_edited["track_edit"] = [[group_options[0]] if group_options[0] else [] for _ in range(len(st.session_state.data_edited))]
+                # st.session_state.data["track_edit"] = [[group_options[0]] if group_options[0] else [] for _ in range(len(st.session_state.data))]
 
             if st.session_state.access_option != 'Admin': 
-                if option not in st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"].split(","):
-                    current_edit_track = st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"]
+                if option not in st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"].split(","):
+                    current_edit_track = st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"]
                     if current_edit_track:
                         new_edit_track = current_edit_track + "," + option
                     else:
                         new_edit_track = option
-                    st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"] = new_edit_track
+                    st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"] = new_edit_track
 
                     add_default_option_if_not_present()
 
-    for col in helper_map:
+    for col in st.session_state.prompt_mapping:
         helper_input_key = f"helper_{col}"
         st.session_state[helper_input_key] = None
 
@@ -1244,12 +1261,12 @@ helper_map = {
 def display_wfo_badge():
     if st.session_state.tool_access.get('wfo_badge'):
             st.session_state.wfo_match_level = "No Match"
-            is_exact_match = st.session_state.data['WFO_exact_match'][st.session_state.row_to_edit]
+            is_exact_match = st.session_state.data_edited['WFO_exact_match'][st.session_state.row_to_edit]
             if is_exact_match == 'True':
                 hint = ("World Flora Online", "Exact Match", "#059c1b")  # Red for invalid
                 st.session_state.wfo_match_level = "Exact Match"
             else:
-                is_best_match = st.session_state.data['WFO_best_match'][st.session_state.row_to_edit]
+                is_best_match = st.session_state.data_edited['WFO_best_match'][st.session_state.row_to_edit]
                 if len(is_best_match) > 0:
                     hint = ("World Flora Online", "Partial Match", "#0252c9")  # Red for invalid
                     st.session_state.wfo_match_level =  "Partial Match"
@@ -1434,11 +1451,14 @@ def display_layout_with_helpers(group_option):
                 if st.session_state.tool_access.get('search'):
                     display_search_button(col, c_search)
                 if st.session_state.tool_access.get('arrow') and st.session_state.tool_access.get('hints'):
-                    display_helper_input(col, c_help, c_move=c_move, move_arrow=move_arrow)
+                    display_LLM_input(col, c_help, c_move=c_move, move_arrow=move_arrow)
+                    # display_helper_input(col, c_help, c_move=c_move, move_arrow=move_arrow)
                 elif not st.session_state.tool_access.get('arrow') and st.session_state.tool_access.get('hints'):
-                    display_helper_input(col, c_help, c_move=None, move_arrow=None)
+                    display_LLM_input(col, c_help, c_move=None, move_arrow=None)
+                    # display_helper_input(col, c_help, c_move=None, move_arrow=None)
                 else:
-                    display_helper_input(col, c_help=None, c_move=None, move_arrow=None)
+                    display_LLM_input(col, c_help=None, c_move=None, move_arrow=None)
+                    # display_helper_input(col, c_help=None, c_move=None, move_arrow=None)
 
 
     
@@ -1455,17 +1475,51 @@ def form_layout(group_option, col, c_form):
             handle_column_input(col, unique_key, color)
 
 
+def display_LLM_input(col, c_help, c_move, move_arrow):
+    LLM_input_key = f"LLM_{col}"
+
+    # Check if the column should be displayed
+    if col in st.session_state.hide_fields:  # Adjust condition based on your requirements
+        return
+
+    # Get the suggested value directly from the data DataFrame
+    if col in st.session_state.data.columns:
+        suggested_value = str(st.session_state.data[col][st.session_state.row_to_edit]) if st.session_state.row_to_edit < len(st.session_state.data) else ''
+    else:
+        suggested_value = ''
+
+    # Initialize the session state variable before widget creation
+    if LLM_input_key not in st.session_state:
+        st.session_state[LLM_input_key] = suggested_value
+
+    # Initialize the session state variable before widget creation
+    if LLM_input_key not in st.session_state:
+        st.session_state[LLM_input_key] = suggested_value
+
+    # Display the input field
+    with c_help:
+
+        input_type = determine_input_type(col,suggested_value)
+        
+        input_type(f"{col} (LLM)", suggested_value, key=f"{LLM_input_key}_input", disabled=True)
+        # st.text_input(f"{col} (LLM)", value=suggested_value, key=f"{LLM_input_key}_input", placeholder=suggested_value)
+
+        # Call the function to display the move button
+        display_move_button(col, c_move, move_arrow, help_opt='LLM')
+
+
+
 
 def display_helper_input(col, c_help, c_move, move_arrow):
     helper_input_key = f"helper_{col}"
 
     if st.session_state.tool_access.get('hints'):
-        if (col not in helper_map) or (col in st.session_state.hide_fields): # TODO make helper_map a config file
+        if (col not in st.session_state.prompt_mapping) or (col in st.session_state.hide_fields): # TODO make helper_map a config file
             # Display a disabled text input for alignment purposes
             # st.text_input(f"{col}", '', key=f"disabled_helper_{col}", disabled=True)
             pass
         else:
-            helper_key = helper_map[col]
+            helper_key = st.session_state.prompt_mapping[col]
             hint_type = helper_key.split('_')
             suggested_value = str(st.session_state.data[helper_key][st.session_state.row_to_edit])
             if suggested_value:
@@ -1504,14 +1558,14 @@ def display_helper_input(col, c_help, c_move, move_arrow):
                     else:
                         st.text_input(f"{col} (hint)", value=suggested_value, key=f"{helper_input_key}_input", placeholder=suggested_value)
                 
-                display_move_button(col, c_move, move_arrow)
+                display_move_button(col, c_move, move_arrow, help_opt='help')
 
 
 
 
 def get_columns_to_show(group_option):
     #"""Return the columns to be shown based on the group option."""
-    return st.session_state.data.columns if group_option == "ALL" else st.session_state.grouping[group_option]
+    return st.session_state.data_edited.columns if group_option == "ALL" else st.session_state.grouping[group_option]
 
 def prepare_column(col):
     #"""Prepare unique key and color for the given column."""
@@ -1536,7 +1590,7 @@ def get_color(col):
 def handle_column_input(col, unique_key, color):
     #"""Handle input for the given column."""
     colored_label = f"{color}[{col}]"
-    value = st.session_state.data.loc[st.session_state.row_to_edit, col]
+    value = st.session_state.data_edited.loc[st.session_state.row_to_edit, col]
     input_type = determine_input_type(col, value)
     st.session_state.user_input[col] = input_type(colored_label, value, key=unique_key)
     update_data_if_changed(col, value)
@@ -1554,19 +1608,19 @@ def determine_input_type(col, value):
     else:
         return st.text_input
 
-def handle_catalog_number_input(colored_label, value, key):
+def handle_catalog_number_input(colored_label, value, key, disabled=True):
     #"""Handle input specifically for 'catalogNumber'."""
     access_option = st.session_state.access_option
     if access_option == 'Admin':
         return st.text_input(colored_label, value, key=key)
     elif access_option == 'Labeler':
-        return st.text_input(colored_label, value, key=key, disabled=True)
+        return st.text_input(colored_label, value, key=key, disabled=disabled)
     return st.text_input(colored_label, value, key=key)
 
 def update_data_if_changed(col, original_value):
     #"""Update the session state data if the value has changed."""
     if st.session_state.user_input[col] != original_value:
-        st.session_state.data.loc[st.session_state.row_to_edit, col] = st.session_state.user_input[col]
+        st.session_state.data_edited.loc[st.session_state.row_to_edit, col] = st.session_state.user_input[col]
         save_data()
 
 # def display_helper_data(col):
@@ -1576,28 +1630,32 @@ def update_data_if_changed(col, original_value):
 #     if suggested_value is not None:
 #         st.write(f"Suggested {col}: {suggested_value}")
 
-def display_move_button(col, in_column, move_arrow):
+def display_move_button(col, in_column, move_arrow, help_opt):
     if st.session_state.tool_access.get('arrow'):
         with in_column:
             #"""Display a move button for the given column."""
-            if col in helper_map:
-                move_key = f"{col}_to_{helper_map[col]}"
-                st.write("")
-                st.write("")
-                st.button(move_arrow, key=move_key,on_click=move_suggested_data, args=[col, helper_map],use_container_width=True)
-            else:
-                pass
+            # if col in st.session_state.prompt_mapping:
+            move_key = f"{col}_to_{col}_edited"
+            st.write("")
+            st.write("")
+            st.button(move_arrow, key=move_key,on_click=move_suggested_data, args=[col, help_opt],use_container_width=True)
+            # else:
+                # pass
 
 
-def move_suggested_data(col_to, helper_map):
+def move_suggested_data(col_to, help_opt):
     """Move suggested data to the main form input for the given column."""
-    helper_value = helper_map[col_to]
+    # helper_value = st.session_state.prompt_mapping[col_to]
     # helper_value_text = st.session_state.data.loc[st.session_state.row_to_edit, helper_value]
-    helper_value_text = st.session_state[f"helper_{col_to}_input"]
-    if helper_value is not None:
-        st.session_state.user_input[col_to] = helper_value_text
-        st.session_state.data.at[st.session_state.row_to_edit, col_to] = helper_value_text
-        save_data()
+    if help_opt == 'help':
+        helper_value_text = st.session_state[f"helper_{col_to}_input"]
+    else: # 'LLM'
+        helper_value_text = st.session_state[f"LLM_{col_to}_input"]
+
+    # if helper_value is not None:
+    st.session_state.user_input[col_to] = helper_value_text
+    st.session_state.data_edited.at[st.session_state.row_to_edit, col_to] = helper_value_text
+    save_data()
 
 
 
@@ -1615,9 +1673,9 @@ def display_lower_case_button(col, in_column):
 
 
 def apply_lower_case(col_to):
-    if st.session_state.data.at[st.session_state.row_to_edit, col_to] is not None:
+    if st.session_state.data_edited.at[st.session_state.row_to_edit, col_to] is not None:
         try:
-            st.session_state.data.at[st.session_state.row_to_edit, col_to] = st.session_state.data.at[st.session_state.row_to_edit, col_to].lower()
+            st.session_state.data_edited.at[st.session_state.row_to_edit, col_to] = st.session_state.data_edited.at[st.session_state.row_to_edit, col_to].lower()
             save_data()
         except Exception as e:
             print(e)
@@ -1637,9 +1695,9 @@ def display_cap_case_button(col, in_column):
 
 
 def apply_cap_case(col_to):
-    if st.session_state.data.at[st.session_state.row_to_edit, col_to] is not None:
+    if st.session_state.data_edited.at[st.session_state.row_to_edit, col_to] is not None:
         try:
-            st.session_state.data.at[st.session_state.row_to_edit, col_to] = st.session_state.data.at[st.session_state.row_to_edit, col_to].capitalize()
+            st.session_state.data_edited.at[st.session_state.row_to_edit, col_to] = st.session_state.data_edited.at[st.session_state.row_to_edit, col_to].capitalize()
             save_data()
         except Exception as e:
             print(e)
@@ -1708,10 +1766,11 @@ def apply_search(col_to):
 def load_yaml_to_json(fullpath):
     try:
         with open(fullpath, 'r') as yaml_file:
-            yaml_data = yaml.safe_load(yaml_file)
+            json_data = yaml.safe_load(yaml_file)
             # Convert the YAML data to JSON format
-            json_data = json.dumps(yaml_data, indent=4)
-            return json_data
+            json_data_str = json.dumps(json_data, indent=4)
+
+            return json_data_str
     except Exception as e:
         print(f"Error loading YAML file: {e}")
         return None
@@ -1722,7 +1781,7 @@ def display_WFO_partial_match():
     if st.session_state.tool_access.get('wfo_links'):
         if st.session_state.wfo_match_level == "Partial Match":
             with st.expander(f"{get_color('scientificName')}[**WFO** Suggested Taxonomy]"):
-                partial_matches = st.session_state.data['WFO_candidate_names'][st.session_state.row_to_edit].split('|')
+                partial_matches = st.session_state.data_edited['WFO_candidate_names'][st.session_state.row_to_edit].split('|')
                 temp = []
                 ii = 0
                 for partial_match in partial_matches:
@@ -1804,7 +1863,7 @@ def on_press_show_helper_text():
 
 def display_wiki_taxa_main_links():
     if st.session_state.tool_access.get('taxa_links'):
-        fname = st.session_state.data['filename'][st.session_state.row_to_edit]
+        fname = st.session_state.data_edited['filename'][st.session_state.row_to_edit]
         wiki_json_path = st.session_state.wiki_file_dict[fname]
 
         if wiki_json_path:
@@ -1844,7 +1903,7 @@ def display_wiki_taxa_main_links():
 
 @st.cache_data
 def display_wiki_taxa_sub_links():
-    fname = st.session_state.data['filename'][st.session_state.row_to_edit]
+    fname = st.session_state.data_edited['filename'][st.session_state.row_to_edit]
     wiki_json_path = st.session_state.wiki_file_dict[fname]
 
     if wiki_json_path:
@@ -1862,7 +1921,7 @@ def display_wiki_taxa_sub_links():
 
 @st.cache_data
 def display_wiki_taxa_summary():
-    fname = st.session_state.data['filename'][st.session_state.row_to_edit]
+    fname = st.session_state.data_edited['filename'][st.session_state.row_to_edit]
     wiki_json_path = st.session_state.wiki_file_dict[fname]
 
     if wiki_json_path:
@@ -1879,7 +1938,7 @@ def display_wiki_taxa_summary():
 
 @st.cache_data
 def display_wiki_geo_main_links():
-    fname = st.session_state.data['filename'][st.session_state.row_to_edit]
+    fname = st.session_state.data_edited['filename'][st.session_state.row_to_edit]
     wiki_json_path = st.session_state.wiki_file_dict[fname]
 
     if wiki_json_path:
@@ -1939,14 +1998,14 @@ def display_google_search():
 ###############################################################
 def display_coordinates(n):
     with st.expander(f":earth_africa: {get_color('country')}[Mapped Coordinates]"):
-        verbatim_coordinates = st.session_state.data.loc[st.session_state.row_to_edit, 'verbatimCoordinates']
+        verbatim_coordinates = st.session_state.data_edited.loc[st.session_state.row_to_edit, 'verbatimCoordinates']
 
-        decimal_lat = st.session_state.data.loc[st.session_state.row_to_edit, 'decimalLatitude']
-        decimal_long = st.session_state.data.loc[st.session_state.row_to_edit, 'decimalLongitude']
+        decimal_lat = st.session_state.data_edited.loc[st.session_state.row_to_edit, 'decimalLatitude']
+        decimal_long = st.session_state.data_edited.loc[st.session_state.row_to_edit, 'decimalLongitude']
         decimal_coordinates = ','.join([decimal_lat,decimal_long])
 
-        decimal_lat_geo = st.session_state.data.loc[st.session_state.row_to_edit, 'GEO_decimal_lat']
-        decimal_long_geo = st.session_state.data.loc[st.session_state.row_to_edit, 'GEO_decimal_long']
+        decimal_lat_geo = st.session_state.data_edited.loc[st.session_state.row_to_edit, 'GEO_decimal_lat']
+        decimal_long_geo = st.session_state.data_edited.loc[st.session_state.row_to_edit, 'GEO_decimal_long']
         decimal_coordinates_geo = ','.join([decimal_lat_geo,decimal_long_geo])
 
         annotated_text(("Verbatim Coordinates", "", "#b86602"), ("Decimal Coordinates", " ", "#017d16"), ("Geolocation Hint", " ", "#0232b8"))
@@ -2120,15 +2179,15 @@ def image_path_and_load():
 
         # Update the image path based on the selected image option
         if st.session_state.image_option == 'Original':
-            st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_original"]
+            st.session_state['image_path'] = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_original"]
             st.session_state['image'] = Image.open(st.session_state['image_path'])
             st.session_state.relative_path_to_static = image_to_server()
         elif st.session_state.image_option == 'Cropped':
-            st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_crop"]
+            st.session_state['image_path'] = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_crop"]
             st.session_state['image'] = Image.open(st.session_state['image_path'])
             st.session_state.relative_path_to_static = image_to_server()
         elif st.session_state.image_option == 'Helper':
-            st.session_state['image_path'] = st.session_state.data.loc[st.session_state.row_to_edit, "path_to_helper"]
+            st.session_state['image_path'] = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_helper"]
             st.session_state['image'] = Image.open(st.session_state['image_path'])
             st.session_state.relative_path_to_static = image_to_server()
 
@@ -2521,7 +2580,7 @@ def edit_mapping():
             st.session_state['mapping'][category] = selected_columns
 
         if st.button('Update Mapping'):
-            set_column_groups(st.session_state.prompt_json)
+            set_column_groups()
 
 
 def show_settings_selection():
@@ -2551,6 +2610,8 @@ def show_settings_selection():
 ###############################################################
 if 'data' not in st.session_state:
     st.session_state.data = None
+if 'data_edited' not in st.session_state:
+    st.session_state.data_edited = None
 
 if st.session_state.data is None or not st.session_state.start_editing:
     clear_directory()
@@ -2596,7 +2657,7 @@ if st.session_state.start_editing:
     
     # Create a button for each category group, used for tracking
     for i, option in enumerate(group_options):
-        if option in st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"].split(","):
+        if option in st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"].split(","):
             if group_option_cols[i].button(option, use_container_width=True):
                 st.session_state["group_option"] = option
                 group_option = option
@@ -2612,7 +2673,7 @@ if st.session_state.start_editing:
     if st.session_state.view_option == "Form View":
 
         with c_left:
-            if (st.session_state.progress == 0) and group_options[0] not in st.session_state.data.loc[st.session_state.row_to_edit, "track_edit"]: 
+            if (st.session_state.progress == 0) and group_options[0] not in st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"]: 
                 # Add default option if "track_edit" is empty and doesn't contain the default option already
                 add_default_option_if_not_present()
                 st.rerun()
@@ -2634,7 +2695,7 @@ if st.session_state.start_editing:
 
                         
             # Get the current row from the spreadsheet, show the index
-            n_rows = len(st.session_state.data)
+            n_rows = len(st.session_state.data_edited)
             with c_index:
                 st.write(f"**Image {st.session_state.row_to_edit+1} / {n_rows}**")
             
@@ -2646,7 +2707,7 @@ if st.session_state.start_editing:
           
         # Update the track_view column for the current row
         if st.session_state.access_option != 'Admin': # ONLY add views if in the label tab
-            st.session_state.data.loc[st.session_state.row_to_edit, "track_view"] = 'True'
+            st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_view"] = 'True'
         
 
     ### Show the spreadsheet layout
@@ -2655,24 +2716,24 @@ if st.session_state.start_editing:
             st.write("Skipping ahead (editing in the 'Form View' out of order) will cause issues if all 5 groups are selected while skipping ahead.")
             st.write("If skipping ahead, only use the 'ALL' option until returning to sequential editing.")
             # Reorder the columns to have "track_view" and "track_edit" at the beginning
-            reordered_columns = ['track_view', 'track_edit'] + [col for col in st.session_state.data.columns if col not in ['track_view', 'track_edit']]
-            st.session_state.data = st.session_state.data[reordered_columns]
+            reordered_columns = ['track_view', 'track_edit'] + [col for col in st.session_state.data_edited.columns if col not in ['track_view', 'track_edit']]
+            st.session_state.data_edited = st.session_state.data_edited[reordered_columns]
 
             # If the view option is "Data Editor", create a new full-width container for the editor
             with st.container():
-                edited_data = st.data_editor(st.session_state.data)
+                edited_data = st.data_editor(st.session_state.data_edited)
                 b_color = "black"
                 b_text = "Save Edits"
                 b_label = f":{b_color}[{b_text}]"
                 if st.button(label=b_label, type="primary", use_container_width=True):
                     # Save the edited data back to the session state data
-                    st.session_state.data = edited_data
+                    st.session_state.data_edited = edited_data
                     save_data()
 
                 # Slider or number input to select the row
                 # Only display the slider if there are 2 or more rows
-                if len(st.session_state.data) >= 2:
-                    slider_value = st.slider("Select a row to display its image", min_value=st.session_state.data.index[0], max_value=st.session_state.data.index[-1], value=int(st.session_state.row_to_edit))
+                if len(st.session_state.data_edited) >= 2:
+                    slider_value = st.slider("Select a row to display its image", min_value=st.session_state.data_edited.index[0], max_value=st.session_state.data_edited.index[-1], value=int(st.session_state.row_to_edit))
 
                     # Only update the row_to_edit if slider value changes
                     if slider_value != st.session_state.row_to_edit:
@@ -2680,7 +2741,7 @@ if st.session_state.start_editing:
                     save_data()
                     
                 # Display the current row
-                n_rows = len(st.session_state.data)-1
+                n_rows = len(st.session_state.data_edited)-1
                 st.write(f"**Showing image for row {st.session_state.row_to_edit} / {n_rows}**")
             # c_gps, c_form = st.columns([4,4])
 
