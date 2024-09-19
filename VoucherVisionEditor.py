@@ -23,7 +23,6 @@ from text import HelpText
 # Linux
 # export SAVE_DIR=/path/to/save/dir && streamlit run your_script.py
 
-
 ### To run:
 # streamlit run VoucherVisionEditor.py -- 
 # --base-path D:/D_Desktop/LM2/Asa_Gray/Transcription
