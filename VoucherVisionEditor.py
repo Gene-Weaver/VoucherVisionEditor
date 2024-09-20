@@ -11,6 +11,11 @@ from annotated_text import annotated_text
 from datetime import datetime
 from contextlib import contextmanager
 
+import aiohttp
+import asyncio
+import backoff
+# from streamlit.script_runner import StopException
+
 import cProfile
 import pstats
 
@@ -177,9 +182,8 @@ if 'hide_fields' not in st.session_state:
 
 if 'add_fields' not in st.session_state:
     st.session_state.add_fields = {}
-    
-    
-    
+
+
 if 'tool_access' not in st.session_state:
     st.session_state.tool_access = {
         'form': True, #ALWAYS TRUE
@@ -1645,6 +1649,19 @@ def apply_cap_case(col_to):
             print(e)
             pass
 
+# Helper function for asynchronous HTTP GET request
+async def fetch(session, url):
+    async with session.get(url) as response:
+        return await response.text()
+
+# Backoff in case of client errors or rate limits
+@backoff.on_exception(backoff.expo,
+                      (aiohttp.ClientError, aiohttp.ClientResponseError),
+                      max_time=60)
+async def fetch_with_backoff(url):
+    async with aiohttp.ClientSession() as session:
+        return await fetch(session, url)
+    
 def display_search_button(col, in_column):
     if col not in st.session_state.hide_fields:
         symbol = ":mag:"
@@ -1656,54 +1673,87 @@ def display_search_button(col, in_column):
             st.write("")
             st.button(symbol, key=true_key,on_click=apply_search, args=[col], use_container_width=True)
 
+# Synchronous wrapper for the asynchronous fetch to use with Streamlit
+def sync_fetch(url):
+    loop = asyncio.get_event_loop()
+    if loop.is_running():
+        # If the loop is already running, we need a different handling approach, such as running in a separate thread
+        # For simplicity, let's assume we're not handling this part here
+        raise RuntimeError("Cannot run async operations directly from Streamlit callbacks.")
+    else:
+        return loop.run_until_complete(fetch_with_backoff(url))
 
 def apply_search(col_to):
-    wrapper = DuckDuckGoSearchAPIWrapper(max_results=2)
-    search = DuckDuckGoSearchRun(api_wrapper=wrapper)
     st.session_state.search_results_duckduckgo = None
     if st.session_state.data.at[st.session_state.row_to_edit, col_to] is not None:
         try:
+            query = st.session_state.data.at[st.session_state.row_to_edit, col_to]
+            query_prefix = ""
             if col_to in st.session_state.search_info_plants:
-                query = f"Plant {col_to} " + st.session_state.data.at[st.session_state.row_to_edit, col_to]
-                res = search.run(query).replace('...', '\n\n')
-                search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
-                st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
-            elif col_to in st.session_state.search_info_geo:
-                if col_to in ['country', 'stateProvince', 'county', 'municipality']:
-                    country = st.session_state.data.at[st.session_state.row_to_edit, 'country']
-                    stateProvince = st.session_state.data.at[st.session_state.row_to_edit, 'stateProvince']
-                    county = st.session_state.data.at[st.session_state.row_to_edit, 'county']
-                    municipality = st.session_state.data.at[st.session_state.row_to_edit, 'municipality']
-                    query = ' '.join([municipality, county, stateProvince, country])
-                elif col_to in ['decimalLatitude', 'decimalLongitude', ]:
-                    decimalLatitude = st.session_state.data.at[st.session_state.row_to_edit, 'decimalLatitude']
-                    decimalLongitude = st.session_state.data.at[st.session_state.row_to_edit, 'decimalLongitude']
-                    query = ' '.join([decimalLatitude, decimalLongitude])
-                else:
-                    query = f"Location {col_to} " + st.session_state.data.at[st.session_state.row_to_edit, col_to]
-                res = search.run(query).replace('...', '\n\n')
-                search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
-                st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
-            elif col_to in st.session_state.search_info_people:
-                query = f"Botanist Person {col_to} " + st.session_state.data.at[st.session_state.row_to_edit, col_to]
-                res = search.run(query).replace('...', '\n\n')
-                search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
-                st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
-            else:
-                query = st.session_state.data.at[st.session_state.row_to_edit, col_to]
-                res = search.run(query).replace('...', '\n\n')
-                search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
-                st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
-            st.session_state.search_term = query
-
+                query_prefix = "Plant "
+            elif col_to in st.session_state.search_info_geo or col_to in st.session_state.search_info_people:
+                query_prefix = "Location " if col_to in st.session_state.search_info_geo else "Botanist Person "
+            
+            full_query = f"{query_prefix}{col_to} {query}"
+            url = f"https://api.duckduckgo.com/?q={full_query.replace(' ', '+')}&format=json"
+            result = sync_fetch(url)
+            
+            st.session_state.search_results_duckduckgo = result  # Assume JSON response or modify as needed
+            st.session_state.search_term = full_query
+            
             if st.session_state.google_search_new_window:
                 google_search_url = f"https://www.google.com/search?q={st.session_state.search_term.replace(' ', '+')}"
                 link_html = f'<a href="{google_search_url}" target="_blank">Search Google for "{st.session_state.search_term}"</a>'
                 st.markdown(link_html, unsafe_allow_html=True)
-
         except Exception as e:
-            print(e)
-            pass
+            st.error(f"Failed to fetch data: {str(e)}")
+# def apply_search(col_to):
+#     wrapper = DuckDuckGoSearchAPIWrapper(max_results=2)
+#     search = DuckDuckGoSearchRun(api_wrapper=wrapper)
+#     st.session_state.search_results_duckduckgo = None
+#     if st.session_state.data.at[st.session_state.row_to_edit, col_to] is not None:
+#         try:
+#             if col_to in st.session_state.search_info_plants:
+#                 query = f"Plant {col_to} " + st.session_state.data.at[st.session_state.row_to_edit, col_to]
+#                 res = search.run(query).replace('...', '\n\n')
+#                 search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
+#                 st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
+#             elif col_to in st.session_state.search_info_geo:
+#                 if col_to in ['country', 'stateProvince', 'county', 'municipality']:
+#                     country = st.session_state.data.at[st.session_state.row_to_edit, 'country']
+#                     stateProvince = st.session_state.data.at[st.session_state.row_to_edit, 'stateProvince']
+#                     county = st.session_state.data.at[st.session_state.row_to_edit, 'county']
+#                     municipality = st.session_state.data.at[st.session_state.row_to_edit, 'municipality']
+#                     query = ' '.join([municipality, county, stateProvince, country])
+#                 elif col_to in ['decimalLatitude', 'decimalLongitude', ]:
+#                     decimalLatitude = st.session_state.data.at[st.session_state.row_to_edit, 'decimalLatitude']
+#                     decimalLongitude = st.session_state.data.at[st.session_state.row_to_edit, 'decimalLongitude']
+#                     query = ' '.join([decimalLatitude, decimalLongitude])
+#                 else:
+#                     query = f"Location {col_to} " + st.session_state.data.at[st.session_state.row_to_edit, col_to]
+#                 res = search.run(query).replace('...', '\n\n')
+#                 search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
+#                 st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
+#             elif col_to in st.session_state.search_info_people:
+#                 query = f"Botanist Person {col_to} " + st.session_state.data.at[st.session_state.row_to_edit, col_to]
+#                 res = search.run(query).replace('...', '\n\n')
+#                 search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
+#                 st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
+#             else:
+#                 query = st.session_state.data.at[st.session_state.row_to_edit, col_to]
+#                 res = search.run(query).replace('...', '\n\n')
+#                 search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
+#                 st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
+#             st.session_state.search_term = query
+
+#             if st.session_state.google_search_new_window:
+#                 google_search_url = f"https://www.google.com/search?q={st.session_state.search_term.replace(' ', '+')}"
+#                 link_html = f'<a href="{google_search_url}" target="_blank">Search Google for "{st.session_state.search_term}"</a>'
+#                 st.markdown(link_html, unsafe_allow_html=True)
+
+#         except Exception as e:
+#             print(e)
+#             pass
 
 def load_yaml_to_json(fullpath):
     try:
@@ -2466,62 +2516,163 @@ def edit_default_settings_yaml():
         st.session_state.add_fields_count += 1
         # st.rerun()
 
+def create_mapping_options():
+    mapping_options = {
+        "mapping": {
+            "TAXONOMY": [
+                "catalogNumber",
+                "order",
+                "family",
+                "scientificName",
+                "scientificNameAuthorship",
+                "genus",
+                "specificEpithet"
+            ],
+            "GEOGRAPHY": [
+                "country",
+                "stateProvince",
+                "county",
+                "municipality",
+                "decimalLatitude",
+                "decimalLongitude",
+                "verbatimCoordinates"
+            ],
+            "LOCALITY": [
+                "locality",
+                "habitat",
+                "minimumElevationInMeters",
+                "maximumElevationInMeters"
+            ],
+            "COLLECTING": [
+                "identifiedBy",
+                "recordedBy",
+                "recordNumber",
+                "verbatimEventDate",
+                "eventDate",
+                "degreeOfEstablishment",
+                "occurrenceRemarks"
+            ],
+            "MISC": []
+        }
+    }
+
+    # Initialize all_elements with every element from all categories
+    all_elements = set()
+    for values in mapping_options["mapping"].values():
+        all_elements.update(values)
+    all_elements = list(all_elements)  
+
+    return mapping_options, all_elements
+
+def get_unused_elements(mapping_options, all_elements, newly_selected_elements):
+    used_elements = set()
+    for values in mapping_options["mapping"].values():
+        used_elements.update(values)
+    # Consider elements used if they are newly selected but not yet reflected in the mapping
+    used_elements.update(newly_selected_elements)
+    unused_elements = set(all_elements) - used_elements
+    return list(unused_elements)
+
 
 def edit_mapping():
     st.header("Edit Mapping")
     st.write("Assign each column name to a single category.")
-    st.session_state['refresh_mapping'] = False
+
+    # Display current keys and allow users to add or remove keys
+    current_keys = list(st.session_state.mapping_options["mapping"].keys())
+    keys = st.multiselect("Select or remove keys", options=current_keys, default=current_keys)
+
+    # Prepare a new mapping structure based on the keys selected by the user
+    new_mapping = {key: st.session_state.mapping_options["mapping"].get(key, []) for key in keys}
+
+    # Identify removed keys and add their elements back to the pool of all elements
+    removed_keys = set(current_keys) - set(keys)
+    for key in removed_keys:
+        st.session_state.all_elements.extend(st.session_state.mapping_options["mapping"][key])
+
+    # Update the session state mapping to the new structure
+    st.session_state.mapping_options["mapping"] = new_mapping
+
+    # Gather user input for each key
+    selected_elements_dict = {}
+    all_elements = set(st.session_state.all_elements)
+    used_elements = set()
+
+    for key in st.session_state.mapping_options["mapping"].keys():
+        current_elements = st.session_state.mapping_options["mapping"][key]
+        used_elements.update(current_elements)
+        options = list(all_elements - used_elements) + current_elements
+        selected_elements = st.multiselect(f"Modify elements for {key}", options=options, default=current_elements)
+        selected_elements_dict[key] = selected_elements
+
+        # Update all_elements and used_elements for the next iteration
+        deselected_elements = set(current_elements) - set(selected_elements)
+        all_elements = (all_elements - used_elements) | deselected_elements
+        used_elements = used_elements - deselected_elements | set(selected_elements)
+
+    # Update the mapping based on user input
+    st.session_state.mapping_options["mapping"] = selected_elements_dict
+
+    # Update the all_Elements list based on user input
+    st.session_state.all_elements = list(all_elements)
+
+    # Debugging: Display the updated mapping and available elements
+    st.write("Updated Mapping:", st.session_state.mapping_options)
+    st.write("Available Elements:", st.session_state.all_elements)
+
+
 
     # Dynamically create a list of all column names that can be assigned
     # This assumes that the column names are the keys in the dictionary under 'rules'
-    if st.session_state.prompt_json:
-        all_column_names = list(st.session_state.prompt_json['mapping'].keys())
+    # if st.session_state.prompt_json:
+    #     all_column_names = list(st.session_state.prompt_json['mapping'].keys())
 
-        categories = ['TAXONOMY', 'GEOGRAPHY', 'LOCALITY', 'COLLECTING', 'MISC']
+    #     categories = ['TAXONOMY', 'GEOGRAPHY', 'LOCALITY', 'COLLECTING', 'MISC']
 
-        if ('mapping' not in st.session_state) or (st.session_state['mapping'] == {}):
-            st.session_state['mapping'] = {category: [] for category in categories}
+    #     if ('mapping' not in st.session_state) or (st.session_state['mapping'] == {}):
+    #         st.session_state['mapping'] = {category: [] for category in categories}
 
-        if 'assigned_columns' not in st.session_state:
-            st.session_state['assigned_columns'] = []
-            for category in categories:
-                list_of_maps = st.session_state.prompt_json['mapping'][category]
-                for m in list_of_maps:
-                    st.session_state['assigned_columns'].append(m)
+    #     if 'assigned_columns' not in st.session_state:
+    #         st.session_state['assigned_columns'] = []
+    #         for category in categories:
+    #             list_of_maps = st.session_state.prompt_json['mapping'][category]
+    #             for m in list_of_maps:
+    #                 st.session_state['assigned_columns'].append(m)
 
-        for category in categories:
-            # Filter out the already assigned columns
-            available_columns = [col for col in all_column_names if col not in st.session_state['assigned_columns'] or col in st.session_state['mapping'].get(category, [])]
+    #     for category in categories:
+    #         # Filter out the already assigned columns
+    #         available_columns = [col for col in all_column_names if col not in st.session_state['assigned_columns'] or col in st.session_state['mapping'].get(category, [])]
 
-            # Ensure the current mapping is a subset of the available options
-            current_mapping = [col for col in st.session_state['mapping'].get(category, []) if col in available_columns]
+    #         # Ensure the current mapping is a subset of the available options
+    #         current_mapping = [col for col in st.session_state['mapping'].get(category, []) if col in available_columns]
 
-            # Provide a safe default if the current mapping is empty or contains invalid options
-            safe_default = current_mapping if all(col in available_columns for col in current_mapping) else []
+    #         # Provide a safe default if the current mapping is empty or contains invalid options
+    #         safe_default = current_mapping if all(col in available_columns for col in current_mapping) else []
 
-            # Create a multi-select widget for the category with a safe default
-            selected_columns = st.multiselect(
-                f"Select columns for {category}:",
-                available_columns,
-                default=safe_default,
-                key=f"mapping_{category}"
-            )
-            # Update the assigned_columns based on the selections
-            for col in current_mapping:
-                if col not in selected_columns and col in st.session_state['assigned_columns']:
-                    st.session_state['assigned_columns'].remove(col)
-                    st.session_state['refresh_mapping'] = True
+    #         # Create a multi-select widget for the category with a safe default
+    #         selected_columns = st.multiselect(
+    #             f"Select columns for {category}:",
+    #             available_columns,
+    #             default=safe_default,
+    #             key=f"mapping_{category}"
+    #         )
+    #         # Update the assigned_columns based on the selections
+    #         for col in current_mapping:
+    #             if col not in selected_columns and col in st.session_state['assigned_columns']:
+    #                 st.session_state['assigned_columns'].remove(col)
+    #                 st.session_state['refresh_mapping'] = True
 
-            for col in selected_columns:
-                if col not in st.session_state['assigned_columns']:
-                    st.session_state['assigned_columns'].append(col)
-                    st.session_state['refresh_mapping'] = True
+    #         for col in selected_columns:
+    #             if col not in st.session_state['assigned_columns']:
+    #                 st.session_state['assigned_columns'].append(col)
+    #                 st.session_state['refresh_mapping'] = True
 
-            # Update the mapping in session state when there's a change
-            st.session_state['mapping'][category] = selected_columns
+    #         # Update the mapping in session state when there's a change
+    #         st.session_state['mapping'][category] = selected_columns
 
-        if st.button('Update Mapping'):
-            set_column_groups(st.session_state.prompt_json)
+
+    #     if st.button('Update Mapping'):
+    #         set_column_groups(st.session_state.prompt_json)
 
 
 def show_settings_selection():
@@ -2540,7 +2691,7 @@ def show_settings_selection():
 
         st.subheader("Edit the default.yaml file")
         edit_default_settings_yaml()
-        # edit_mapping()
+        edit_mapping()
     with c2:
         st.write("Example configuration .yaml file format")
         st.text(HelpText.splash_config_json_str)
@@ -2551,6 +2702,13 @@ def show_settings_selection():
 ###############################################################
 if 'data' not in st.session_state:
     st.session_state.data = None
+
+if 'mapping_options' not in st.session_state or 'all_elements' not in st.session_state:
+        st.session_state.mapping_options, st.session_state.all_elements = create_mapping_options()
+    
+if 'new_mapping' not in st.session_state:
+    st.session_state.new_mapping = st.session_state.mapping_options["mapping"].copy()
+    
 
 if st.session_state.data is None or not st.session_state.start_editing:
     clear_directory()

@@ -7,3 +7,5 @@ langchain-community
 pandas 
 openpyxl 
 Pillow
+aiohttp 
+backoff
