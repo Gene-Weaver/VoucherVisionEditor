@@ -240,8 +240,8 @@ if 'dir_home' not in st.session_state:
     st.session_state.dir_settings = os.path.join(st.session_state.dir_home,'settings')
     st.session_state.settings_file = ""
 
-if 'data_transcription' not in st.session_state:
-    st.session_state.data_transcription = None
+if 'data' not in st.session_state:
+    st.session_state.data = None
 
 if 'wiki_file_list' not in st.session_state:
     st.session_state.wiki_file_list = []
@@ -618,7 +618,16 @@ def load_data():
     if 'data' not in st.session_state or st.session_state.data is None:
         if st.session_state.BASE_PATH:
             st.session_state.BASE_PATH_transcription = os.path.join(st.session_state.BASE_PATH, 'Transcription')
+            st.session_state.BASE_PATH_transcription_LLM = os.path.join(st.session_state.BASE_PATH, 'Transcription', 'transcribed.xlsx')
 
+            xlsx_LLM = [st.session_state.BASE_PATH_transcription_LLM]
+            xlsx_files = [file for file in os.listdir(st.session_state.BASE_PATH_transcription) if file.endswith('.xlsx')]
+            st.session_state.LLM_file = st.selectbox(
+                "LLM Transcription",
+                xlsx_LLM,
+                index=0,
+                placeholder="",
+            )
             xlsx_files = [file for file in os.listdir(st.session_state.BASE_PATH_transcription) if file.endswith('.xlsx')]
             st.session_state.working_file = st.selectbox(
                 "Select the transcription file you would like to edit",
@@ -627,10 +636,15 @@ def load_data():
                 placeholder="",
             )
 
+                
+
             if st.session_state.working_file:
                 st.session_state.fullpath_working_file = os.path.join(st.session_state.BASE_PATH_transcription, st.session_state.working_file)
 
+
                 if os.path.exists(st.session_state.fullpath_working_file):
+                    
+                    
                     st.session_state.prompt_name = [file for file in os.listdir(os.path.join(st.session_state.BASE_PATH_transcription, 'Prompt_Template')) if file.endswith('.yaml')][0]
                     st.session_state.fullpath_prompt = os.path.join(st.session_state.BASE_PATH_transcription, 'Prompt_Template', st.session_state.prompt_name)
 
@@ -644,18 +658,11 @@ def load_data():
                         st.session_state.prompt_json = yaml.safe_load(file)
                         st.session_state.prompt_mapping = st.session_state.prompt_json['mapping']
 
-                    data = pd.read_excel(st.session_state.fullpath_working_file, dtype=str)
-                    st.session_state.data_transcription = data
-                    st.session_state.n_columns = data.shape[1]
+                    st.session_state.data = pd.read_excel(st.session_state.BASE_PATH_transcription_LLM, dtype=str)
+
+                    st.session_state.n_columns = st.session_state.data.shape[1]
 
                     set_column_groups()
-
-                    if "track_view" not in data.columns:
-                        data["track_view"] = 'False'
-                    if 'track_edit' not in data.columns:
-                        data["track_edit"] = ["" for _ in range(len(data))]
-
-                    st.session_state.data = data.fillna('')
 
                     # Rename the new file at the time of editing
                     st.session_state.current_time = get_current_datetime()
@@ -687,29 +694,52 @@ def load_data():
                             os.makedirs(st.session_state.SAVE_DIR)
 
                     ######### Add new fields to the XLSX
-                    for group, columns in st.session_state.add_fields.items():
-                        if 'filename' in st.session_state.data.columns:
-                            filename_col_index = st.session_state.data.columns.get_loc('filename')
-                            for col in columns:
-                                if col not in st.session_state.data.columns:
-                                    st.session_state.data.insert(filename_col_index, col, [""] * len(st.session_state.data))
-                                    filename_col_index += 1
-                        else:
-                            for col in columns:
-                                if col not in st.session_state.data.columns:
-                                    st.session_state.data[col] = [""] * len(st.session_state.data)
+                    if st.session_state.BASE_PATH_transcription_LLM == st.session_state.fullpath_working_file:
+                        st.session_state.data = st.session_state.data.fillna('')
 
-                    # Create data_edited DataFrame
-                    st.session_state.data_edited = pd.DataFrame(columns=st.session_state.data.columns)
-                    st.session_state.data_edited['catalogNumber'] = st.session_state.data['catalogNumber']
+                        if "track_view" not in st.session_state.data.columns:
+                            st.session_state.data["track_view"] = 'False'
+                        if 'track_edit' not in st.session_state.data.columns:
+                            st.session_state.data["track_edit"] = ["" for _ in range(len(st.session_state.data))]
 
-                    # Initialize columns before 'filename' to empty strings
-                    for col in st.session_state.data.columns:
-                        if col != 'catalogNumber' and st.session_state.data.columns.get_loc(col) < st.session_state.data.columns.get_loc('filename'):
-                            st.session_state.data_edited[col] = [''] * len(st.session_state.data)
-                        else:
-                            # Retain the values for 'filename' and subsequent columns
-                            st.session_state.data_edited[col] = st.session_state.data[col]
+                    
+
+                        for group, columns in st.session_state.add_fields.items():
+                            if 'filename' in st.session_state.data.columns:
+                                filename_col_index = st.session_state.data.columns.get_loc('filename')
+                                for col in columns:
+                                    if col not in st.session_state.data.columns:
+                                        st.session_state.data.insert(filename_col_index, col, [""] * len(st.session_state.data))
+                                        filename_col_index += 1
+                            else:
+                                for col in columns:
+                                    if col not in st.session_state.data.columns:
+                                        st.session_state.data[col] = [""] * len(st.session_state.data)
+
+                        # Create data_edited DataFrame
+                        st.session_state.data_edited = pd.DataFrame(columns=st.session_state.data.columns)
+                        st.session_state.data_edited['catalogNumber'] = st.session_state.data['catalogNumber']
+                        
+                        for col in st.session_state.data.columns:
+                            if col != 'catalogNumber' and st.session_state.data.columns.get_loc(col) < st.session_state.data.columns.get_loc('filename'):
+                                st.session_state.data_edited[col] = [''] * len(st.session_state.data)
+                            else:
+                                # Retain the values for 'filename' and subsequent columns
+                                st.session_state.data_edited[col] = st.session_state.data[col]
+                        
+                        
+                    else:
+                        st.session_state.data_edited = pd.read_excel(st.session_state.fullpath_working_file, dtype=str)
+                        st.session_state.data_edited = st.session_state.data_edited.fillna('')
+                        # st.session_state.data_edited = pd.DataFrame(columns=st.session_state.data.columns)
+                        # If "track_edit" is present, update data_edited based on the presence of "track_edit"
+                        for col in st.session_state.data_edited.columns:
+                            # Update values where track_edit is not None
+                            st.session_state.data_edited[col] = [
+                                st.session_state.data_edited[col][i] if st.session_state.data_edited['track_edit'][i] is not None else st.session_state.data_edited[col][i]
+                                for i in range(len(st.session_state.data_edited))
+                            ]
+                        print(st.session_state.data_edited.head())
 
 
                         # for col in st.session_state.data.columns:
@@ -1260,21 +1290,21 @@ helper_map = {
 #########################################################################################################################################################################################
 def display_wfo_badge():
     if st.session_state.tool_access.get('wfo_badge'):
-            st.session_state.wfo_match_level = "No Match"
-            is_exact_match = st.session_state.data_edited['WFO_exact_match'][st.session_state.row_to_edit]
-            if is_exact_match == 'True':
-                hint = ("World Flora Online", "Exact Match", "#059c1b")  # Red for invalid
-                st.session_state.wfo_match_level = "Exact Match"
+        st.session_state.wfo_match_level = "No Match"
+        is_exact_match = st.session_state.data_edited['WFO_exact_match'][st.session_state.row_to_edit]
+        if is_exact_match == 'True':
+            hint = ("World Flora Online", "Exact Match", "#059c1b")  # Red for invalid
+            st.session_state.wfo_match_level = "Exact Match"
+        else:
+            is_best_match = st.session_state.data_edited['WFO_best_match'][st.session_state.row_to_edit]
+            if len(is_best_match) > 0:
+                hint = ("World Flora Online", "Partial Match", "#0252c9")  # Red for invalid
+                st.session_state.wfo_match_level =  "Partial Match"
             else:
-                is_best_match = st.session_state.data_edited['WFO_best_match'][st.session_state.row_to_edit]
-                if len(is_best_match) > 0:
-                    hint = ("World Flora Online", "Partial Match", "#0252c9")  # Red for invalid
-                    st.session_state.wfo_match_level =  "Partial Match"
-                else:
-                    hint = ("World Flora Online", "No Match", "#870307")  # Red for invalid
+                hint = ("World Flora Online", "No Match", "#870307")  # Red for invalid
 
-            if hint:    
-                annotated_text(hint)
+        if hint:    
+            annotated_text(hint)
 
 @contextmanager
 def noop_context():
@@ -1428,13 +1458,13 @@ def display_layout_with_helpers(group_option):
                 if i == 1:
                     if st.session_state.tool_access.get('form'):
                         with c_form:
-                            st.markdown(f"<u>Specimen Record</u>", unsafe_allow_html=True)
+                            st.markdown(f"<u><b>Specimen Record</b></u>", unsafe_allow_html=True)
                     if st.session_state.tool_access.get('arrow') and st.session_state.tool_access.get('hints'):
                         with c_move:
                             st.markdown(move_arrow)
                     if st.session_state.tool_access.get('hints'):
                         with c_help:
-                            st.text("Tool Hints")
+                            st.text("LLM Text")
                     if st.session_state.tool_access.get('cap'):
                         with c_cap:
                             st.text("Cap")
@@ -1476,36 +1506,37 @@ def form_layout(group_option, col, c_form):
 
 
 def display_LLM_input(col, c_help, c_move, move_arrow):
-    LLM_input_key = f"LLM_{col}"
+    if 'data' in st.session_state:
+        LLM_input_key = f"LLM_{col}"
 
-    # Check if the column should be displayed
-    if col in st.session_state.hide_fields:  # Adjust condition based on your requirements
-        return
+        # Check if the column should be displayed
+        if col in st.session_state.hide_fields:  # Adjust condition based on your requirements
+            return
 
-    # Get the suggested value directly from the data DataFrame
-    if col in st.session_state.data.columns:
-        suggested_value = str(st.session_state.data[col][st.session_state.row_to_edit]) if st.session_state.row_to_edit < len(st.session_state.data) else ''
-    else:
-        suggested_value = ''
+        # Get the suggested value directly from the data DataFrame
+        if col in st.session_state.data.columns:
+            suggested_value = str(st.session_state.data[col][st.session_state.row_to_edit]) if st.session_state.row_to_edit < len(st.session_state.data) else ''
+        else:
+            suggested_value = ''
 
-    # Initialize the session state variable before widget creation
-    if LLM_input_key not in st.session_state:
-        st.session_state[LLM_input_key] = suggested_value
+        # Initialize the session state variable before widget creation
+        if LLM_input_key not in st.session_state:
+            st.session_state[LLM_input_key] = suggested_value
 
-    # Initialize the session state variable before widget creation
-    if LLM_input_key not in st.session_state:
-        st.session_state[LLM_input_key] = suggested_value
+        # Initialize the session state variable before widget creation
+        if LLM_input_key not in st.session_state:
+            st.session_state[LLM_input_key] = suggested_value
 
-    # Display the input field
-    with c_help:
+        # Display the input field
+        with c_help:
 
-        input_type = determine_input_type(col,suggested_value)
-        
-        input_type(f"{col} (LLM)", suggested_value, key=f"{LLM_input_key}_input", disabled=True)
-        # st.text_input(f"{col} (LLM)", value=suggested_value, key=f"{LLM_input_key}_input", placeholder=suggested_value)
+            input_type = determine_input_type(col,suggested_value)
+            
+            input_type(f"{col} (LLM)", suggested_value, key=f"{LLM_input_key}_input", disabled=True)
+            # st.text_input(f"{col} (LLM)", value=suggested_value, key=f"{LLM_input_key}_input", placeholder=suggested_value)
 
-        # Call the function to display the move button
-        display_move_button(col, c_move, move_arrow, help_opt='LLM')
+            # Call the function to display the move button
+            display_move_button(col, c_move, move_arrow, help_opt='LLM')
 
 
 
@@ -1719,49 +1750,53 @@ def apply_search(col_to):
     wrapper = DuckDuckGoSearchAPIWrapper(max_results=2)
     search = DuckDuckGoSearchRun(api_wrapper=wrapper)
     st.session_state.search_results_duckduckgo = None
+    
     if st.session_state.data.at[st.session_state.row_to_edit, col_to] is not None:
         try:
             if col_to in st.session_state.search_info_plants:
-                query = f"Plant {col_to} " + st.session_state.data.at[st.session_state.row_to_edit, col_to]
-                res = search.run(query).replace('...', '\n\n')
-                search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
-                st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
+                query = f"Plant {col_to} " + st.session_state.data.at[st.session_state.row_to_edit, col_to] + "POWO Wikipedia"
             elif col_to in st.session_state.search_info_geo:
+                # Handle geography-related queries
                 if col_to in ['country', 'stateProvince', 'county', 'municipality']:
                     country = st.session_state.data.at[st.session_state.row_to_edit, 'country']
                     stateProvince = st.session_state.data.at[st.session_state.row_to_edit, 'stateProvince']
                     county = st.session_state.data.at[st.session_state.row_to_edit, 'county']
                     municipality = st.session_state.data.at[st.session_state.row_to_edit, 'municipality']
                     query = ' '.join([municipality, county, stateProvince, country])
-                elif col_to in ['decimalLatitude', 'decimalLongitude', ]:
+                elif col_to in ['decimalLatitude', 'decimalLongitude']:
                     decimalLatitude = st.session_state.data.at[st.session_state.row_to_edit, 'decimalLatitude']
                     decimalLongitude = st.session_state.data.at[st.session_state.row_to_edit, 'decimalLongitude']
                     query = ' '.join([decimalLatitude, decimalLongitude])
                 else:
                     query = f"Location {col_to} " + st.session_state.data.at[st.session_state.row_to_edit, col_to]
-                res = search.run(query).replace('...', '\n\n')
-                search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
-                st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
             elif col_to in st.session_state.search_info_people:
                 query = f"Botanist Person {col_to} " + st.session_state.data.at[st.session_state.row_to_edit, col_to]
-                res = search.run(query).replace('...', '\n\n')
-                search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
-                st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
             else:
                 query = st.session_state.data.at[st.session_state.row_to_edit, col_to]
-                res = search.run(query).replace('...', '\n\n')
-                search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
-                st.session_state.search_results_duckduckgo = f"[**{query}**]({search_url})\n\n{res}"
-            st.session_state.search_term = query
+                
+            # Run the search
+            res = search.run(query).replace('...', '\n\n')
+            
+            # Create a search URL for DuckDuckGo
+            search_url = f"https://duckduckgo.com/?q={query.replace(' ', '+')}"
+            
+            # Direct link using markdown with target="_blank" to open in a new tab
+            st.markdown(f'<a href="{search_url}" target="_blank">**Open DuckDuckGo Search for {query}**</a>', unsafe_allow_html=True)
 
+            st.session_state.search_term = query
+            
+            # If Google search option is enabled
             if st.session_state.google_search_new_window:
                 google_search_url = f"https://www.google.com/search?q={st.session_state.search_term.replace(' ', '+')}"
-                link_html = f'<a href="{google_search_url}" target="_blank">Search Google for "{st.session_state.search_term}"</a>'
-                st.markdown(link_html, unsafe_allow_html=True)
+                # Direct link using markdown for Google search
+                st.markdown(f'<a href="{google_search_url}" target="_blank">**Search Google for {st.session_state.search_term}**</a>', unsafe_allow_html=True)
 
         except Exception as e:
-            print(e)
+            st.error(f"An error occurred: {e}")
             pass
+
+
+
 
 def load_yaml_to_json(fullpath):
     try:
@@ -1979,18 +2014,22 @@ def display_search_results():
 
 def display_google_search():
     loc = st.session_state.location_google_search
+    search_url = f"https://www.google.com/search?igu=1&ei=&q={st.session_state.search_term}"
+
     if loc == 'Top':
         with st.expander(":rainbow[Google Search]"):#,key=f"Google Search{loc}"):
+            st.markdown(":green[**Right-click links to open in new tab. Required for most websites (other than Wikipedia)**]")
             # search = st.text_input("What do you want to search for?")
-            components.iframe(f"https://www.google.com/search?igu=1&ei=&q={st.session_state.search_term}", height=500,scrolling=True)
+            components.iframe(search_url, height=500,scrolling=True)
     elif loc == 'Hint Panel':
         with st.expander(":rainbow[Google Search]"):#,key=f"Google Search{loc}"):
             # search = st.text_input("What do you want to search for?")
-            components.iframe(f"https://www.google.com/search?igu=1&ei=&q={st.session_state.search_term}", height=500,scrolling=True)
+            components.iframe(search_url, height=500,scrolling=True)
     elif loc == 'Bottom':
         with st.expander(":rainbow[Google Search]"):#,key=f"Google Search{loc}"):
             # search = st.text_input("What do you want to search for?")
-            components.iframe(f"https://www.google.com/search?igu=1&ei=&q={st.session_state.search_term}", height=1000,scrolling=True)
+            components.iframe(search_url, height=1000,scrolling=True)
+
         
 
 ###############################################################
