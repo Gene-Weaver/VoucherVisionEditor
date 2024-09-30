@@ -1430,7 +1430,7 @@ def display_layout_with_helpers(group_option):
     #     move_format = [10, 1, 1, 1]
 
     i = 0
-    # Display helper data and move buttons
+    
     for col in get_columns_to_show(group_option):
         if col not in st.session_state.hide_columns_in_editor:
             i += 1
@@ -2747,7 +2747,7 @@ if st.session_state.start_editing:
                 st.button('Skip ahead',key=f"Skip_to_last_viewed2", use_container_width=True, on_click=on_press_skip_to_bookmark)
 
             display_layout_with_helpers(group_option)
-          
+
         # Update the track_view column for the current row
         if st.session_state.access_option != 'Admin': # ONLY add views if in the label tab
             st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_view"] = 'True'
