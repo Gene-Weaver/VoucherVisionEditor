@@ -5,3 +5,6 @@ editor:
   hide_fields:
   - order
   - family
+  - scientificName
+  - speciesNameAuthorship
+  - otherCatalogNumber

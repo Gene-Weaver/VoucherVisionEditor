@@ -88,6 +88,7 @@ if 'previous_access_option' not in st.session_state:
     st.session_state.previous_access_option = 'Labeler'
 
 if 'image_option' not in st.session_state:
+    # st.session_state.image_option = 'Cropped'
     st.session_state.image_option = 'Original'
 
 if 'last_image_option' not in st.session_state:
@@ -719,9 +720,10 @@ def load_data():
                         # Create data_edited DataFrame
                         st.session_state.data_edited = pd.DataFrame(columns=st.session_state.data.columns)
                         st.session_state.data_edited['catalogNumber'] = st.session_state.data['catalogNumber']
+                        st.session_state.data_edited['additionalText'] = st.session_state.data['additionalText']
                         
                         for col in st.session_state.data.columns:
-                            if col != 'catalogNumber' and st.session_state.data.columns.get_loc(col) < st.session_state.data.columns.get_loc('filename'):
+                            if col != 'catalogNumber' and col != 'additionalText' and st.session_state.data.columns.get_loc(col) < st.session_state.data.columns.get_loc('filename'):
                                 st.session_state.data_edited[col] = [''] * len(st.session_state.data)
                             else:
                                 # Retain the values for 'filename' and subsequent columns
@@ -731,6 +733,7 @@ def load_data():
                     else:
                         st.session_state.data_edited = pd.read_excel(st.session_state.fullpath_working_file, dtype=str)
                         st.session_state.data_edited = st.session_state.data_edited.fillna('')
+                        st.session_state.data = st.session_state.data.fillna('')
                         # st.session_state.data_edited = pd.DataFrame(columns=st.session_state.data.columns)
                         # If "track_edit" is present, update data_edited based on the presence of "track_edit"
                         for col in st.session_state.data_edited.columns:
@@ -1024,6 +1027,8 @@ def show_header_main():
         
             st.markdown(f"<h2 style='text-align: center;'><a href='https://forms.gle/kP8imC9JQTPLrXgg8' target='_blank'>Report a Bug</a></h2>", unsafe_allow_html=True)
 
+        st.session_state.default_to_original = st.sidebar.checkbox("Default to Original image each time 'Next' or 'Previous' is pressed.", value=True)  
+
         # Image Layout Focus selectbox
         st.session_state.image_fill = st.sidebar.selectbox("Image Layout Focus", ["More - Image Right", "Balanced - Image Right",  "Maximum - Image Right",
                                                                                   "Small Screen",
@@ -1102,7 +1107,6 @@ def show_header_main():
             #         options=image_sizes_fitted,value=600)
             
             # # fitted_image_width
-            # st.session_state.default_to_original = st.sidebar.checkbox("Default to full image each time 'Next' or 'Previous' is pressed.", value=True)  
             
         else:
             st.session_state.access_option = "Labeler"
