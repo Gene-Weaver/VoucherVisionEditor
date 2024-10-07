@@ -157,7 +157,7 @@ For more information about virtual environments, please see [Creation of virtual
 
 2. Create a new Conda environment (replace `myenv` with your preferred environment name):
     ```bash
-    conda create --name myenv python=3.9
+    conda create --name myenv python=3.11
     ```
 
 3. Activate the Conda environment:
