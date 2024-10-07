@@ -44,8 +44,7 @@ def create_shortcut():
     # Print conda info for hints
     try:
         print("\nGathering Conda information...\n")
-        conda_info = subprocess.run(["conda", "info"])#, capture_output=True, text=True)
-        print(conda_info.stdout)  # Output the conda info details
+        subprocess.run(["conda", "info"], check=True)  # Print the conda info directly to console
     except Exception as e:
         print(f"Error retrieving conda info: {e}")
         return
