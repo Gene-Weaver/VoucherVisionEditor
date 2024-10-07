@@ -15,6 +15,8 @@ Table of Contents
       * [Installing Packages](#installing-packages)
    * [Installation - Windows 10+](#installation---windows-10)
       * [Virtual Environment](#virtual-environment-1)
+      * [Conda Environment](#conda-environment)
+      
       * [Installing Packages](#installing-packages-1)
 * [Create a Desktop Shortcut to Launch VoucherVisionEditor GUI](#create-a-desktop-shortcut-to-launch-vouchervisioneditor-gui)
 * [Running VoucherVisionEditor from the Terminal](#running-vouchervisioneditor-from-the-terminal)
@@ -144,6 +146,64 @@ For more information about virtual environments, please see [Creation of virtual
     <button class="btn" data-clipboard-target="#code-snippet"></button>
 
 ---
+
+### Conda Environment
+> Note: We assume that you have Conda installed. If not, please follow [this guide](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) to install Conda.
+
+1. First, ensure you are inside the `VoucherVisionEditor` directory. You can check if Conda is installed by running:
+    ```bash
+    conda --version
+    ```
+
+2. Create a new Conda environment (replace `myenv` with your preferred environment name):
+    ```bash
+    conda create --name myenv python=3.9
+    ```
+
+3. Activate the Conda environment:
+    ```bash
+    conda activate myenv
+    ```
+
+4. Confirm that the Conda environment is active:
+    ```bash
+    python --version
+    ```
+
+5. If you want to deactivate the environment, use:
+    ```bash
+    conda deactivate
+    ```
+
+### Installing Packages
+
+1. Install the required dependencies for `VoucherVisionEditor`:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+2. Upgrade Streamlit:
+    ```bash
+    pip install --upgrade streamlit
+    ```
+
+3. Install `pywin32` (needed for Windows shortcut functionality):
+    ```bash
+    pip install pywin32
+    ```
+
+### Creating a Shortcut (Optional)
+If you'd like to create a desktop shortcut for launching the application:
+
+1. Run the script to create a shortcut:
+    ```bash
+    python create_shortcut.py
+    ```
+
+2. Follow the on-screen instructions to specify the Conda environment and the location where you want the shortcut to be saved.
+
+---
+
 
 # Create a Desktop Shortcut to Launch VoucherVisionEditor GUI (Windows)
 We can create a desktop shortcut to launch VoucherVisionEditor. In the `../VoucherVisionEditor/` directory is a file called `create_desktop_shortcut.py`. In the terminal, move into the `../VoucherVisionEditor/` directory and type:
