@@ -3,6 +3,7 @@ import win32com.client
 import tkinter as tk
 from tkinter import filedialog
 from PIL import Image, ImageEnhance
+import subprocess
 
 def create_shortcut():
     # Request user's confirmation
@@ -39,6 +40,15 @@ def create_shortcut():
 
     # Get Conda environment name
     env_name = input("Enter the name of your Conda environment: ")
+
+    # Print conda info for hints
+    try:
+        print("\nGathering Conda information...\n")
+        conda_info = subprocess.run(["conda", "info"], capture_output=True, text=True)
+        print(conda_info.stdout)  # Output the conda info details
+    except Exception as e:
+        print(f"Error retrieving conda info: {e}")
+        return
 
     # Allow user to select Conda executable
     conda_exe = filedialog.askopenfilename(title="Locate your conda executable (usually conda.exe)", filetypes=[("Executable", "*.exe")])
