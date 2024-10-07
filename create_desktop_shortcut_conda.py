@@ -47,6 +47,8 @@ def create_shortcut():
         subprocess.run(["conda", "info"], check=True)  # Print the conda info directly to console
     except Exception as e:
         print(f"Error retrieving conda info: {e}")
+        print(f"Make sure that conda is available from Windows Powershell. To do that, from the conda terminal run:")
+        print(f"     conda init powershell")
         return
 
     # Allow user to select Conda executable
