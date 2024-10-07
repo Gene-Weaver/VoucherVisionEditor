@@ -60,7 +60,9 @@ def create_shortcut():
     print(f"Using Conda environment located at {env_location}")
 
     # Path to the Conda environment activation command
-    conda_activate_cmd = f'""{conda_exe}" init powershell && conda activate "{os.path.join(env_location, env_name)}""'
+    # conda_activate_cmd = f'""{conda_exe}" init powershell && conda activate "{os.path.join(env_location, env_name)}""'
+    conda_activate_cmd = f'""{conda_exe}" activate "{os.path.join(env_location, env_name)}""'
+
 
     shortcut_path = os.path.join(folder_path, f'{shortcut_name}.lnk')
 
