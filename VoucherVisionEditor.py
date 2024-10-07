@@ -1,7 +1,8 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
-import json, os, argparse, shutil, re, toml, math, yaml, tempfile, zipfile, base64, webbrowser, threading, subprocess
+import json, os, argparse, shutil, re, toml, math, yaml, tempfile, zipfile, base64, webbrowser, threading, subprocess, random
+
 from PIL import Image
 from utils import *
 from io import BytesIO
@@ -187,7 +188,10 @@ if 'add_fields' not in st.session_state:
 if 'set_map_height' not in st.session_state:
     st.session_state.set_map_height = True
     
-    
+if 'user_uniqname' not in st.session_state:
+    st.session_state.user_uniqname = ''
+if 'dialog_closed' not in st.session_state:
+    st.session_state.dialog_closed = False
     
 if 'tool_access' not in st.session_state:
     st.session_state.tool_access = {
@@ -521,7 +525,11 @@ def upload_and_unzip():
         print(f"BASE = {target_dir}")
 
     subdirs = [d for d in os.listdir(project_dir) if os.path.isdir(os.path.join(project_dir, d))]
+    
 
+    st.session_state.user_uniqname = st.text_input("Set Uniqname")
+    if st.session_state.user_uniqname == '':
+        st.warning("Uniqname cannot be empty. Please enter your Uniqname.")
     # Create a select box for choosing a subdirectory
     selected_subdir = st.selectbox("Select a project:", subdirs)
 
@@ -613,11 +621,11 @@ def save_data():
 
 
 def get_current_datetime():
-        # Get the current date and time
-        now = datetime.now()
-        # Format it as a string, replacing colons with underscores
-        datetime_iso = now.strftime('%Y_%m_%dT%H_%M_%S')
-        return datetime_iso
+    # Get the current date and time
+    now = datetime.now()
+    # Format it as a string, replacing colons with underscores
+    datetime_iso = now.strftime('%Y_%m_%dT%H_%M_%S')
+    return datetime_iso
 
 
 # C:\Users\Will\Downloads\mistralmed_pv5_trOCRhand_angio
@@ -708,8 +716,10 @@ def load_data():
                             st.session_state.data["track_view"] = 'False'
                         if 'track_edit' not in st.session_state.data.columns:
                             st.session_state.data["track_edit"] = ["" for _ in range(len(st.session_state.data))]
-
-                    
+                        if "user_uniqname" not in st.session_state.data.columns:
+                            st.session_state.data["user_uniqname"] = ""
+                        if "user_time_of_edit" not in st.session_state.data.columns:
+                            st.session_state.data["user_time_of_edit"] = ""
 
                         for group, columns in st.session_state.add_fields.items():
                             if 'filename' in st.session_state.data.columns:
@@ -1187,6 +1197,10 @@ def on_press_next(group_options):
     Handle actions when the "Next" button is pressed.
     """
     if st.session_state.progress == len(group_options) or st.session_state.access_option == 'Admin':
+        if st.session_state.data_edited.loc[st.session_state.row_to_edit, "user_time_of_edit"] == "":
+            st.session_state.data_edited.loc[st.session_state.row_to_edit, "user_time_of_edit"] = get_current_datetime()
+            save_data()
+
         st.session_state.progress_counter = 0
         st.session_state.progress_index = 0
         if st.session_state.current_options:
@@ -1515,7 +1529,7 @@ def display_layout_with_helpers(group_option):
 def form_layout(group_option, col, c_form):
     with c_form:
         # Determine columns to show
-        if (col not in ['track_view', 'track_edit']) and (col not in st.session_state.hide_fields):
+        if (col not in ['user_uniqname', 'user_time_of_edit', 'track_view', 'track_edit']) and (col not in st.session_state.hide_fields):
             unique_key, color = prepare_column(col)
             handle_column_input(col, unique_key, color)
 
@@ -2763,7 +2777,7 @@ if st.session_state.start_editing:
         # Update the track_view column for the current row
         if st.session_state.access_option != 'Admin': # ONLY add views if in the label tab
             st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_view"] = 'True'
-        
+            st.session_state.data_edited.loc[st.session_state.row_to_edit, "user_uniqname"] = st.session_state.user_uniqname
 
     ### Show the spreadsheet layout
     elif st.session_state.view_option == "Data Editor":
@@ -2771,7 +2785,7 @@ if st.session_state.start_editing:
             st.write("Skipping ahead (editing in the 'Form View' out of order) will cause issues if all 5 groups are selected while skipping ahead.")
             st.write("If skipping ahead, only use the 'ALL' option until returning to sequential editing.")
             # Reorder the columns to have "track_view" and "track_edit" at the beginning
-            reordered_columns = ['track_view', 'track_edit'] + [col for col in st.session_state.data_edited.columns if col not in ['track_view', 'track_edit']]
+            reordered_columns = ['user_uniqname', 'user_time_of_edit', 'track_view', 'track_edit'] + [col for col in st.session_state.data_edited.columns if col not in ['user_uniqname', 'user_time_of_edit', 'track_view', 'track_edit']]
             st.session_state.data_edited = st.session_state.data_edited[reordered_columns]
 
             # If the view option is "Data Editor", create a new full-width container for the editor
