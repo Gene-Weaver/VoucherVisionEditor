@@ -187,17 +187,19 @@ For more information about virtual environments, please see [Creation of virtual
 
 ### Installing Packages
 
-1. Install the required dependencies for `VoucherVisionEditor`:
+1. Make sure that you `cd` into the `VoucherVisionEditor` cloned repo directory. 
+
+2. Install the required dependencies for `VoucherVisionEditor`:
     ```bash
     pip install -r requirements.txt
     ```
 
-2. Upgrade Streamlit:
+3. Upgrade Streamlit:
     ```bash
     pip install --upgrade streamlit
     ```
 
-3. Install `pywin32` (needed for Windows shortcut functionality):
+4. Install `pywin32` (needed for Windows shortcut functionality):
     ```bash
     pip install pywin32
     ```
