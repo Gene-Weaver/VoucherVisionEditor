@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 import win32com.client
 import tkinter as tk
 from tkinter import filedialog
@@ -25,9 +26,6 @@ def create_shortcut():
     img_enhanced.save(os.path.join(script_dir, 'img', 'icon.ico'), format='ICO', sizes=[(256, 256)])
     icon_path_ico = os.path.join(script_dir, 'img', 'icon.ico')
 
-    # Construct the path to the static folder
-    static_dir = os.path.join(script_dir, "static")
-
     # Ask for the name of the shortcut
     shortcut_name = "VV Editor"
 
@@ -41,16 +39,6 @@ def create_shortcut():
     # Get Conda environment name
     env_name = input("Enter the name of your Conda environment: ")
 
-    # Print conda info for hints
-    try:
-        print("\nGathering Conda information...\n")
-        subprocess.run(["powershell", "-Command", "conda info"], check=True)  # Use PowerShell to ensure Conda is initialized
-    except Exception as e:
-        print(f"Error retrieving conda info: {e}")
-        print(f"Make sure that conda is available from Windows Powershell. To do that, from the conda terminal run:")
-        print(f"     conda init powershell")
-        return
-
     # Allow user to select Conda executable
     conda_exe = filedialog.askopenfilename(title="Locate your conda executable (usually conda.exe)", filetypes=[("Executable", "*.exe")])
     print(f"Using Conda executable located at {conda_exe}")
@@ -59,19 +47,28 @@ def create_shortcut():
     env_location = filedialog.askdirectory(title="Select the location of your Conda environment (shared or user-specific)")
     print(f"Using Conda environment located at {env_location}")
 
-    # Path to the Conda environment activation command
-    conda_activate_cmd = f'""{conda_exe}" init powershell && conda activate "{os.path.join(env_location, env_name)}""'
-    # conda_activate_cmd = f'""{conda_exe}" activate "{os.path.join(env_location, env_name)}""'
+    # Step 1: Find the Miniforge bash terminal executable
+    # Assuming Miniforge bash is installed in a standard location
+    miniforge_bash = filedialog.askopenfilename(title="Locate your Miniforge bash executable (bash.exe or mintty.exe)", filetypes=[("Executable", "*.exe")])
 
+    # Step 2: Create the command to activate the environment and run the Python script
+    conda_activate_cmd = f'source "{os.path.join(env_location, "bin/activate")}" && conda activate "{env_name}"'
+    python_run_cmd = f'cd "{script_dir}" && python run.py'
 
+    # Combine the commands into a bash command
+    bash_cmd = f'{conda_activate_cmd} && {python_run_cmd}'
+
+    # Step 3: Create a Windows shortcut
     shortcut_path = os.path.join(folder_path, f'{shortcut_name}.lnk')
 
     shell = win32com.client.Dispatch("WScript.Shell")
     shortcut = shell.CreateShortCut(shortcut_path)
-    shortcut.Targetpath = "%windir%\\System32\\cmd.exe"
+    
+    # Set the Miniforge terminal as the TargetPath
+    shortcut.Targetpath = miniforge_bash
 
-    # The command activates the conda environment, navigates to the script's directory, then runs the script
-    shortcut.Arguments = f'/K {conda_activate_cmd} & cd /D "{script_dir}" & python run.py'
+    # Pass the bash command as an argument to the Miniforge terminal
+    shortcut.Arguments = f'-c "{bash_cmd}"'
 
     # Set the icon of the shortcut
     shortcut.IconLocation = icon_path_ico
