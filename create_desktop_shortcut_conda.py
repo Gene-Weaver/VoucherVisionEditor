@@ -4,6 +4,7 @@ import win32com.client
 import tkinter as tk
 from tkinter import filedialog
 from PIL import Image, ImageEnhance
+import subprocess
 
 def create_shortcut():
     # Request user's confirmation
@@ -38,27 +39,36 @@ def create_shortcut():
     # Get Conda environment name
     env_name = input("Enter the name of your Conda environment: ")
 
-    # The path to Miniforge's activate.bat script (hardcoded based on your setup)
-    conda_activate_bat = r"C:\ProgramData\miniforge3\Scripts\activate.bat"
+    # Allow user to select Conda executable
+    conda_exe = filedialog.askopenfilename(title="Locate your conda executable (usually conda.exe)", filetypes=[("Executable", "*.exe")])
+    print(f"Using Conda executable located at {conda_exe}")
 
-    # Create the command to activate the environment and run the Python script
-    conda_activate_cmd = f'"{conda_activate_bat}" "{env_name}"'
-    python_run_cmd = f'cd /D "{script_dir}" && python run.py'
+    # Allow user to choose if the environment is in a shared location or user-specific
+    env_location = filedialog.askdirectory(title="Select the location of your Conda environment (shared or user-specific)")
+    print(f"Using Conda environment located at {env_location}")
 
-    # Combine the commands into one string
-    final_cmd = f'{conda_activate_cmd} && {python_run_cmd}'
+    # Step 1: Find the Miniforge bash terminal executable
+    # Assuming Miniforge bash is installed in a standard location
+    miniforge_bash = filedialog.askopenfilename(title="Locate your Miniforge bash executable (bash.exe or mintty.exe)", filetypes=[("Executable", "*.exe")])
 
-    # Create a Windows shortcut
+    # Step 2: Create the command to activate the environment and run the Python script
+    conda_activate_cmd = f'source "{os.path.join(env_location, "bin/activate")}" && conda activate "{env_name}"'
+    python_run_cmd = f'cd "{script_dir}" && python run.py'
+
+    # Combine the commands into a bash command
+    bash_cmd = f'{conda_activate_cmd} && {python_run_cmd}'
+
+    # Step 3: Create a Windows shortcut
     shortcut_path = os.path.join(folder_path, f'{shortcut_name}.lnk')
 
     shell = win32com.client.Dispatch("WScript.Shell")
     shortcut = shell.CreateShortCut(shortcut_path)
+    
+    # Set the Miniforge terminal as the TargetPath
+    shortcut.Targetpath = miniforge_bash
 
-    # Set the Windows command processor (cmd.exe) as the TargetPath
-    shortcut.Targetpath = "%windir%\\System32\\cmd.exe"
-
-    # Pass the final command as an argument to cmd.exe
-    shortcut.Arguments = f'/K {final_cmd}'
+    # Pass the bash command as an argument to the Miniforge terminal
+    shortcut.Arguments = f'-c "{bash_cmd}"'
 
     # Set the icon of the shortcut
     shortcut.IconLocation = icon_path_ico
