@@ -15,7 +15,8 @@ def create_shortcut():
     # Get the script path
     script_path = os.path.abspath(__file__)
     #  Get the directory of the script
-    script_dir = os.path.dirname(script_path)
+    # script_dir = os.path.dirname(script_path)
+    script_dir = os.path.abspath(os.path.dirname(script_path))
 
     # Path to the icon file
     icon_path = os.path.join(script_dir, 'img', 'icon.jpg')
@@ -42,7 +43,10 @@ def create_shortcut():
     print(f"Using virtual environment located at {venv_path}")
 
     # Path to the activate script in the venv
-    activate_path = os.path.join(venv_path, "Scripts")
+    # activate_path = os.path.join(venv_path, "Scripts")
+    activate_path = os.path.abspath(os.path.join(venv_path, "Scripts"))
+
+
 
     shortcut_path = os.path.join(folder_path, f'{shortcut_name}.lnk')
 
