@@ -2058,11 +2058,12 @@ def display_coordinates(n):
         decimal_long = st.session_state.data_edited.loc[st.session_state.row_to_edit, 'decimalLongitude']
         decimal_coordinates = ','.join([decimal_lat,decimal_long])
 
-        decimal_lat_geo = st.session_state.data_edited.loc[st.session_state.row_to_edit, 'GEO_decimal_lat']
-        decimal_long_geo = st.session_state.data_edited.loc[st.session_state.row_to_edit, 'GEO_decimal_long']
-        decimal_coordinates_geo = ','.join([decimal_lat_geo,decimal_long_geo])
+        # decimal_lat_geo = st.session_state.data_edited.loc[st.session_state.row_to_edit, 'GEO_decimal_lat']
+        # decimal_long_geo = st.session_state.data_edited.loc[st.session_state.row_to_edit, 'GEO_decimal_long']
+        # decimal_coordinates_geo = ','.join([decimal_lat_geo,decimal_long_geo])
 
-        annotated_text(("Verbatim Coordinates", "", "#b86602"), ("Decimal Coordinates", " ", "#017d16"), ("Geolocation Hint", " ", "#0232b8"))
+        # annotated_text(("Verbatim Coordinates", "", "#b86602"), ("Decimal Coordinates", " ", "#017d16"), ("Geolocation Hint", " ", "#0232b8"))
+        annotated_text(("Verbatim Coordinates", "", "#b86602"), ("Decimal Coordinates", " ", "#017d16"))
 
         if verbatim_coordinates:
             verbatim_map_data = validate_and_get_coordinates(verbatim_coordinates, 'verbatim')
@@ -2074,10 +2075,10 @@ def display_coordinates(n):
         else:
             decimal_map_data = None
 
-        if decimal_coordinates:
-            decimal_geo_map_data = validate_and_get_coordinates(decimal_coordinates_geo, 'Geolocation Hint')
-        else:
-            decimal_geo_map_data = None
+        # if decimal_coordinates:
+        #     decimal_geo_map_data = validate_and_get_coordinates(decimal_coordinates_geo, 'Geolocation Hint')
+        # else:
+        #     decimal_geo_map_data = None
 
         # Prepare a list for DataFrames that are not None
         map_data_frames = []
@@ -2088,8 +2089,8 @@ def display_coordinates(n):
         if decimal_map_data is not None:
             map_data_frames.append(decimal_map_data)
 
-        if decimal_geo_map_data is not None:
-            map_data_frames.append(decimal_geo_map_data)
+        # if decimal_geo_map_data is not None:
+        #     map_data_frames.append(decimal_geo_map_data)
 
         # Only proceed if there's at least one valid DataFrame
         if map_data_frames:
