@@ -160,22 +160,22 @@ For more information about virtual environments, please see [Creation of virtual
     conda create --name .venv_VVE python=3.11 -y
     ```
 
-OR Modify this command to install the env in a public location (if multiple users want to access VV Editor)
+    OR Modify this command to install the env in a public location (if multiple users want to access VV Editor)
 
-    ```bash
-    conda create --prefix C:\ProgramData\miniforge3\envs\shared_env python=3.11 --yes
-    ```
+        ```bash
+        conda create --prefix C:\ProgramData\miniforge3\envs\shared_env python=3.11 --yes
+        ```
 
 3. Activate the Conda environment:
     ```bash
     conda activate .venv_VVE
     ```
     
-OR if in shared location, modify:
+    OR if in shared location, modify:
 
-    ```bash
-    conda activate C:\ProgramData\miniforge3\envs\shared_env
-    ```
+        ```bash
+        conda activate C:\ProgramData\miniforge3\envs\shared_env
+        ```
 
 4. Confirm that the Conda environment is active:
     ```bash
