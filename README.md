@@ -150,6 +150,11 @@ For more information about virtual environments, please see [Creation of virtual
 ### Conda Environment
 > Note: We assume that you have Conda installed. If not, please follow [this guide](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) to install Conda.
 
+> Make sure that you can use conda from Windows Powershell, not just the conda terminal. Try running the following in the conda terminal:
+    ```bash
+    conda init powershell  
+    ```
+
 1. First, ensure you are inside the `VoucherVisionEditor` directory. You can check if Conda is installed by running:
     ```bash
     conda --version
