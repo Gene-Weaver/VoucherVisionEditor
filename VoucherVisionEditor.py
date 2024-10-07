@@ -115,6 +115,9 @@ if 'set_image_size_px' not in st.session_state:
 if 'set_image_size_pxh' not in st.session_state:
     st.session_state.set_image_size_pxh = 80
 
+if 'set_map_height_pxh' not in st.session_state:
+    st.session_state.set_map_height_pxh = 200
+
 if 'image_fill' not in st.session_state:
     st.session_state.image_fill = "More - Image Right"
 
@@ -180,6 +183,9 @@ if 'hide_fields' not in st.session_state:
 
 if 'add_fields' not in st.session_state:
     st.session_state.add_fields = {}
+
+if 'set_map_height' not in st.session_state:
+    st.session_state.set_map_height = True
     
     
     
@@ -194,7 +200,7 @@ if 'tool_access' not in st.session_state:
         'wfo_links': True,
         'additional_info': True,
         'cap': True,
-        'search': True,
+        'search': False,
     }  
 if 'pwd' not in st.session_state:
     st.session_state.pwd = 'vouchervisionadmin'
@@ -1046,6 +1052,11 @@ def show_header_main():
         if st.session_state.set_image_size != "Auto Width":
             image_sizes = list(range(20, 201, 5))
             st.session_state.set_image_size_pxh = st.select_slider('Set Viewing Height', options=image_sizes, value=80)
+
+        # Set Map Height slider
+        if st.session_state.set_map_height:
+            image_sizes = list(range(50, 501, 10))
+            st.session_state.set_map_height_pxh = st.select_slider('Set Map Height', options=image_sizes, value=200)
 
         wrap_len = list(range(10, 101, 1))
         st.session_state.form_width = st.select_slider('Text wrapping length for form values', options=wrap_len, value=20)
@@ -2040,7 +2051,7 @@ def display_google_search():
 ###################### Validate Fields ########################
 ###############################################################
 def display_coordinates(n):
-    with st.expander(f":earth_africa: {get_color('country')}[Mapped Coordinates]"):
+    with st.expander(f":earth_africa: {get_color('country')}[Mapped Coordinates]", expanded=True):
         verbatim_coordinates = st.session_state.data_edited.loc[st.session_state.row_to_edit, 'verbatimCoordinates']
 
         decimal_lat = st.session_state.data_edited.loc[st.session_state.row_to_edit, 'decimalLatitude']
@@ -2150,12 +2161,12 @@ def display_map(map_data, zoom_out, n):
     if map_data is not None and not map_data.empty:
         if zoom_out:
             z = 0
-            st.map(map_data, zoom=z, size='size', color='color')
+            st.map(map_data, zoom=z, color='color', height=st.session_state.set_map_height_pxh)
             if st.session_state.coordinates_dist:
                 st.error(f':heavy_exclamation_mark: The verbatim and decimal coordinates are {st.session_state.coordinates_dist} kilometers apart. Check the coordinates:heavy_exclamation_mark:')
         else:
             z = 3
-            st.map(map_data, zoom=z, size='size', color='color')
+            st.map(map_data, zoom=z, color='color', height=st.session_state.set_map_height_pxh)
             if st.session_state.coordinates_dist:
                 if st.session_state.coordinates_dist > st.session_state.distance_GPS_warn:
                     st.warning(f':bell: ***WARNING:*** Distance between verbatim and decimal coordinates is ***{st.session_state.coordinates_dist}*** kilometers. Check the coordinates!')
@@ -2822,7 +2833,8 @@ if st.session_state.start_editing:
             # display_search_results()
 
             if st.session_state.location_google_search == "Hint Panel":
-                display_google_search()        
+                # display_google_search()        
+                pass
 
 
 
@@ -2838,7 +2850,8 @@ if st.session_state.start_editing:
             r1, r2, zoom_1, zoom_2, zoom_3, r3, r4 = st.columns([1,1,2,2,2,1,1])
 
         if st.session_state.location_google_search == 'Top':
-            display_google_search()
+            # display_google_search()
+            pass
 
 
         con_image = st.container()
@@ -2866,7 +2879,8 @@ if st.session_state.start_editing:
 
 
     if st.session_state.location_google_search == 'Bottom':
-        display_google_search()
+        # display_google_search()
+        pass
     
     if not c_help:
         load_json_helper_files()
