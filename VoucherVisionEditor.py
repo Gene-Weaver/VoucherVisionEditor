@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
-import json, os, argparse, shutil, re, toml, math, yaml, tempfile, zipfile, base64, webbrowser, threading, subprocess, random
+import json, os, argparse, shutil, re, toml, math, yaml, tempfile, zipfile, base64, webbrowser, threading, subprocess, platform
 
 from PIL import Image
 from utils import *
@@ -622,8 +622,8 @@ def save_data():
         print(f"Error occurred: {e}")
         st.error(f'Error saving the file: {e}')
         
-def create_save_dir(transcription_index):
-    add_prefix = False
+def create_save_dir(transcription_index, add_prefix = False):
+    
     # Use the first path from the 'path_to_content' column as a base to determine the directory
     first_path_to_content = st.session_state.data['path_to_content'][0]
     
@@ -635,10 +635,9 @@ def create_save_dir(transcription_index):
         raise ValueError("Transcription index is not found in the path")
 
     # If the first part of the path is not absolute, handle the macOS case
-    if not os.path.isabs(first_path_to_content):
-        # If it's on macOS (UNIX-like systems), ensure the leading '/' is added
-        if os.name == 'posix':
-            add_prefix = True
+    if platform.system() == 'Darwin':
+        print(f'Running on Darwin (MacOS)')
+        add_prefix = True
         # On Windows, prepend BASE_PATH if needed (or do nothing if paths are absolute)
 
     # Construct the SAVE_DIR from the path
