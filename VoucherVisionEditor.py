@@ -611,11 +611,11 @@ def save_data():
     # elif st.session_state.file_name.endswith('.xlsx'):
     try:
         # Ensure the file path is absolute
-        save_dir = st.session_state.SAVE_DIR
-        if not os.path.isabs(save_dir):
-            save_dir = os.path.abspath(save_dir)
+        # save_dir = st.session_state.SAVE_DIR
+        # if not os.path.isabs(save_dir):
+            # save_dir = os.path.abspath(save_dir)
         
-        file_path = os.path.join(save_dir, st.session_state.file_name)
+        file_path = os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name)
         st.session_state.data_edited.to_excel(file_path, index=False)
         print(f"Saved (XLSX) {file_path}")
     except Exception as e:
