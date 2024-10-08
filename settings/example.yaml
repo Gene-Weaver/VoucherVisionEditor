@@ -1,10 +1,10 @@
 editor:
-  hide_fields:
-      - order
-      - family
   add_fields:
-      TAXONOMY:
-          - forma
-          - variety
-      NEW_CATEGORY:
-          - anotherFieldName
+    TAXONOMY:
+    - otherCatalogNumber
+  hide_fields:
+  - order
+  - family
+  - scientificName
+  - speciesNameAuthorship
+  - otherCatalogNumber
