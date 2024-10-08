@@ -622,7 +622,26 @@ def save_data():
         print(f"Error occurred: {e}")
         st.error(f'Error saving the file: {e}')
         
+def create_save_dir(transcription_index):
+    # Get the directory where the script is located (inside the VoucherVisionEditor directory)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
 
+    # Parts of the path you want to join (can be dynamic depending on your needs)
+    parts = base_dir.split(os.sep)  # Split the base_dir into its components
+    
+    # Ensure the 'transcription_index' doesn't exceed the parts length
+    if transcription_index >= len(parts):
+        raise ValueError("Transcription index is out of bounds")
+
+    # Join the path up to the transcription_index
+    st.session_state.SAVE_DIR = os.path.join(*parts[:transcription_index + 1])
+
+    # Ensure the directory exists
+    if not os.path.exists(st.session_state.SAVE_DIR):
+        os.makedirs(st.session_state.SAVE_DIR)
+
+    # For debugging: print the save directory path
+    print(f"Save directory: {st.session_state.SAVE_DIR}")
 
 def get_current_datetime():
     # Get the current date and time
@@ -708,9 +727,10 @@ def load_data():
                     if transcription_index is not None:
                         if len(parts[0]) == 2 and parts[0][1] == ":":
                             parts[0] += os.path.sep
-                        st.session_state.SAVE_DIR = os.path.join(*parts[:transcription_index + 1])
-                        if not os.path.exists(st.session_state.SAVE_DIR):
-                            os.makedirs(st.session_state.SAVE_DIR)
+                        create_save_dir(transcription_index)
+                        # st.session_state.SAVE_DIR = os.path.join(*parts[:transcription_index + 1])
+                        # if not os.path.exists(st.session_state.SAVE_DIR):
+                        #     os.makedirs(st.session_state.SAVE_DIR)
 
                     ######### Add new fields to the XLSX
                     if st.session_state.BASE_PATH_transcription_LLM == st.session_state.fullpath_working_file:
