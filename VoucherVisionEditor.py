@@ -637,7 +637,7 @@ def create_save_dir(transcription_index):
     # If the first part of the path is not absolute, handle the macOS case
     if not os.path.isabs(first_path_to_content):
         # If it's on macOS (UNIX-like systems), ensure the leading '/' is added
-        if os.name == 'posix' and parts[0] != '':
+        if os.name == 'posix':
             add_prefix = True
         # On Windows, prepend BASE_PATH if needed (or do nothing if paths are absolute)
 
