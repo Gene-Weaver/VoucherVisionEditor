@@ -39,6 +39,19 @@ st.set_page_config(layout="wide",
                    menu_items={"Report a Bug": "https://forms.gle/kP8imC9JQTPLrXgg8","About":"VoucherVision was created and is maintained by William Weaver, University of Michigan. Please see doi:10.1002/ajb2.16256 for more information."},
                    initial_sidebar_state="expanded",)
 
+
+###########################################################################################################################
+######## If true, this will let you host the project remotely
+######## Otherwise all project info will be hosted inside VoucherVisionEditor/ on the local machine
+###########################################################################################################################
+if "USE_REMOTE" not in st.session_state:
+    st.session_state.USE_REMOTE = False
+    
+if "project_dir" not in st.session_state:
+    st.session_state.project_dir = ''
+###########################################################################################################################
+
+
 if "start_editing" not in st.session_state:
     st.session_state.start_editing = False
 
@@ -469,8 +482,9 @@ def set_column_groups():
 ###############################################################
 def unzip_and_setup_path(uploaded_file, target_dir):
     if uploaded_file is not None:
-        with zipfile.ZipFile(uploaded_file, 'r') as zip_ref:
-            zip_ref.extractall(target_dir)
+        with st.spinner(f'Extracting files to [{target_dir}]'):
+            with zipfile.ZipFile(uploaded_file, 'r') as zip_ref:
+                zip_ref.extractall(target_dir)
         st.success("File unpacked successfully")
 
 
@@ -502,48 +516,115 @@ def unzip_and_setup_path(uploaded_file, target_dir):
 #     st.session_state.BASE_PATH = os.path.join(project_dir, selected_subdir)
 #     st.info(f"Working from: {st.session_state.BASE_PATH}")
 def upload_and_unzip():
-    project_dir = os.path.join(st.session_state.dir_home, 'projects')
-    os.makedirs(project_dir, exist_ok=True)
+    file_path = os.path.join(st.session_state.dir_home, 'settings', 'default.yaml')
 
-    uploaded_file = st.file_uploader("Add a .zip file to the projects folder. Once added, you can select the project and then choose a transcription file to edit.", 
-                                     type='zip', accept_multiple_files=False)
-    # Initialize an indicator for a newly uploaded project
-    new_project_added = False
+    # Load existing settings
+    st.session_state.settings = load_yaml_settings(file_path)
+    if st.session_state.settings is None:
+        st.session_state.settings = {
+            'editor': {
+                'hide_fields': [],
+                'add_fields': {},
+            }
+            ,'locations': {
+                'project_dir': 'local',
+            }
+        }
+        # save_yaml_settings(file_path, st.session_state.settings)
 
-    if uploaded_file is not None:
-        # Construct the target directory path
-        filename_zip = uploaded_file.name
-        base_filename = filename_zip.rsplit('.', 1)[0]  # Remove the .zip extension
-        target_dir = os.path.join(project_dir, base_filename)
-        os.makedirs(target_dir, exist_ok=True)  # Create target directory if it doesn't exist
         
-        # Unzip and set up the path
-        unzip_and_setup_path(uploaded_file, target_dir)
+    if st.session_state.settings['locations']['project_dir'] != "local":
+        st.session_state.USE_REMOTE = True
+        st.session_state.BASE_PATH_MANUAL = st.session_state.settings['locations']['project_dir']
+        os.makedirs(st.session_state.BASE_PATH_MANUAL, exist_ok=True)
 
-        # Indicate a new project has been added to update BASE_PATH later
-        new_project_added = True
-        print(f"BASE = {target_dir}")
+        if platform.system() == 'Darwin':
+            raise "TODO"
 
-    subdirs = [d for d in os.listdir(project_dir) if os.path.isdir(os.path.join(project_dir, d))]
-    
 
-    st.session_state.user_uniqname = st.text_input("Set Uniqname")
-    if st.session_state.user_uniqname == '':
-        st.warning("Uniqname cannot be empty. Please enter your Uniqname.")
-    # Create a select box for choosing a subdirectory
-    selected_subdir = st.selectbox("Select a project:", subdirs)
+    if st.session_state.USE_REMOTE:
+        st.text_input("Set Project Directory", value=st.session_state.BASE_PATH_MANUAL, disabled=True)
 
-    # Update BASE_PATH based on the user's actions
-    if new_project_added:
-        # If a new project was uploaded, use its path
-        st.session_state.BASE_PATH = target_dir
-    elif selected_subdir:
-        # Otherwise, update BASE_PATH to the selected subdirectory
-        st.session_state.BASE_PATH = os.path.join(project_dir, selected_subdir)
-
-        st.info(f"Working from: {st.session_state.BASE_PATH}")
+        st.session_state.user_uniqname = st.text_input("Set Uniqname")
+        if st.session_state.user_uniqname == '':
+            st.warning("Uniqname cannot be empty. Please enter your Uniqname.")
+        else:
+            st.session_state.project_dir = os.path.join(st.session_state.BASE_PATH_MANUAL, st.session_state.user_uniqname)
+            os.makedirs(st.session_state.project_dir, exist_ok=True)
     else:
-        pass
+        st.session_state.user_uniqname = st.text_input("Set Uniqname")
+        if st.session_state.user_uniqname == '':
+            st.warning("Uniqname cannot be empty. Please enter your Uniqname.")
+        else:
+            st.session_state.project_dir = os.path.join(st.session_state.dir_home, 'projects', st.session_state.user_uniqname)
+            os.makedirs(st.session_state.project_dir, exist_ok=True)
+
+        
+    if st.session_state.project_dir != '':
+
+        uploaded_file = st.file_uploader("Add a .zip file to the projects folder. Once added, you can select the project and then choose a transcription file to edit.", 
+                                        type='zip', accept_multiple_files=False)
+        # Initialize an indicator for a newly uploaded project
+        new_project_added = False
+
+        if uploaded_file is not None:
+            # Construct the target directory path
+            filename_zip = uploaded_file.name
+            base_filename = filename_zip.rsplit('.', 1)[0]  # Remove the .zip extension
+            target_dir = os.path.join(st.session_state.project_dir, base_filename)
+            
+            if not os.path.exists(target_dir):
+                os.makedirs(target_dir, exist_ok=True)  # Create target directory if it doesn't exist
+                # Unzip and set up the path
+                unzip_and_setup_path(uploaded_file, target_dir)
+                uploaded_file = None
+
+            # Indicate a new project has been added to update BASE_PATH later
+            new_project_added = True
+            print(f"BASE = {target_dir}")
+        
+
+        # Initialize an empty list to store subdirectories
+        subdirs = []
+        # Iterate through all items in the project directory
+        for item in os.listdir(st.session_state.project_dir):
+            # Create the full path of the item
+            item_path = os.path.join(st.session_state.project_dir, item)
+            
+            # Check if the item is a directory and not named "CONFIG"
+            if os.path.isdir(item_path) and item != "CONFIG":
+                # If it's a valid subdirectory, add it to the subdirs list
+                subdirs.append(item)
+        
+        # Create a select box for choosing a subdirectory
+        selected_subdir = st.selectbox("Select a project:", subdirs)
+
+        
+
+        # # Update BASE_PATH based on the user's actions
+        # if new_project_added:
+        #     # If a new project was uploaded, use its path
+        #     st.session_state.BASE_PATH = target_dir
+        # elif selected_subdir:
+        #     # Otherwise, update BASE_PATH to the selected subdirectory
+        #     st.session_state.BASE_PATH = os.path.join(project_dir, selected_subdir)
+
+        #     st.info(f"Working from: {st.session_state.BASE_PATH}")
+        # else:
+        #     pass
+
+
+        # Update BASE_PATH based on the user's actions
+        if new_project_added:
+            # If a new project was uploaded, use its path
+            st.session_state.BASE_PATH = os.path.join(st.session_state.project_dir, selected_subdir)
+        elif selected_subdir:
+            # Otherwise, update BASE_PATH to the selected subdirectory
+            st.session_state.BASE_PATH = os.path.join(st.session_state.project_dir, selected_subdir)
+
+            st.info(f"Working from: {st.session_state.BASE_PATH}")
+        else:
+            pass
 
 
     
@@ -678,6 +759,8 @@ def load_data():
                 xlsx_LLM,
                 index=0,
                 placeholder="",
+                disabled=True,
+                help=HelpText.LLMTranscription,
             )
             xlsx_files = [file for file in os.listdir(st.session_state.BASE_PATH_transcription) if file.endswith('.xlsx')]
             st.session_state.working_file = st.selectbox(
@@ -2572,35 +2655,22 @@ def dynamic_fields_section(section_name, data):
 
         
 def edit_default_settings_yaml():
-    dir_home = st.session_state.dir_home  # Ensure this is defined in your Streamlit session_state
-    file_path = os.path.join(dir_home, 'settings', 'default.yaml')
-
-    # Load existing settings
-    settings = load_yaml_settings(file_path)
-    if settings is None:
-        settings = {
-            'editor': {
-                'hide_fields': [],
-                'add_fields': {}
-            }
-        }
-        save_yaml_settings(file_path, settings)
-
+    file_path = os.path.join(st.session_state.dir_home, 'settings', 'default.yaml')
     
     # Start a form for user inputs
     with st.form("edit_settings"):
         st.write("NOTE: Spaces, dashes, and special symbols in keys and values is not allowed.")
-        hide_fields = st.text_input("Hide Fields (comma-separated)", value=",".join(settings['editor']['hide_fields']))
+        hide_fields = st.text_input("Hide Fields (comma-separated)", value=",".join(st.session_state.settings['editor']['hide_fields']))
         
         f1, f2 = st.columns([1,2])
         # Use session state to keep track of dynamic add_field keys
         if 'add_fields_count' not in st.session_state:
-            st.session_state.add_fields_count = len(settings['editor']['add_fields'])
+            st.session_state.add_fields_count = len(st.session_state.settings['editor']['add_fields'])
 
         # Generate inputs for existing add_fields
-        for key, value in list(settings['editor']['add_fields'].items()):
+        for key, value in list(st.session_state.settings['editor']['add_fields'].items()):
             user_input = st.text_input(f"{key} (added category)", value=",".join(value), key=key)
-            settings['editor']['add_fields'][key] = [field.strip() for field in user_input.split(",") if field.strip()]
+            st.session_state.settings['editor']['add_fields'][key] = [field.strip() for field in user_input.split(",") if field.strip()]
 
         
         # # Dynamic fields for add_fields
@@ -2613,22 +2683,22 @@ def edit_default_settings_yaml():
         #     dynamic_fields_section("Mapping", st.session_state.prompt_json)
 
         # Placeholder for new field inputs
-        for i in range(st.session_state.add_fields_count - len(settings['editor']['add_fields'])):
+        for i in range(st.session_state.add_fields_count - len(st.session_state.settings['editor']['add_fields'])):
             with f1:
                 new_key = st.text_input("New Field Key (single new or existing category)", key=f"new_key_{i}")
             with f2:
                 new_value = st.text_input("New Field Values (comma-separated list)", key=f"new_value_{i}")
             if new_key and new_value:
-                settings['editor']['add_fields'][new_key] = [field.strip() for field in new_value.split(",") if field.strip()]
+                st.session_state.settings['editor']['add_fields'][new_key] = [field.strip() for field in new_value.split(",") if field.strip()]
 
         # Form submission
         submitted = st.form_submit_button("Save")
         if submitted:
             # Update settings based on user inputs
-            settings['editor']['hide_fields'] = [field.strip() for field in hide_fields.split(",") if field.strip()]
+            st.session_state.settings['editor']['hide_fields'] = [field.strip() for field in hide_fields.split(",") if field.strip()]
 
             # Save updated settings back to YAML
-            save_yaml_settings(file_path, settings)
+            save_yaml_settings(file_path, st.session_state.settings)
 
     # Button to add more fields
     if st.button("Add new fields"):

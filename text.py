@@ -71,7 +71,8 @@ then you can hide the following tools to simplify the appearance of the VoucherV
 - Display top 10 list of WFO taxa (WFO partial matches)
 - Display additional project information at page bottom
 """
-
+    LLMTranscription = """This file contains the LLM transcription data. This will be used to create your official records, but will never be modified directly. 
+All edits will be stored in a transcribed__DATE.xlsx file."""
 
 
 
