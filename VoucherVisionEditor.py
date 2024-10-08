@@ -623,6 +623,7 @@ def save_data():
         st.error(f'Error saving the file: {e}')
         
 def create_save_dir(transcription_index):
+    add_prefix = False
     # Use the first path from the 'path_to_content' column as a base to determine the directory
     first_path_to_content = st.session_state.data['path_to_content'][0]
     
@@ -637,11 +638,14 @@ def create_save_dir(transcription_index):
     if not os.path.isabs(first_path_to_content):
         # If it's on macOS (UNIX-like systems), ensure the leading '/' is added
         if os.name == 'posix' and parts[0] != '':
-            first_path_to_content = '/' + first_path_to_content
+            add_prefix = True
         # On Windows, prepend BASE_PATH if needed (or do nothing if paths are absolute)
 
     # Construct the SAVE_DIR from the path
     save_dir = os.path.join(*parts[:transcription_index + 1])
+    
+    if add_prefix:
+        save_dir = f'/{save_dir}'
 
     # Ensure the directory exists, create it if it doesn't
     if not os.path.exists(save_dir):
