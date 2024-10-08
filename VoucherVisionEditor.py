@@ -633,8 +633,15 @@ def create_save_dir(transcription_index):
     if transcription_index is None:
         raise ValueError("Transcription index is not found in the path")
 
-    # Construct the SAVE_DIR dynamically from the base path
-    save_dir = os.path.join(st.session_state.BASE_PATH, *parts[:transcription_index + 1])
+    # If the first part of the path is not absolute, handle the macOS case
+    if not os.path.isabs(first_path_to_content):
+        # If it's on macOS (UNIX-like systems), ensure the leading '/' is added
+        if os.name == 'posix' and parts[0] != '':
+            first_path_to_content = '/' + first_path_to_content
+        # On Windows, prepend BASE_PATH if needed (or do nothing if paths are absolute)
+
+    # Construct the SAVE_DIR from the path
+    save_dir = os.path.join(*parts[:transcription_index + 1])
 
     # Ensure the directory exists, create it if it doesn't
     if not os.path.exists(save_dir):
