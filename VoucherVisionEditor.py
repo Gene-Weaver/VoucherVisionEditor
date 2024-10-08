@@ -610,13 +610,17 @@ def save_data():
     #     print(f"Saved (CSV) {file_path}")
     # elif st.session_state.file_name.endswith('.xlsx'):
     try:
-        file_path = os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name)
+        # Ensure the file path is absolute
+        save_dir = st.session_state.SAVE_DIR
+        if not os.path.isabs(save_dir):
+            save_dir = os.path.abspath(save_dir)
+        
+        file_path = os.path.join(save_dir, st.session_state.file_name)
         st.session_state.data_edited.to_excel(file_path, index=False)
-        # st.success('Saved (XLSX)')
         print(f"Saved (XLSX) {file_path}")
-    except:
-        print(f"Unknown file format for transcription file.")
-        st.error('Unknown file format for transcription file.')
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        st.error(f'Error saving the file: {e}')
         
 
 

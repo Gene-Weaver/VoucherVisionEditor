@@ -15,7 +15,7 @@ def find_available_port(start_port, max_attempts=1000):
     while attempts < max_attempts:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
-                s.bind(("127.0.0.1", port))
+                s.bind(('127.0.0.1', port))
                 # If successful, return the current port
                 return port
             except socket.error:
@@ -23,7 +23,7 @@ def find_available_port(start_port, max_attempts=1000):
                 port += 1
                 attempts += 1
     # Optional: Return None or raise an exception if no port is found within the attempts limit
-    raise ValueError(f"Could not find an available port within {max_attempts} attempts starting from port {start_port}.")
+    raise ValueError(f'Could not find an available port within {max_attempts} attempts starting from port {start_port}.')
 
 
 def resolve_path(path):
@@ -31,22 +31,26 @@ def resolve_path(path):
     return resolved_path
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     start_port = 8556
     try:
         free_port = find_available_port(start_port)
         sys.argv = [
-            "streamlit",
-            "run",
-            resolve_path(os.path.join(os.path.dirname(__file__),"VoucherVisionEditor.py")),
-            "--global.developmentMode=false",
-            f"--server.maxUploadSize=51200",
-            f"--server.port={free_port}",
+            'streamlit',
+            'run',
+            resolve_path(os.path.join(os.path.dirname(__file__),'VoucherVisionEditor.py')),
+            '--global.developmentMode=false',
+            f'--server.maxUploadSize=51200',
+            f'--server.enableStaticServing=true',
+            f'--server.runOnSave=true',
+            f'--server.port={free_port}',
+            f'--theme.primaryColor="#16a616"',
+            f'--theme.backgroundColor="#1a1a1a"',
+            f'--theme.secondaryBackgroundColor="#303030"',
+            f'--theme.textColor="cccccc"',
         ]
         sys.exit(stcli.main())
 
 
     except ValueError as e:
         print(e)
-    
-    
