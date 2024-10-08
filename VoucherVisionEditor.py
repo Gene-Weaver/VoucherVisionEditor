@@ -623,24 +623,27 @@ def save_data():
         st.error(f'Error saving the file: {e}')
         
 def create_save_dir(transcription_index):
-    # Get the directory where the script is located (inside the VoucherVisionEditor directory)
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-
-    # Parts of the path you want to join (can be dynamic depending on your needs)
-    parts = base_dir.split(os.sep)  # Split the base_dir into its components
+    # Use the first path from the 'path_to_content' column as a base to determine the directory
+    first_path_to_content = st.session_state.data['path_to_content'][0]
     
-    # Ensure the 'transcription_index' doesn't exceed the parts length
-    if transcription_index >= len(parts):
-        raise ValueError("Transcription index is out of bounds")
+    # Split the path into its components
+    parts = first_path_to_content.split(os.path.sep)
 
-    # Join the path up to the transcription_index
-    st.session_state.SAVE_DIR = os.path.join(*parts[:transcription_index + 1])
+    # Check if we have a valid transcription index
+    if transcription_index is None:
+        raise ValueError("Transcription index is not found in the path")
 
-    # Ensure the directory exists
-    if not os.path.exists(st.session_state.SAVE_DIR):
-        os.makedirs(st.session_state.SAVE_DIR)
+    # Construct the SAVE_DIR dynamically from the base path
+    save_dir = os.path.join(st.session_state.BASE_PATH, *parts[:transcription_index + 1])
 
-    # For debugging: print the save directory path
+    # Ensure the directory exists, create it if it doesn't
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # Set SAVE_DIR in session state
+    st.session_state.SAVE_DIR = save_dir
+
+    # For debugging: print the final save directory
     print(f"Save directory: {st.session_state.SAVE_DIR}")
 
 def get_current_datetime():
@@ -725,9 +728,9 @@ def load_data():
                     parts = first_path_to_content.split(os.path.sep)
                     transcription_index = parts.index('Transcription') if 'Transcription' in parts else None
                     if transcription_index is not None:
-                        if len(parts[0]) == 2 and parts[0][1] == ":":
-                            parts[0] += os.path.sep
                         create_save_dir(transcription_index)
+                        # if len(parts[0]) == 2 and parts[0][1] == ":":
+                            # parts[0] += os.path.sep
                         # st.session_state.SAVE_DIR = os.path.join(*parts[:transcription_index + 1])
                         # if not os.path.exists(st.session_state.SAVE_DIR):
                         #     os.makedirs(st.session_state.SAVE_DIR)
