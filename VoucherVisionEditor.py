@@ -2536,6 +2536,8 @@ def display_help():
 def load_yaml_settings(file_path):
     """Load YAML settings from a file."""
     try:
+        if platform.system() == 'Darwin':
+            file_path = f'/{file_path}'
         with open(file_path, 'r') as file:
             return yaml.safe_load(file)
     except Exception as e:
@@ -2545,6 +2547,8 @@ def load_yaml_settings(file_path):
 def save_yaml_settings(file_path, data):
     """Save YAML settings to a file."""
     try:
+        if platform.system() == 'Darwin':
+            file_path = f'/{file_path}'
         with open(file_path, 'w') as file:
             yaml.dump(data, file)
         st.success("Settings saved successfully.")
