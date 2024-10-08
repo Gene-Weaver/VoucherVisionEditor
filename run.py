@@ -44,10 +44,10 @@ if __name__ == '__main__':
             f'--server.enableStaticServing=true',
             f'--server.runOnSave=true',
             f'--server.port={free_port}',
-            f'--theme.primaryColor="#16a616"',
-            f'--theme.backgroundColor="#1a1a1a"',
-            f'--theme.secondaryBackgroundColor="#303030"',
-            f'--theme.textColor="cccccc"',
+            f'--theme.primaryColor=#16a616',
+            f'--theme.backgroundColor=#1a1a1a',
+            f'--theme.secondaryBackgroundColor=#303030',
+            f'--theme.textColor=cccccc',
         ]
         sys.exit(stcli.main())
 
