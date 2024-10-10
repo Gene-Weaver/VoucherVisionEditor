@@ -1,13 +1,15 @@
 editor:
   add_fields:
     TAXONOMY:
-    - otherCatalogNumber
+    - subspecies
+    - variety
+    - forma
   hide_fields:
   - order
   - family
   - scientificName
   - speciesNameAuthorship
-  - otherCatalogNumber
+  - identificationHistory
 locations:
   # "local"
   # Edited files will live somewhere like this: S:/VoucherVision/Transcription/UNIQNAME/WORKBENCH_NAME/Transcription/transcribed__edited__2024_10_08T16_40_31.xlsx

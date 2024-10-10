@@ -744,6 +744,36 @@ def get_current_datetime():
     datetime_iso = now.strftime('%Y_%m_%dT%H_%M_%S')
     return datetime_iso
 
+def load_notes():
+    # Check if the file exists
+    if not os.path.exists(st.session_state.BASE_PATH_notes):
+        # File does not exist, create it with the initial dict
+        st.session_state.notes_data = {"NOTES": ""}
+        
+        # Ensure the directory exists before writing the file
+        os.makedirs(os.path.dirname(st.session_state.BASE_PATH_notes), exist_ok=True)
+        
+        # Write the initial data to the file
+        with open(st.session_state.BASE_PATH_notes, 'w') as file:
+            json.dump(st.session_state.notes_data, file)
+    else:
+        # File exists, load its contents into session state
+        with open(st.session_state.BASE_PATH_notes, 'r') as file:
+            st.session_state.notes_data = json.load(file)
+
+def save_notes(text):
+    # Create the data structure to save
+    notes_data = {"NOTES": text}
+    
+    # Ensure the directory exists before writing the file
+    os.makedirs(os.path.dirname(st.session_state.BASE_PATH_notes), exist_ok=True)
+    
+    # Write the data to the file
+    with open(st.session_state.BASE_PATH_notes, 'w') as file:
+        json.dump(notes_data, file)
+
+    # Optionally update session state with the saved text
+    st.session_state.notes_data = notes_data
 
 # C:\Users\Will\Downloads\mistralmed_pv5_trOCRhand_angio
 def load_data():
@@ -751,6 +781,9 @@ def load_data():
         if st.session_state.BASE_PATH:
             st.session_state.BASE_PATH_transcription = os.path.join(st.session_state.BASE_PATH, 'Transcription')
             st.session_state.BASE_PATH_transcription_LLM = os.path.join(st.session_state.BASE_PATH, 'Transcription', 'transcribed.xlsx')
+            st.session_state.BASE_PATH_notes = os.path.join(st.session_state.BASE_PATH, 'Transcription', 'notes.json')
+            load_notes()
+
 
             xlsx_LLM = [st.session_state.BASE_PATH_transcription_LLM]
             xlsx_files = [file for file in os.listdir(st.session_state.BASE_PATH_transcription) if file.endswith('.xlsx')]
@@ -836,6 +869,8 @@ def load_data():
                             st.session_state.data["track_view"] = 'False'
                         if 'track_edit' not in st.session_state.data.columns:
                             st.session_state.data["track_edit"] = ["" for _ in range(len(st.session_state.data))]
+                        if "track_issues" not in st.session_state.data.columns:
+                            st.session_state.data["track_issues"] = 'False'
                         if "user_uniqname" not in st.session_state.data.columns:
                             st.session_state.data["user_uniqname"] = ""
                         if "user_time_of_edit" not in st.session_state.data.columns:
@@ -1342,8 +1377,8 @@ def on_press_next(group_options):
         # st.info("Please confirm all categories before moving to next image")
 
 def on_press_skip_to_bookmark():
-        last_true_index, last_fully_viewed = update_progress_bar_overall()
-        st.session_state.row_to_edit = int(last_true_index)
+    last_true_index, last_fully_viewed = update_progress_bar_overall()
+    st.session_state.row_to_edit = int(last_true_index)
 
 def on_press_confirm_content(group_options):
     st.session_state.progress_index += 1
@@ -1437,6 +1472,56 @@ helper_map = {
 #########################################################################################################################################################################################
 #########################################################################################################################################################################################
 #########################################################################################################################################################################################
+def display_issue_badge():
+    col_thumb, col_thumb_badge = st.columns([0.2, 0.8])
+    
+    # if st.session_state.tool_access.get('wfo_badge'):
+    # st.session_state.wfo_match_level = "No Match"
+    # is_exact_match = st.session_state.data_edited['WFO_exact_match'][st.session_state.row_to_edit]
+    # if is_exact_match == 'True':
+    #     hint = ("World Flora Online", "Exact Match", "#059c1b")  # Red for invalid
+    #     st.session_state.wfo_match_level = "Exact Match"
+    # else:
+    #     is_best_match = st.session_state.data_edited['WFO_best_match'][st.session_state.row_to_edit]
+    #     if len(is_best_match) > 0:
+    #         hint = ("World Flora Online", "Partial Match", "#0252c9")  # Red for invalid
+    #         st.session_state.wfo_match_level =  "Partial Match"
+    #     else:
+    #         hint = ("World Flora Online", "No Match", "#870307")  # Red for invalid
+    sentiment_mapping = ["ISSUE", "OKAY"]
+
+    with col_thumb:
+        # Manually set the preselected value based on the current "track_issues" value
+        if st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_issues"] == 'True':
+            preselected = 0  # ISSUE (Thumbs down)
+        else:
+            preselected = 1  # OKAY (Thumbs up)
+
+        # Get user feedback, or fall back to preselected if no selection is made
+        selected = st.feedback("thumbs", key=f"issue_id_thumb{int(st.session_state.row_to_edit)}")
+
+        # If no selection is made, use the preselected value
+        if selected is None:
+            selected = preselected
+
+        # Update "track_issues" and the hint based on the selected feedback
+        if sentiment_mapping[selected] == "ISSUE":
+            # If ISSUE is selected, flag the row and set the hint
+            hint = ("ISSUE", "This specimen has been flagged", "#870307")  # Red for invalid
+            st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_issues"] = 'True'
+            save_data()
+        else:
+            # If OKAY is selected, unflag the row and remove the hint
+            st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_issues"] = 'False'
+            hint = None
+            save_data()
+
+    with col_thumb_badge:
+        if hint:
+            annotated_text(hint)
+
+
+
 def display_wfo_badge():
     if st.session_state.tool_access.get('wfo_badge'):
         st.session_state.wfo_match_level = "No Match"
@@ -1557,7 +1642,8 @@ def get_move_format():
     return move_format, c_help, c_move, c_form, c_cap, c_lower, c_search
 
 def display_layout_with_helpers(group_option):
-    display_wfo_badge()
+    display_issue_badge()
+    # display_wfo_badge()
 
     # if ( st.session_state.tool_access.get('arrow') and 
     #         st.session_state.tool_access.get('hints') and
@@ -1649,7 +1735,7 @@ def display_layout_with_helpers(group_option):
 def form_layout(group_option, col, c_form):
     with c_form:
         # Determine columns to show
-        if (col not in ['user_uniqname', 'user_time_of_edit', 'track_view', 'track_edit']) and (col not in st.session_state.hide_fields):
+        if (col not in ['user_uniqname', 'user_time_of_edit', 'track_view', 'track_edit', 'track_issues']) and (col not in st.session_state.hide_fields):
             unique_key, color = prepare_column(col)
             handle_column_input(col, unique_key, color)
 
@@ -1772,7 +1858,17 @@ def handle_column_input(col, unique_key, color):
     colored_label = f"{color}[{col}]"
     value = st.session_state.data_edited.loc[st.session_state.row_to_edit, col]
     input_type = determine_input_type(col, value)
-    st.session_state.user_input[col] = input_type(colored_label, value, key=unique_key)
+    # st.session_state.user_input[col] = input_type(colored_label, value, key=unique_key)
+    # update_data_if_changed(col, value)
+    # Get user input and replace newline characters with spaces
+    user_input = input_type(colored_label, value, key=unique_key)
+    if isinstance(user_input, str):  # Ensure the input is a string
+        user_input = user_input.replace("\n", " ")
+        # Ensure only single spaces, no consecutive spaces
+        user_input = " ".join(user_input.split())
+    # Store the processed input back into the session state
+    st.session_state.user_input[col] = user_input
+    
     update_data_if_changed(col, value)
 
 def determine_input_type(col, value):
@@ -1988,39 +2084,62 @@ def display_prompt_template():
 
 
 def display_json_helper_text():
-    # Check for presence of 'json_dict' in session state
-    if 'json_dict' in st.session_state:
+    # Check for the presence of 'OCR_JSON' in session state
+    if 'OCR_JSON' in st.session_state:
+        OCR_JSON = st.session_state['OCR_JSON']
+        
         # Button to toggle extra helper text
-        with st.expander("Unstructured OCR Text"):
-            
-            # Load OCR_JSON if available
-            if 'OCR_JSON' in st.session_state:
-                OCR_JSON = st.session_state['OCR_JSON']
-
-            # Create tabs
+        with st.expander("OCR Text"):
             con_tabs = st.empty()
-            with con_tabs.container():
-                tab1, tab2, tab3 = st.tabs(["OCR Handwritten",  "OCR Printed",  "trOCR"])
 
-                # Display All OCR Text in tab3
-                if 'OCR_handwritten' in OCR_JSON:
-                    with tab1:
-                        # st.markdown(f"<h4 style='color: {color};'>All OCR Text</h4><br>", unsafe_allow_html=True)
-                        # cleaned_OCR_text = remove_number_lines(OCR_JSON['OCR_handwritten'])
-                        OCR_show = OCR_JSON['OCR_handwritten'].replace('\n', '<br/>')
-                        st.markdown(f"""<p style='font-size:16px;'>{OCR_show}</p><br>""", unsafe_allow_html=True)
-                if 'OCR_printed' in OCR_JSON:
-                    with tab2:
-                        # st.markdown(f"<h4 style='color: {color};'>All OCR Text</h4><br>", unsafe_allow_html=True)
-                        # cleaned_OCR_text = remove_number_lines(OCR_JSON['OCR_printed'])
-                        OCR_show = OCR_JSON['OCR_printed'].replace('\n', '<br/>')
-                        st.markdown(f"""<p style='font-size:16px;'>{OCR_show}</p><br>""", unsafe_allow_html=True)
-                if 'OCR_trOCR' in OCR_JSON:
-                    with tab3:
-                        # st.markdown(f"<h4 style='color: {color};'>All OCR Text</h4><br>", unsafe_allow_html=True)
-                        # cleaned_OCR_text = remove_number_lines(OCR_JSON['OCR_trOCR'])
-                        OCR_show = OCR_JSON['OCR_trOCR'].replace('\n', '<br/>')
-                        st.markdown(f"""<p style='font-size:16px;'>{OCR_show}</p><br>""", unsafe_allow_html=True)
+            # Start with the "Unplaced Text" if it exists
+            # unplaced_text = st.session_state.data_edited.loc[st.session_state.row_to_edit, "additionalText"]
+            tabs = []
+            tab_labels = []
+            
+            # if unplaced_text and isinstance(unplaced_text, str) and unplaced_text.strip():
+            #     # Add "Unplaced Text" as the first tab
+            #     tab_labels.append("Unplaced Text")
+            #     tabs.append(unplaced_text.replace('\n', '<br/>'))
+
+            # Create dynamic tabs based on the keys in OCR_JSON
+            available_keys = list(OCR_JSON.keys())
+            tab_labels.extend([key.replace('_', ' ').capitalize() for key in available_keys])
+            tabs.extend([OCR_JSON[key].replace('\n', '<br/>') for key in available_keys])
+
+            # Create the tabs in Streamlit
+            tab_instances = st.tabs(tab_labels)
+
+            # Display the content in each tab
+            for i, content in enumerate(tabs):
+                with tab_instances[i]:
+                    st.markdown(f"""<p style='font-size:16px;'>{content}</p><br>""", unsafe_allow_html=True)
+
+
+
+def display_issues():
+    active_issues = st.session_state.data_edited["track_issues"].eq('True').any()
+
+    with st.expander(":red[Open ISSUES]", expanded=active_issues):
+        if active_issues:
+            active_issues_indices = st.session_state.data_edited.index[st.session_state.data_edited["track_issues"].eq('True')].tolist()
+
+            for issue in active_issues_indices:
+                genus_value  = st.session_state.data_edited.loc[issue, "genus"]
+                specificEpithet_value  = st.session_state.data_edited.loc[issue, "specificEpithet"]
+                str_genus = str(genus_value) if genus_value is not None else ""
+                str_specificEpithet = str(specificEpithet_value) if specificEpithet_value is not None else ""
+
+                if st.button(f"Img [{issue+1}] {str_genus} {str_specificEpithet}"):
+                    st.session_state.row_to_edit = int(issue)
+                    st.rerun()
+
+def display_notes():
+    with st.expander("Notes", expanded=True):
+        new_notes = st.text_area("session notes", label_visibility='collapsed', value=st.session_state.notes_data['NOTES'])
+        if new_notes != st.session_state.notes_data['NOTES']:
+            st.session_state.notes_data['NOTES'] = new_notes
+            save_notes(st.session_state.notes_data['NOTES'])
 
 
 def display_tab_content(tab, main_key, main_value):
@@ -2877,8 +2996,13 @@ if st.session_state.start_editing:
             # Get the current row from the spreadsheet, show the index
             n_rows = len(st.session_state.data_edited)
             with c_index:
-                st.write(f"**Image {st.session_state.row_to_edit+1} / {n_rows}**")
-            
+                # st.write(f"**Image {st.session_state.row_to_edit+1} / {n_rows}**")
+                last_true_index_max = st.session_state.data_edited[st.session_state.data_edited["track_view"] == 'True'].index.max() + 1
+                skip_to_manual = st.number_input(f"**Image {st.session_state.row_to_edit+1} / {n_rows}**",key=f"skip to index{st.session_state.row_to_edit}", label_visibility='visible', step=1, value=st.session_state.row_to_edit+1, min_value=1, max_value=last_true_index_max)
+                if skip_to_manual:
+                    if skip_to_manual != st.session_state.row_to_edit+1:
+                        st.session_state.row_to_edit = skip_to_manual-1
+                        st.rerun()
             # Create the skip to bookmark button
             with c_skip:
                 st.button('Skip ahead',key=f"Skip_to_last_viewed2", use_container_width=True, on_click=on_press_skip_to_bookmark)
@@ -2896,7 +3020,7 @@ if st.session_state.start_editing:
             st.write("Skipping ahead (editing in the 'Form View' out of order) will cause issues if all 5 groups are selected while skipping ahead.")
             st.write("If skipping ahead, only use the 'ALL' option until returning to sequential editing.")
             # Reorder the columns to have "track_view" and "track_edit" at the beginning
-            reordered_columns = ['user_uniqname', 'user_time_of_edit', 'track_view', 'track_edit'] + [col for col in st.session_state.data_edited.columns if col not in ['user_uniqname', 'user_time_of_edit', 'track_view', 'track_edit']]
+            reordered_columns = ['user_uniqname', 'user_time_of_edit', 'track_view', 'track_edit', 'track_issues'] + [col for col in st.session_state.data_edited.columns if col not in ['user_uniqname', 'user_time_of_edit', 'track_view', 'track_edit', 'track_issues']]
             st.session_state.data_edited = st.session_state.data_edited[reordered_columns]
 
             # If the view option is "Data Editor", create a new full-width container for the editor
@@ -2948,11 +3072,15 @@ if st.session_state.start_editing:
 
             display_coordinates(0)
             
-            display_WFO_partial_match()
+            # display_WFO_partial_match()
             
             # display_wiki_taxa_summary()
             
             display_json_helper_text()
+
+            display_issues()
+
+            display_notes()
 
             # display_wiki_taxa_sub_links()
             
@@ -3017,7 +3145,7 @@ if st.session_state.start_editing:
 
         display_coordinates(1)
         
-        display_WFO_partial_match()
+        # display_WFO_partial_match()
         
         # display_wiki_taxa_summary()
         

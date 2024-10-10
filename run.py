@@ -32,7 +32,7 @@ def resolve_path(path):
 
 
 if __name__ == '__main__':
-    start_port = 8556
+    start_port = 8587
     try:
         free_port = find_available_port(start_port)
         sys.argv = [

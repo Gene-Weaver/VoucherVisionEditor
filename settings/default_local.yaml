@@ -1,13 +1,15 @@
 editor:
   add_fields:
     TAXONOMY:
-    - otherCatalogNumber
+    - subspecies
+    - variety
+    - forma
   hide_fields:
   - order
   - family
   - scientificName
   - speciesNameAuthorship
-  - otherCatalogNumber
+  - identificationHistory
 locations:
   # "local"
   # project_dir: "S:/VoucherVision/Transcription"
