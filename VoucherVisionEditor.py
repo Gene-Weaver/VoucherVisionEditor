@@ -18,6 +18,20 @@ import pstats
 from utils import get_wfo_url, ScreenResolution
 from text import HelpText
 
+# For Table View
+from itables import to_html_datatable
+from streamlit.components.v1 import html
+from itables import JavascriptFunction
+import itables.options as opt
+from itables import to_html_datatable, init_notebook_mode, show, JavascriptCode
+from itables.downsample import as_nbytes, nbytes
+from itables.sample_dfs import get_indicators
+init_notebook_mode(all_interactive=True)
+opt.maxBytes = 0  # Set maxBytes to 0 to remove any size restrictions
+opt.maxRows = 0   # No limit on number of rows
+opt.maxColumns = 0  # No limit on number of columns
+
+
 # pip install streamlit pandas Pillow openpyxl streamlit-aggrid
 # Windows
 # streamlit run your_script.py -- --SAVE_DIR /path/to/save/dir
@@ -72,6 +86,9 @@ if "file_name" not in st.session_state:
 
 if "user_input" not in st.session_state:
     st.session_state.user_input = {}
+
+if "table_height_holder" not in st.session_state:
+    st.session_state.table_height_holder = 0
 
 if "clear_count" not in st.session_state:
     st.session_state.clear_count = 0
@@ -944,6 +961,13 @@ def load_data():
                         st.session_state.data_edited = pd.DataFrame(columns=st.session_state.data.columns)
                         st.session_state.data_edited['catalogNumber'] = st.session_state.data['catalogNumber']
                         st.session_state.data_edited['additionalText'] = st.session_state.data['additionalText']
+
+                        # This is for the S/Drive craziness                     
+                        st.session_state.data_edited['path_to_crop'] = st.session_state.data['path_to_crop']
+                        st.session_state.data_edited['path_to_original'] = st.session_state.data['path_to_original']
+                        st.session_state.data_edited['path_to_helper'] = st.session_state.data['path_to_helper']
+                        st.session_state.data_edited['path_to_content'] = st.session_state.data['path_to_content']
+
                         
                         for col in st.session_state.data.columns:
                             if col != 'catalogNumber' and col != 'additionalText' and st.session_state.data.columns.get_loc(col) < st.session_state.data.columns.get_loc('filename'):
@@ -1474,8 +1498,67 @@ def on_press_confirm_content(group_option, group_options):
     save_data()
 
 ###############################################################
-################# Display Rows in the Form ####################
+###################### Display Table ##########################
 ###############################################################
+def calculate_table_height(entries_per_page, base_height=450):
+    """Calculate table height dynamically based on entries per page."""
+    return base_height * (entries_per_page // 10)
+
+def highlight_text_in_table(table, text_query):
+    """
+    Highlight the text_query in the table by wrapping it with a <span> that has red color.
+    """
+    # JavaScript logic to highlight the query in red
+    highlight_js = JavascriptCode(f"""
+    function(data, type, row, meta) {{
+        if (typeof data === 'string') {{
+            return data.replace(new RegExp("({text_query})", "gi"), '<span style="color:red">$1</span>');
+        }}
+        return data;
+    }}
+    """)
+
+    # Apply the highlight function to all columns using columnDefs
+    column_defs = [{"targets": "_all", "render": highlight_js}]
+    
+    return to_html_datatable(table, classes="display nowrap compact cell-border", columnDefs=column_defs)
+
+
+def table_layout():
+    entries_per_page = st.selectbox('Entries per page:', [10, 20, 50, 100], index=0,)  # Default is 10
+    table_height = calculate_table_height(entries_per_page)
+    if st.session_state.table_height_holder != table_height:
+        st.session_state.table_height_holder = table_height
+        st.rerun()
+
+    table = st.session_state.data_edited
+    # Get text query from user input
+    text_query = "Carex"
+
+    # table_html = to_html_datatable(table, classes="display nowrap compact cell-border", lengthMenu=[entries_per_page])
+    # html(HelpText.TABLECSS + table_html, height=table_height)
+    # Highlight the query in the table
+    if text_query:
+        table_html = highlight_text_in_table(table, text_query)
+    else:
+        table_html = to_html_datatable(table, classes="display nowrap compact cell-border", lengthMenu=[entries_per_page])
+    
+    # Render the table with custom CSS and dynamic height
+    html(HelpText.TABLECSS + table_html, height=table_height)
+
+
+#########   https://mwouts.github.io/itables/formatting.html
+
+
+
+
+
+
+
+
+###############################################################
+################# Display Rows in the Form ####################
+############################################################### 
 # def form_layout(group_option, grouping):
 #     """
 #     Display form layout based on group_option and update st.session_state.data.
@@ -3224,6 +3307,7 @@ if st.session_state.start_editing:
         # relative_path_to_static = image_to_server()
 
 
+    table_layout()
 
         
 

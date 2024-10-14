@@ -74,6 +74,63 @@ then you can hide the following tools to simplify the appearance of the VoucherV
     LLMTranscription = """This file contains the LLM transcription data. This will be used to create your official records, but will never be modified directly. 
 All edits will be stored in a transcribed__DATE.xlsx file."""
 
+    
+
+    TABLECSS = """ 
+    <style>
+    body {
+        background-color: #1e1e1e;
+        color: #f5f5f5;
+    }
+    table.dataTable {
+        background-color: #333333;
+        color: #f5f5f5;
+    }
+    table.dataTable thead th {
+        background-color: #444444;
+        color: #f5f5f5;
+    }
+    table.dataTable tbody td {
+        background-color: #333333;
+        color: #f5f5f5;
+    }
+    table.dataTable tfoot th {
+        background-color: #444444;
+        color: #f5f5f5;
+    }
+    table.dataTable tr.even {
+        background-color: #2b2b2b;
+    }
+    table.dataTable tr.odd {
+        background-color: #3b3b3b;
+    }
+    .dataTables_wrapper .dataTables_paginate .paginate_button {
+        color: #f5f5f5 !important;
+        background-color: #444444 !important;
+    }
+    .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+        color: #ffffff !important;
+        background-color: #666666 !important;
+    }
+    .dataTables_wrapper .dataTables_length select,
+    .dataTables_wrapper .dataTables_filter input {
+        background-color: #444444;
+        color: #f5f5f5;
+    }
+    .dataTables_wrapper .dataTables_info {
+        color: #f5f5f5;
+    }
+    .dataTables_wrapper .dataTables_paginate {
+        color: #f5f5f5;
+    }
+    .dataTables_wrapper .dataTables_length {
+        color: #f5f5f5;
+    }
+    .dataTables_wrapper .dataTables_filter label {
+        color: #f5f5f5;
+    }
+    </style>
+    """
 
 
     

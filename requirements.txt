@@ -10,3 +10,4 @@ Pillow
 aiohttp 
 backoff
 screeninfo>=0.8.1
+itables
