@@ -15,7 +15,7 @@ from contextlib import contextmanager
 import cProfile
 import pstats
 
-from utils import get_wfo_url
+from utils import get_wfo_url, ScreenResolution
 from text import HelpText
 
 # pip install streamlit pandas Pillow openpyxl streamlit-aggrid
@@ -50,7 +50,9 @@ if "USE_REMOTE" not in st.session_state:
 if "project_dir" not in st.session_state:
     st.session_state.project_dir = ''
 ###########################################################################################################################
-
+if "screen_width" not in st.session_state:
+    screen = ScreenResolution()
+    st.session_state.screen_width, st.session_state.screen_height = screen.get_smallest_monitor()
 
 if "start_editing" not in st.session_state:
     st.session_state.start_editing = False
@@ -124,7 +126,16 @@ if 'set_image_size_previous' not in st.session_state:
     st.session_state.set_image_size_previous = 'Custom'
 
 if 'set_image_size_px' not in st.session_state:
-    st.session_state.set_image_size_px = 900
+    if st.session_state.screen_width >= 1600:
+        st.session_state.set_image_size_px = 1000
+    elif st.session_state.screen_width >= 1300:
+        st.session_state.set_image_size_px = 800
+    elif st.session_state.screen_width >= 1100:
+        st.session_state.set_image_size_px = 700
+    elif st.session_state.screen_width >= 1000:
+        st.session_state.set_image_size_px = 650
+    else:
+        st.session_state.set_image_size_px = 500
 
 if 'set_image_size_pxh' not in st.session_state:
     st.session_state.set_image_size_pxh = 80
@@ -430,11 +441,13 @@ def setup_streamlit_config(mapbox_key=None):
 #     else:
 #         raise
 def set_column_groups():
-    with open(st.session_state.settings_file, 'r') as file:
-        st.session_state.settings_file_dict = yaml.safe_load(file)
-    st.session_state.add_fields = st.session_state.settings_file_dict['editor']['add_fields']
-    st.session_state.hide_fields = st.session_state.settings_file_dict['editor']['hide_fields']
-    
+    try:
+        with open(st.session_state.settings_file, 'r') as file:
+            st.session_state.settings_file_dict = yaml.safe_load(file)
+        st.session_state.add_fields = st.session_state.settings_file_dict['editor']['add_fields']
+        st.session_state.hide_fields = st.session_state.settings_file_dict['editor']['hide_fields']
+    except:
+        pass
 
 
     mapping = st.session_state.prompt_mapping
@@ -534,12 +547,20 @@ def upload_and_unzip():
 
         
     if st.session_state.settings['locations']['project_dir'] != "local":
-        st.session_state.USE_REMOTE = True
-        st.session_state.BASE_PATH_MANUAL = st.session_state.settings['locations']['project_dir']
-        os.makedirs(st.session_state.BASE_PATH_MANUAL, exist_ok=True)
+        try:
+            st.session_state.USE_REMOTE = True
+            st.session_state.BASE_PATH_MANUAL = st.session_state.settings['locations']['project_dir']
+            os.makedirs(st.session_state.BASE_PATH_MANUAL, exist_ok=True)
 
-        if platform.system() == 'Darwin':
-            raise "TODO"
+            if platform.system() == 'Darwin':
+                raise "TODO"
+        except:
+            st.session_state.USE_REMOTE = False
+
+            if platform.system() == 'Darwin':
+                raise "TODO"
+            
+            st.error(f"The settings/default.yaml file location for the project_dir is set to {st.session_state.settings['locations']['project_dir']} but is NOT accessible. VoucherVisionEditor will default to loading/storing data locally within VoucherVisionEditor/projects/")
 
 
     if st.session_state.USE_REMOTE:
@@ -707,9 +728,13 @@ def create_save_dir(transcription_index, add_prefix = False):
     
     # Use the first path from the 'path_to_content' column as a base to determine the directory
     first_path_to_content = st.session_state.data['path_to_content'][0]
+
+    # Split the path into components, handling drive letters separately on Windows
+    drive, path_tail = os.path.splitdrive(first_path_to_content)
+    parts = path_tail.split(os.path.sep)
     
     # Split the path into its components
-    parts = first_path_to_content.split(os.path.sep)
+    # parts = first_path_to_content.split(os.path.sep)
 
     # Check if we have a valid transcription index
     if transcription_index is None:
@@ -722,7 +747,7 @@ def create_save_dir(transcription_index, add_prefix = False):
         # On Windows, prepend BASE_PATH if needed (or do nothing if paths are absolute)
 
     # Construct the SAVE_DIR from the path
-    save_dir = os.path.join(*parts[:transcription_index + 1])
+    save_dir = os.path.join(drive, *parts[:transcription_index + 1])
     
     if add_prefix:
         save_dir = f'/{save_dir}'
@@ -1210,8 +1235,8 @@ def show_header_main():
 
         # Set Image Width slider
         if st.session_state.set_image_size == "Custom":
-            image_sizes = list(range(200, 2601, 100))
-            st.session_state.set_image_size_px = st.select_slider('Set Image Width', options=image_sizes, value=900)
+            image_sizes = list(range(200, 2601, 50))
+            st.session_state.set_image_size_px = st.select_slider('Set Image Width', options=image_sizes, value=st.session_state.set_image_size_px)
 
         # Set Viewing Height slider
         if st.session_state.set_image_size != "Auto Width":
@@ -2090,30 +2115,30 @@ def display_json_helper_text():
         
         # Button to toggle extra helper text
         with st.expander("OCR Text"):
-            con_tabs = st.empty()
-
-            # Start with the "Unplaced Text" if it exists
-            # unplaced_text = st.session_state.data_edited.loc[st.session_state.row_to_edit, "additionalText"]
             tabs = []
             tab_labels = []
-            
-            # if unplaced_text and isinstance(unplaced_text, str) and unplaced_text.strip():
-            #     # Add "Unplaced Text" as the first tab
-            #     tab_labels.append("Unplaced Text")
-            #     tabs.append(unplaced_text.replace('\n', '<br/>'))
 
             # Create dynamic tabs based on the keys in OCR_JSON
             available_keys = list(OCR_JSON.keys())
             tab_labels.extend([key.replace('_', ' ').capitalize() for key in available_keys])
-            tabs.extend([OCR_JSON[key].replace('\n', '<br/>') for key in available_keys])
+
+            # Clean the text using remove_number_lines and prepare for display
+            for key in available_keys:
+                cleaned_text = remove_number_lines(OCR_JSON[key], threshold=6)
+                tabs.append(cleaned_text.replace('\n', '<br/>'))
+
+            # Check if we have content for all tabs
+            if len(tab_labels) != len(tabs):
+                st.error("Mismatch between tabs and content")
+                return
 
             # Create the tabs in Streamlit
             tab_instances = st.tabs(tab_labels)
 
-            # Display the content in each tab
-            for i, content in enumerate(tabs):
+            # Display the cleaned content in each tab
+            for i in range(len(tab_instances)):
                 with tab_instances[i]:
-                    st.markdown(f"""<p style='font-size:16px;'>{content}</p><br>""", unsafe_allow_html=True)
+                    st.markdown(f"""<p style='font-size:16px;'>{tabs[i]}</p><br>""", unsafe_allow_html=True)
 
 
 
@@ -2379,8 +2404,12 @@ def get_map_data(coords_string, coordinate_type):
         st.warning(f"Possibly invalid {coordinate_type} GPS coordinates! Exactly two coordinate values not found.")
         return None
     lat, lon = parse_coordinate(coords)
-    if lat is None or not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
-        st.warning(f"Invalid {coordinate_type} GPS coordinates! Values are out of bounds.")
+    if lat is not None and lon is not None:
+        if not ((-90 <= lat <= 90) or (-180 <= lon <= 180)):
+            st.warning(f"Invalid {coordinate_type} GPS coordinates! Values are out of bounds.")
+            return None
+    if lat is None or lon is None:
+        st.info(f"No GPS coordinates in record")
         return None
     if coordinate_type == 'decimal':
         color = [[0.0, 1.0, 0.0, 0.5]]  # Decimal for green
@@ -2415,12 +2444,12 @@ def display_map(map_data, zoom_out, n):
     if map_data is not None and not map_data.empty:
         if zoom_out:
             z = 0
-            st.map(map_data, zoom=z, color='color', height=st.session_state.set_map_height_pxh)
+            st.map(map_data, zoom=z, color='color', height=st.session_state.set_map_height_pxh, size='size')
             if st.session_state.coordinates_dist:
                 st.error(f':heavy_exclamation_mark: The verbatim and decimal coordinates are {st.session_state.coordinates_dist} kilometers apart. Check the coordinates:heavy_exclamation_mark:')
         else:
             z = 3
-            st.map(map_data, zoom=z, color='color', height=st.session_state.set_map_height_pxh)
+            st.map(map_data, zoom=z, color='color', height=st.session_state.set_map_height_pxh, size='size')
             if st.session_state.coordinates_dist:
                 if st.session_state.coordinates_dist > st.session_state.distance_GPS_warn:
                     st.warning(f':bell: ***WARNING:*** Distance between verbatim and decimal coordinates is ***{st.session_state.coordinates_dist}*** kilometers. Check the coordinates!')
@@ -2655,7 +2684,7 @@ def display_scrollable_image_method():
     elif st.session_state.set_image_size == "Fitted":
         image_width = 600
     else:
-        image_width = 900  # For use_column_width=True
+        image_width = st.session_state.set_image_size_px  # For use_column_width=True
 
     # Convert the image to base64
     base64_image = image_to_base64(st.session_state['image'])
@@ -2998,7 +3027,14 @@ if st.session_state.start_editing:
             with c_index:
                 # st.write(f"**Image {st.session_state.row_to_edit+1} / {n_rows}**")
                 last_true_index_max = st.session_state.data_edited[st.session_state.data_edited["track_view"] == 'True'].index.max() + 1
-                skip_to_manual = st.number_input(f"**Image {st.session_state.row_to_edit+1} / {n_rows}**",key=f"skip to index{st.session_state.row_to_edit}", label_visibility='visible', step=1, value=st.session_state.row_to_edit+1, min_value=1, max_value=last_true_index_max)
+                if pd.isna(last_true_index_max):
+                    last_true_index_max = 1
+                    current_image = 1
+                    set_value = 1
+                else:
+                    current_image = st.session_state.row_to_edit+1
+                    set_value = st.session_state.row_to_edit+1
+                skip_to_manual = st.number_input(f"**Image {current_image} / {n_rows}**",key=f"skip to index{st.session_state.row_to_edit}", label_visibility='visible', step=1, value=set_value, min_value=1, max_value=last_true_index_max)
                 if skip_to_manual:
                     if skip_to_manual != st.session_state.row_to_edit+1:
                         st.session_state.row_to_edit = skip_to_manual-1

@@ -4,16 +4,58 @@ from PIL import Image
 import json, os, argparse, shutil, re
 import requests
 from urllib.parse import urlencode
+from screeninfo import get_monitors
 
-def remove_number_lines(text, threshold=6):
+class ScreenResolution:
+    def get_smallest_monitor(self):
+        # Get all connected monitors
+        monitors = get_monitors()
+
+        # Find the smallest monitor based on resolution (width * height)
+        smallest_monitor = min(monitors, key=lambda m: m.width * m.height)
+
+        return smallest_monitor.width, smallest_monitor.height
+
+# def remove_number_lines(text, threshold=6):
+#     lines = text.split('\n')
+#     cleaned_lines = []
+#     for line in lines:
+#         numbers = re.findall(r'\b\d+(\.\d+)?\b', line)
+#         if len(numbers) < threshold:
+#             cleaned_lines.append(line)
+#     cleaned_lines2 = '\n'.join(cleaned_lines)
+#     return cleaned_lines2
+def remove_number_lines(text, threshold=40):
     lines = text.split('\n')
-    cleaned_lines = []
-    for line in lines:
-        numbers = re.findall(r'\b\d+(\.\d+)?\b', line)
-        if len(numbers) < threshold:
-            cleaned_lines.append(line)
-    cleaned_lines2 = '\n'.join(cleaned_lines)
-    return cleaned_lines2
+
+    # Handle multi-line case
+    if len(lines) > 1:
+        cleaned_lines = []
+        number_lines = []
+        
+        for line in lines:
+            # Find all number sequences in the line
+            numbers = re.findall(r'\b\d+(\.\d+)?\b', line)
+            # If the line has fewer than the threshold number of numbers, keep it in the main text
+            if len(numbers) < threshold:
+                cleaned_lines.append(line)
+            else:
+                # If the line has too many numbers, move it to the "number_lines" list
+                number_lines.append(line)
+        
+        # Return the cleaned lines followed by the number-heavy lines
+        return '\n'.join(cleaned_lines + number_lines)
+
+    # Handle single-line case
+    else:
+        # Find large sequences of numbers and move them to the end
+        # Regex to find all large number sequences
+        number_blocks = re.findall(r'(\d[\d\s.,-]{3,})', text)
+        # Remove the number blocks from the original text
+        cleaned_text = re.sub(r'(\d[\d\s.,-]{3,})', '', text).strip()
+
+        # Join the cleaned text with the number blocks at the end
+        return f"{cleaned_text}\n\n{' '.join(number_blocks)}"
 
 def dms_to_decimal(dms_string):
     """Convert DMS string to decimal format for latitude and longitude."""

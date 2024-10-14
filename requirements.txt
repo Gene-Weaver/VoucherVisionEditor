@@ -1,4 +1,4 @@
-streamlit
+streamlit>=1.39.0
 st-annotated-text
 pyyaml
 duckduckgo-search
@@ -9,3 +9,4 @@ openpyxl
 Pillow
 aiohttp 
 backoff
+screeninfo>=0.8.1
