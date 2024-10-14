@@ -552,6 +552,36 @@ def unzip_and_setup_path(uploaded_file, target_dir):
 #     selected_subdir = st.selectbox("Select a project:", subdirs)
 #     st.session_state.BASE_PATH = os.path.join(project_dir, selected_subdir)
 #     st.info(f"Working from: {st.session_state.BASE_PATH}")
+def resolve_actual_path(directory):
+    """Resolve the actual path to handle different mappings."""
+    return os.path.realpath(directory)
+    
+def find_available_project_dir(project_dir_list):
+    """Find the available project directory from a list of paths."""
+    if not project_dir_list:
+        raise ValueError("The project directory list is empty.")
+    
+    resolved_paths = {}
+    
+    # Loop through all paths in project_dir_list
+    for directory in project_dir_list:
+        resolved_path = resolve_actual_path(directory)
+        
+        # If we find a duplicate resolved path, use the first occurrence
+        if resolved_path in resolved_paths:
+            return resolved_paths[resolved_path]
+        
+        # If the directory exists, store it
+        if os.path.exists(resolved_path):
+            resolved_paths[resolved_path] = directory
+
+    # If no matching paths found, raise an error
+    if not resolved_paths:
+        raise FileNotFoundError("No valid project directories found in the list.")
+    
+    # Return the first valid directory found
+    return next(iter(resolved_paths.values()))
+
 def upload_and_unzip():
     file_path = os.path.join(st.session_state.dir_home, 'settings', 'default.yaml')
 
@@ -577,10 +607,8 @@ def upload_and_unzip():
 
             # Check for the first available directory in the list
             available_project_dir = None
-            for directory in project_dir_list:
-                if os.path.exists(directory):
-                    available_project_dir = directory
-                    break
+
+            available_project_dir = find_available_project_dir(project_dir_list)
 
             if available_project_dir is None:
                 # If no directories are found, raise an error and disable remote usage
@@ -606,14 +634,13 @@ def upload_and_unzip():
         st.session_state.BASE_PATH_MANUAL = st.selectbox("Set Project Directory", options=project_dir_list, index=project_dir_list.index(available_project_dir), disabled=True)
         
         if st.session_state.BASE_PATH_MANUAL is not None:
-            os.makedirs(st.session_state.BASE_PATH_MANUAL, exist_ok=True)
-
             st.session_state.user_uniqname = st.text_input("Set Uniqname")
             if st.session_state.user_uniqname == '':
                 st.warning("Uniqname cannot be empty. Please enter your Uniqname.")
             else:
                 st.session_state.project_dir = os.path.join(st.session_state.BASE_PATH_MANUAL, st.session_state.user_uniqname)
-                os.makedirs(st.session_state.project_dir, exist_ok=True)
+                if not os.path.exists(st.session_state.project_dir):
+                    os.makedirs(st.session_state.project_dir, exist_ok=True)
                     
     # Local file handling
     else:
@@ -622,7 +649,8 @@ def upload_and_unzip():
             st.warning("Uniqname cannot be empty. Please enter your Uniqname.")
         else:
             st.session_state.project_dir = os.path.join(st.session_state.dir_home, 'projects', st.session_state.user_uniqname)
-            os.makedirs(st.session_state.project_dir, exist_ok=True)
+            if not os.path.exists(st.session_state.project_dir):
+                os.makedirs(st.session_state.project_dir, exist_ok=True)
 
         
     if st.session_state.project_dir != '':
