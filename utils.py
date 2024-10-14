@@ -163,13 +163,20 @@ def check_for_sep(verbatim_coordinates):
 def replace_base_path(old_path, new_base_path, opt):
     # Normalize the old_path to match the OS's current path separator
     normalized_old_path = os.path.normpath(old_path)
+
+    normalized_old_path_part = normalized_old_path.split(os.path.sep)
+
+    if opt == 'crop':
+        if 'Original_Images' in normalized_old_path_part:
+            opt = 'crop_OG'
     
     # Define the target directory based on 'opt'
     target_dir_map = {
-        'crop': ['Cropped_Images', 'Original_Images',],
-        'original': ['Original_Images',],
-        'json': ['Transcription'],
-        'jpg': ['Transcription']  # Assuming this is correct based on your function
+        'crop': 'Cropped_Images',
+        'crop_OG': 'Original_Images',
+        'original': 'Original_Images',
+        'json': 'Transcription',
+        'jpg': 'Transcription',  # Assuming this is correct based on your function
     }
     target_dir = target_dir_map.get(opt)
     
@@ -181,21 +188,25 @@ def replace_base_path(old_path, new_base_path, opt):
     # Split the normalized path into parts
     parts = normalized_old_path.split(os.path.sep)
     
+    target_index = -1
+    # Find the index of the target directory part
     try:
-        # Find the index of the target directory part
-        for target in target_dir:
-            try:
-                target_index = parts.index(target)
-                # Construct the new path by joining the new_base_path with the parts after the target directory
-                new_path_parts = [new_base_path] + parts[target_index:]
-                new_path = os.path.join(*new_path_parts)
-                return new_path
-            except:
-                pass
-    except ValueError:
-        # Target directory not found in the path
-        return old_path
-    
+        target_index = len(parts) - 1 - parts[::-1].index(target_dir)
+        # Construct the new path by joining the new_base_path with the parts after the target directory
+        # new_path_parts = [new_base_path] + parts[target_index:]
+        # new_path = os.path.join(*new_path_parts)
+        # return new_path
+    except:
+        pass
+    # If target directory not found, raise an error
+    if target_index == -1:
+        raise ValueError(f"Target directory {target_dir} not found in path: {old_path}")
+
+    # Construct the new path by joining the new_base_path with the parts after the target directory
+    new_path_parts = [new_base_path] + parts[target_index:]
+    new_path = os.path.join(*new_path_parts)
+
+    return new_path
 
 def get_wfo_url(input_string, check_homonyms=True, check_rank=True, accept_single_candidate=True):
     good_basic = False

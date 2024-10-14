@@ -108,6 +108,9 @@ if "progress_counter_overall" not in st.session_state:
 if "progress" not in st.session_state:
     st.session_state.progress = 0
 
+if "entries_per_page" not in st.session_state:
+    st.session_state.entries_per_page = 10
+
 if "progress_index" not in st.session_state:
     st.session_state.progress_index = 0
 
@@ -991,10 +994,10 @@ def load_data():
                         st.session_state.data_edited['additionalText'] = st.session_state.data['additionalText']
 
                         # This is for the S/Drive craziness                     
-                        st.session_state.data_edited['path_to_crop'] = st.session_state.data['path_to_crop']
-                        st.session_state.data_edited['path_to_original'] = st.session_state.data['path_to_original']
-                        st.session_state.data_edited['path_to_helper'] = st.session_state.data['path_to_helper']
-                        st.session_state.data_edited['path_to_content'] = st.session_state.data['path_to_content']
+                        # st.session_state.data_edited['path_to_crop'] = st.session_state.data['path_to_crop']
+                        # st.session_state.data_edited['path_to_original'] = st.session_state.data['path_to_original']
+                        # st.session_state.data_edited['path_to_helper'] = st.session_state.data['path_to_helper']
+                        # st.session_state.data_edited['path_to_content'] = st.session_state.data['path_to_content']
 
                         
                         for col in st.session_state.data.columns:
@@ -1017,7 +1020,18 @@ def load_data():
                                 st.session_state.data_edited[col][i] if st.session_state.data_edited['track_edit'][i] is not None else st.session_state.data_edited[col][i]
                                 for i in range(len(st.session_state.data_edited))
                             ]
+
+                        # This is for the S/Drive craziness                     
+                        st.session_state.data_edited['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'crop'))
+                        st.session_state.data_edited['path_to_original'] = st.session_state.data['path_to_original'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'original'))
+                        st.session_state.data_edited['path_to_helper'] = st.session_state.data['path_to_helper'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'jpg'))
+                        st.session_state.data_edited['path_to_content'] = st.session_state.data['path_to_content'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'json'))
+
                         print(st.session_state.data_edited.head())
+                        print(st.session_state.data_edited['path_to_crop'][0])
+                        print(st.session_state.data_edited['path_to_original'][0])
+                        print(st.session_state.data_edited['path_to_helper'][0])
+                        print(st.session_state.data_edited['path_to_content'][0])
 
 
                         # for col in st.session_state.data.columns:
@@ -1528,11 +1542,11 @@ def on_press_confirm_content(group_option, group_options):
 ###############################################################
 ###################### Display Table ##########################
 ###############################################################
-def calculate_table_height(entries_per_page, base_height=450):
+def calculate_table_height(entries_per_page, base_height=420):
     """Calculate table height dynamically based on entries per page."""
     return base_height * (entries_per_page // 10)
 
-def highlight_text_in_table(table, text_query):
+def highlight_text_in_table(table, text_query, entries_per_page, DIS_CLASSES):
     """
     Highlight the text_query in the table by wrapping it with a <span> that has red color.
     """
@@ -1549,11 +1563,16 @@ def highlight_text_in_table(table, text_query):
     # Apply the highlight function to all columns using columnDefs
     column_defs = [{"targets": "_all", "render": highlight_js}]
     
-    return to_html_datatable(table, classes="display nowrap compact cell-border", columnDefs=column_defs)
+    return to_html_datatable(table, classes="display nowrap compact cell-border", columnDefs=column_defs, lengthMenu=[entries_per_page])
 
 
-def table_layout():
-    entries_per_page = st.selectbox('Entries per page:', [10, 20, 50, 100], index=0,)  # Default is 10
+def table_layout(t_location):
+    DIS_CLASSES = "display nowrap compact cell-border"
+
+    entries_per_page = st.selectbox('Entries per page:', [10, 20, 50, 100], index=0,key=f'Entries per page{t_location}')  # Default is 10
+    if entries_per_page is None:
+        entries_per_page = 10
+
     table_height = calculate_table_height(entries_per_page)
     if st.session_state.table_height_holder != table_height:
         st.session_state.table_height_holder = table_height
@@ -1567,9 +1586,9 @@ def table_layout():
     # html(HelpText.TABLECSS + table_html, height=table_height)
     # Highlight the query in the table
     if text_query:
-        table_html = highlight_text_in_table(table, text_query)
+        table_html = highlight_text_in_table(table, text_query, entries_per_page, DIS_CLASSES)
     else:
-        table_html = to_html_datatable(table, classes="display nowrap compact cell-border", lengthMenu=[entries_per_page])
+        table_html = to_html_datatable(table, classes=DIS_CLASSES, lengthMenu=[entries_per_page])
     
     # Render the table with custom CSS and dynamic height
     html(HelpText.TABLECSS + table_html, height=table_height)
@@ -3124,6 +3143,8 @@ if st.session_state.start_editing:
         profiler = cProfile.Profile()
         profiler.enable()
 
+    # with st.expander('table_top', expanded=False):
+    #     table_layout('top')
 
     show_header_main()
 
@@ -3335,7 +3356,7 @@ if st.session_state.start_editing:
         # relative_path_to_static = image_to_server()
 
 
-    table_layout()
+    table_layout('bottom')
 
         
 
