@@ -126,19 +126,19 @@ if 'set_image_size_previous' not in st.session_state:
     st.session_state.set_image_size_previous = 'Custom'
 
 if 'set_image_size_px' not in st.session_state:
-    if st.session_state.screen_width >= 1600:
+    if st.session_state.screen_height >= 1600:
         st.session_state.set_image_size_px = 1000
-    elif st.session_state.screen_width >= 1300:
+    elif st.session_state.screen_height >= 1400:
+        st.session_state.set_image_size_px = 900
+    elif st.session_state.screen_height >= 1100:
+        st.session_state.set_image_size_px = 850
+    elif st.session_state.screen_height >= 1000:
         st.session_state.set_image_size_px = 800
-    elif st.session_state.screen_width >= 1100:
-        st.session_state.set_image_size_px = 700
-    elif st.session_state.screen_width >= 1000:
-        st.session_state.set_image_size_px = 650
     else:
         st.session_state.set_image_size_px = 500
 
 if 'set_image_size_pxh' not in st.session_state:
-    st.session_state.set_image_size_pxh = 80
+    st.session_state.set_image_size_pxh = 200
 
 if 'set_map_height_pxh' not in st.session_state:
     st.session_state.set_map_height_pxh = 200
@@ -216,13 +216,17 @@ if 'user_uniqname' not in st.session_state:
     st.session_state.user_uniqname = ''
 if 'dialog_closed' not in st.session_state:
     st.session_state.dialog_closed = False
+
+if 'group_options_tracker' not in st.session_state:
+    st.session_state.group_options_tracker = {}
+    
     
 if 'tool_access' not in st.session_state:
     st.session_state.tool_access = {
         'form': True, #ALWAYS TRUE
         'arrow': True,
         'hints': True,
-        'ocr': True,
+        'ocr': False,
         'wfo_badge': True,
         'taxa_links': True,
         'wfo_links': True,
@@ -1240,13 +1244,13 @@ def show_header_main():
 
         # Set Viewing Height slider
         if st.session_state.set_image_size != "Auto Width":
-            image_sizes = list(range(20, 201, 5))
-            st.session_state.set_image_size_pxh = st.select_slider('Set Viewing Height', options=image_sizes, value=80)
+            image_sizes = list(range(20, 401, 5))
+            st.session_state.set_image_size_pxh = st.select_slider('Set Viewing Height', options=image_sizes, value=st.session_state.set_image_size_pxh)
 
         # Set Map Height slider
         if st.session_state.set_map_height:
             image_sizes = list(range(50, 501, 10))
-            st.session_state.set_map_height_pxh = st.select_slider('Set Map Height', options=image_sizes, value=200)
+            st.session_state.set_map_height_pxh = st.select_slider('Set Map Height', options=image_sizes, value=st.session_state.set_map_height_pxh)
 
         wrap_len = list(range(10, 101, 1))
         st.session_state.form_width = st.select_slider('Text wrapping length for form values', options=wrap_len, value=20)
@@ -1376,6 +1380,10 @@ def on_press_next(group_options):
     """
     Handle actions when the "Next" button is pressed.
     """
+    # Init tracker
+    for i, option in enumerate(group_options):
+        st.session_state.group_options_tracker[option] = 0
+
     if st.session_state.progress == len(group_options) or st.session_state.access_option == 'Admin':
         if st.session_state.data_edited.loc[st.session_state.row_to_edit, "user_time_of_edit"] == "":
             st.session_state.data_edited.loc[st.session_state.row_to_edit, "user_time_of_edit"] = get_current_datetime()
@@ -1405,8 +1413,15 @@ def on_press_skip_to_bookmark():
     last_true_index, last_fully_viewed = update_progress_bar_overall()
     st.session_state.row_to_edit = int(last_true_index)
 
-def on_press_confirm_content(group_options):
-    st.session_state.progress_index += 1
+def on_press_confirm_content(group_option, group_options):
+    print(st.session_state.group_options_tracker)
+    if st.session_state.group_options_tracker[group_option] == 0:
+        # Increase the progress index
+        st.session_state.progress_index += 1
+        # Mark the group as processed by setting it to 1
+        st.session_state.group_options_tracker[group_option] = 1
+
+
     for i, option in enumerate(group_options):
         if i == st.session_state.progress_index:
             # group_option_cols[i].button(option, use_container_width=True, disabled=do_disable_btn)
@@ -1752,7 +1767,7 @@ def display_layout_with_helpers(group_option):
 
 
     
-    st.button('Confirm Content',key=f"Confirm_Content1", use_container_width=True, type="primary",on_click=on_press_confirm_content,args=[group_options]) 
+    st.button('Confirm Content',key=f"Confirm_Content_{group_option}", use_container_width=True, type="primary",on_click=on_press_confirm_content,args=[group_option, group_options]) 
 
 
 
@@ -2341,7 +2356,7 @@ def display_coordinates(n):
         # decimal_coordinates_geo = ','.join([decimal_lat_geo,decimal_long_geo])
 
         # annotated_text(("Verbatim Coordinates", "", "#b86602"), ("Decimal Coordinates", " ", "#017d16"), ("Geolocation Hint", " ", "#0232b8"))
-        annotated_text(("Verbatim Coordinates", "", "#b86602"), ("Decimal Coordinates", " ", "#017d16"))
+        annotated_text(("Verbatim Coordinates", "", "#0232b8"), ("Decimal Coordinates", " ", "#017d16"))
 
         if verbatim_coordinates:
             verbatim_map_data = validate_and_get_coordinates(verbatim_coordinates, 'verbatim')
@@ -2424,7 +2439,8 @@ def get_map_data(coords_string, coordinate_type):
         else:
             size = [150000]  # Decimal for green
     elif coordinate_type == 'verbatim':
-        color = [[1.0, 0.5, 0.0, 0.5]]# Decimal for orange
+        # color = [[1.0, 0.5, 0.0, 0.5]]# Decimal for orange
+        color = [[0.2, 0.5, 1.0, 0.5]]  # Decimal for blue
         if st.session_state.pinpoint == "Pinpoint":
             size = [150]  
         else:
@@ -2957,7 +2973,12 @@ if st.session_state.data is None or not st.session_state.start_editing:
     # if st.session_state.start_editing:
     # if st.session_state.data is not None and not st.session_state.start_editing:
         # st.rerun()
-
+def all_but_one_is_one(tracker):
+    # Count how many keys have the value of 1
+    ones_count = sum(1 for value in tracker.values() if value == 1)
+    
+    # If all but one key has value 1, the count of 1's should be len(tracker) - 1
+    return ones_count == len(tracker) - 1
 ###############################################################
 ####################                    #######################
 ####################      Main App      #######################
@@ -2983,15 +3004,29 @@ if st.session_state.start_editing:
     group_option = st.session_state.get("group_option", group_options[0])
     group_option_cols = c_left.columns(len(group_options))
     
+
+    # Init tracker
+    if st.session_state.group_options_tracker == {}:
+        for i, option in enumerate(group_options):
+            st.session_state.group_options_tracker[option] = 0
+
+
     # Create a button for each category group, used for tracking
     for i, option in enumerate(group_options):
-        if option in st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"].split(","):
+        # if option in st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"].split(","):
+        if st.session_state.group_options_tracker[option] == 1:
             if group_option_cols[i].button(option, use_container_width=True):
                 st.session_state["group_option"] = option
                 group_option = option
             
+        elif all_but_one_is_one(st.session_state.group_options_tracker):
+            if group_option_cols[i].button(option, use_container_width=True):
+                st.session_state["group_option"] = option
+                group_option = option
+                st.session_state.progress_index += 1
         else:
             group_option_cols[i].button(option, use_container_width=True, disabled=True)
+
         
     # Display a progress bar showing how many of the group_options are present in track_edit
     with c_left:
@@ -3034,6 +3069,7 @@ if st.session_state.start_editing:
                 else:
                     current_image = st.session_state.row_to_edit+1
                     set_value = st.session_state.row_to_edit+1
+                    last_true_index_max = last_true_index_max + 1
                 skip_to_manual = st.number_input(f"**Image {current_image} / {n_rows}**",key=f"skip to index{st.session_state.row_to_edit}", label_visibility='visible', step=1, value=set_value, min_value=1, max_value=last_true_index_max)
                 if skip_to_manual:
                     if skip_to_manual != st.session_state.row_to_edit+1:
@@ -3048,7 +3084,8 @@ if st.session_state.start_editing:
         # Update the track_view column for the current row
         if st.session_state.access_option != 'Admin': # ONLY add views if in the label tab
             st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_view"] = 'True'
-            st.session_state.data_edited.loc[st.session_state.row_to_edit, "user_uniqname"] = st.session_state.user_uniqname
+            if st.session_state.data_edited.loc[st.session_state.row_to_edit, "user_uniqname"] == "":
+                st.session_state.data_edited.loc[st.session_state.row_to_edit, "user_uniqname"] = st.session_state.user_uniqname
 
     ### Show the spreadsheet layout
     elif st.session_state.view_option == "Data Editor":
@@ -3192,16 +3229,18 @@ if st.session_state.start_editing:
         # display_search_results()
 
             
-    display_help()
 
     
     if st.session_state.tool_access.get('additional_info'):
+        st.header('Project Progress')
+        # col_low_1, col_low_2, col_low_3, col_low_4, col_low_5, col_low_6, col_low_7, col_low_8,  = st.columns([1,1,1,1,1,1,1,1])
+        last_true_index, last_fully_viewed = update_progress_bar_overall()
+        
         st.header("Additional Project Information")
         display_prompt_template()
     
-    st.header('Project Progress')
-    # col_low_1, col_low_2, col_low_3, col_low_4, col_low_5, col_low_6, col_low_7, col_low_8,  = st.columns([1,1,1,1,1,1,1,1])
-    last_true_index, last_fully_viewed = update_progress_bar_overall()
+    display_help()
+    
 
     if do_print_profiler:
         profiler.disable()
