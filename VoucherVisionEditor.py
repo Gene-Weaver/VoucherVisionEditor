@@ -301,6 +301,9 @@ if 'search_info_people' not in st.session_state:
 if 'BASE_PATH' not in st.session_state:
     st.session_state.BASE_PATH = ''
 
+if 'BASE_PATH_MANUAL' not in st.session_state:
+    st.session_state.BASE_PATH_MANUAL = None
+
 if 'bp_text' not in st.session_state:
     st.session_state.bp_text = '''
     ## Running VVE from the command line (optional)
@@ -549,33 +552,53 @@ def upload_and_unzip():
         }
         # save_yaml_settings(file_path, st.session_state.settings)
 
-        
+    project_dir_list = st.session_state.settings['locations']['project_dir']
+
     if st.session_state.settings['locations']['project_dir'] != "local":
         try:
             st.session_state.USE_REMOTE = True
-            st.session_state.BASE_PATH_MANUAL = st.session_state.settings['locations']['project_dir']
+
+            # Check for the first available directory in the list
+            available_project_dir = None
+            for directory in project_dir_list:
+                if os.path.exists(directory):
+                    available_project_dir = directory
+                    break
+
+            if available_project_dir is None:
+                # If no directories are found, raise an error and disable remote usage
+                raise FileNotFoundError("None of the project directories are accessible")
+
+            if platform.system() == 'Darwin':
+                raise NotImplementedError("macOS (Darwin) handling is not implemented yet")
+
+        except Exception as e:
+            st.session_state.USE_REMOTE = False
+            if platform.system() == 'Darwin':
+                raise NotImplementedError("macOS (Darwin) handling is not implemented yet")
+
+            st.error(f"The settings/default.yaml file location for the project_dir is set to {project_dir_list} but none are accessible. VoucherVisionEditor will default to loading/storing data locally within VoucherVisionEditor/projects/")
+            st.error(str(e))
+    else:
+        st.session_state.USE_REMOTE = False
+
+    # Remote file handling
+    if st.session_state.USE_REMOTE:
+        if isinstance(project_dir_list, str):
+            project_dir_list = [project_dir_list]
+        st.session_state.BASE_PATH_MANUAL = st.selectbox("Set Project Directory", options=project_dir_list, index=project_dir_list.index(available_project_dir), disabled=True)
+        
+        if st.session_state.BASE_PATH_MANUAL is not None:
             os.makedirs(st.session_state.BASE_PATH_MANUAL, exist_ok=True)
 
-            if platform.system() == 'Darwin':
-                raise "TODO"
-        except:
-            st.session_state.USE_REMOTE = False
-
-            if platform.system() == 'Darwin':
-                raise "TODO"
-            
-            st.error(f"The settings/default.yaml file location for the project_dir is set to {st.session_state.settings['locations']['project_dir']} but is NOT accessible. VoucherVisionEditor will default to loading/storing data locally within VoucherVisionEditor/projects/")
-
-
-    if st.session_state.USE_REMOTE:
-        st.text_input("Set Project Directory", value=st.session_state.BASE_PATH_MANUAL, disabled=True)
-
-        st.session_state.user_uniqname = st.text_input("Set Uniqname")
-        if st.session_state.user_uniqname == '':
-            st.warning("Uniqname cannot be empty. Please enter your Uniqname.")
-        else:
-            st.session_state.project_dir = os.path.join(st.session_state.BASE_PATH_MANUAL, st.session_state.user_uniqname)
-            os.makedirs(st.session_state.project_dir, exist_ok=True)
+            st.session_state.user_uniqname = st.text_input("Set Uniqname")
+            if st.session_state.user_uniqname == '':
+                st.warning("Uniqname cannot be empty. Please enter your Uniqname.")
+            else:
+                st.session_state.project_dir = os.path.join(st.session_state.BASE_PATH_MANUAL, st.session_state.user_uniqname)
+                os.makedirs(st.session_state.project_dir, exist_ok=True)
+                    
+    # Local file handling
     else:
         st.session_state.user_uniqname = st.text_input("Set Uniqname")
         if st.session_state.user_uniqname == '':

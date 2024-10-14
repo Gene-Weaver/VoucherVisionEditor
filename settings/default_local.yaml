@@ -12,5 +12,5 @@ editor:
   - identificationHistory
 locations:
   # "local"
-  # project_dir: "S:/VoucherVision/Transcription"
+  # project_dir: ["S:/VoucherVision/Transcription"]
   project_dir: "local"
