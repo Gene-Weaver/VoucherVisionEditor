@@ -153,6 +153,8 @@ if 'set_image_size_px' not in st.session_state:
         st.session_state.set_image_size_px = 850
     elif st.session_state.screen_height >= 1000:
         st.session_state.set_image_size_px = 800
+    elif st.session_state.screen_height >= 850:
+        st.session_state.set_image_size_px = 650
     else:
         st.session_state.set_image_size_px = 500
 
