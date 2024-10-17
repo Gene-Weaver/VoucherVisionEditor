@@ -83,6 +83,10 @@ if __name__ == "__main__":
             local_ip = get_local_ip()
             print(f"Found available port: {free_port}")
             print(f"Local IP address: {local_ip}")
+
+            print(f"VoucherVisionEditor is running in your browser:")
+            print(f"Localhost URL: http://localhost:{free_port}")
+            print(f"Network URL: http://{local_ip}:{free_port}")
             
             process = run_streamlit(free_port)
             
@@ -101,8 +105,7 @@ if __name__ == "__main__":
 
             if process.poll() is None:
                 # Show both localhost and local IP addresses with the port
-                print(f"VoucherVisionEditor is running.")
-                print(f"Please open the application in your browser:")
+                print(f"VoucherVisionEditor is running in your browser:")
                 print(f"Localhost URL: http://localhost:{free_port}")
                 print(f"Network URL: http://{local_ip}:{free_port}")
                 while process.poll() is None:
