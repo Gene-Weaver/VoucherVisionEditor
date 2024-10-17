@@ -92,8 +92,8 @@ if __name__ == "__main__":
                 output = process.stdout.readline()
                 if output:
                     print(output.strip())
-                    if "You can now view your Streamlit app in your browser." in output:
-                        print("Streamlit started successfully.")
+                    if "VoucherVisionEditor is opening in your browser." in output:
+                        print("VoucherVisionEditor started successfully.")
                         break
                 if process.poll() is not None:
                     break
@@ -101,17 +101,17 @@ if __name__ == "__main__":
 
             if process.poll() is None:
                 # Show both localhost and local IP addresses with the port
-                print(f"Streamlit process is running.")
+                print(f"VoucherVisionEditor is running.")
                 print(f"Please open the application in your browser:")
                 print(f"Localhost URL: http://localhost:{free_port}")
                 print(f"Network URL: http://{local_ip}:{free_port}")
                 while process.poll() is None:
                     time.sleep(1)
-                print("Streamlit process ended.")
+                print("VoucherVisionEditor ended.")
                 break
             else:
                 stdout, stderr = process.communicate()
-                print(f"Streamlit failed to start. Error:\n{stderr}")
+                print(f"VoucherVisionEditor failed to start. Error:\n{stderr}")
 
         except ValueError as e:
             print(f"Error: {e}")
