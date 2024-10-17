@@ -52,7 +52,9 @@ def create_shortcut():
 
     shell = win32com.client.Dispatch("WScript.Shell")
     shortcut = shell.CreateShortCut(shortcut_path)
-    shortcut.Targetpath = "%windir%\System32\cmd.exe"
+    # shortcut.Targetpath = "%windir%\System32\cmd.exe"
+    shortcut.Targetpath = r"%windir%\System32\cmd.exe"
+
     # The command activates the venv, navigates to the script's directory, then runs the script
     # shortcut.Arguments = f'/K "{activate_path} & cd /D {os.path.dirname(script_path)} & streamlit run VoucherVisionEditor.py"'
     # shortcut.Arguments = f'/K "{activate_path} & cd /D {static_dir} & start cmd /c python -m http.server & cd /D {script_dir} & streamlit run VoucherVisionEditor.py"'
@@ -62,6 +64,7 @@ def create_shortcut():
     activate_path = os.path.join(script_dir,".venv_VVE","Scripts")
     print(activate_path)
     shortcut.Arguments = f'/K cd /D ""{activate_path}"" && activate && cd /D ""{script_dir}"" && python run.py'
+    
     # Set the icon of the shortcut
     shortcut.IconLocation = icon_path_ico
 
