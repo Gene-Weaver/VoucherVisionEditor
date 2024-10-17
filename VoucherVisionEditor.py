@@ -19,14 +19,13 @@ from utils import get_wfo_url, ScreenResolution
 from text import HelpText
 
 # For Table View
-from itables import to_html_datatable
 from streamlit.components.v1 import html
 from itables import JavascriptFunction
 import itables.options as opt
 from itables import to_html_datatable, init_notebook_mode, show, JavascriptCode
 from itables.downsample import as_nbytes, nbytes
 from itables.sample_dfs import get_indicators
-init_notebook_mode(all_interactive=True)
+# init_notebook_mode(all_interactive=True)
 opt.maxBytes = 0  # Set maxBytes to 0 to remove any size restrictions
 opt.maxRows = 0   # No limit on number of rows
 opt.maxColumns = 0  # No limit on number of columns
@@ -1579,6 +1578,16 @@ def table_layout(t_location):
         st.rerun()
 
     table = st.session_state.data_edited
+
+    # Add the index as a column, increment it by 1, and name it 'Index'
+    table = table.reset_index(drop=True)
+    table.index = table.index + 1
+    table['Img'] = table.index
+
+    # Reorder columns to show 'Index' first
+    cols = ['Img'] + [col for col in table.columns if col != 'Index']
+    table = table[cols]
+
     # Get text query from user input
     text_query = "Carex"
 
@@ -2091,6 +2100,7 @@ def update_data_if_changed(col, original_value):
     if st.session_state.user_input[col] != original_value:
         st.session_state.data_edited.loc[st.session_state.row_to_edit, col] = st.session_state.user_input[col]
         save_data()
+        st.rerun()
 
 # def display_helper_data(col):
 #     #"""Display helper data for the given column."""
@@ -3165,22 +3175,28 @@ if st.session_state.start_editing:
         for i, option in enumerate(group_options):
             st.session_state.group_options_tracker[option] = 0
 
-
-    # Create a button for each category group, used for tracking
-    for i, option in enumerate(group_options):
-        # if option in st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"].split(","):
-        if st.session_state.group_options_tracker[option] == 1:
+    # for finished images
+    if 'ALL' in st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"].split(","):
+        for i, option in enumerate(group_options):
             if group_option_cols[i].button(option, use_container_width=True):
                 st.session_state["group_option"] = option
                 group_option = option
-            
-        elif all_but_one_is_one(st.session_state.group_options_tracker):
-            if group_option_cols[i].button(option, use_container_width=True):
-                st.session_state["group_option"] = option
-                group_option = option
-                st.session_state.progress_index += 1
-        else:
-            group_option_cols[i].button(option, use_container_width=True, disabled=True)
+    #For in progess images
+    else:
+        # Create a button for each category group, used for tracking
+        for i, option in enumerate(group_options):
+            if st.session_state.group_options_tracker[option] == 1:
+                if group_option_cols[i].button(option, use_container_width=True):
+                    st.session_state["group_option"] = option
+                    group_option = option
+                
+            elif all_but_one_is_one(st.session_state.group_options_tracker):
+                if group_option_cols[i].button(option, use_container_width=True):
+                    st.session_state["group_option"] = option
+                    group_option = option
+                    st.session_state.progress_index += 1
+            else:
+                group_option_cols[i].button(option, use_container_width=True, disabled=True)
 
         
     # Display a progress bar showing how many of the group_options are present in track_edit

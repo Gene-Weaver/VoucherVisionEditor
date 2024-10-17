@@ -129,9 +129,16 @@ All edits will be stored in a transcribed__DATE.xlsx file."""
     .dataTables_wrapper .dataTables_filter label {
         color: #f5f5f5;
     }
+
+    /* Minimize/collapse the index column */
+    th:first-child, td:first-child {
+        width: 40px !important;
+        min-width: 40px !important;
+        max-width: 40px !important;
+        text-align: center;
+    }
     </style>
     """
-
 
     
     def __init__(self) -> None:
