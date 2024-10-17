@@ -2577,7 +2577,8 @@ def display_coordinates(n):
         #     display_map(decimal_geo_map_data, zoom_out)
 
 def get_map_data(coords_string, coordinate_type):
-    coords = re.split(',|-\s', coords_string.strip())
+    # coords = re.split(',|-\s', coords_string.strip())
+    coords = re.split(r',|-\s', coords_string.strip())
     if len(coords) != 2:
         st.warning(f"Possibly invalid {coordinate_type} GPS coordinates! Exactly two coordinate values not found.")
         return None
