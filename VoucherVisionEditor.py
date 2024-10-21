@@ -853,7 +853,7 @@ def create_save_dir(transcription_index, add_prefix = False):
 
     # Construct the SAVE_DIR from the path
     if platform.system() == 'Darwin':
-        save_dir = os.path.join('/', *parts[:transcription_index + 2])
+        save_dir = os.path.join('/', *parts[:transcription_index + 3])
     else:
         save_dir = os.path.join(drive, *parts[:transcription_index + 1])
     
