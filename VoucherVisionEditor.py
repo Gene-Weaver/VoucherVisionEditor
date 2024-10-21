@@ -833,27 +833,33 @@ def create_save_dir(transcription_index, add_prefix = False):
     first_path_to_content = st.session_state.data['path_to_content'][0]
 
     # Split the path into components, handling drive letters separately on Windows
-    drive, path_tail = os.path.splitdrive(first_path_to_content)
-    parts = path_tail.split(os.path.sep)
+    # Handle platform-specific path splitting
+    if platform.system() == 'Windows':
+        # On Windows, use os.path.splitdrive to handle drive letters
+        drive, path_tail = os.path.splitdrive(first_path_to_content)
+        parts = path_tail.split(os.path.sep)
+    elif platform.system() == 'Darwin':
+        # On macOS, there's no drive letter, treat the path as Unix-style
+        drive = ''  # No drive on macOS, so keep it empty
+        parts = first_path_to_content.split(os.path.sep)
+
+        # If the first element is empty (leading '/'), remove it
+        if parts[0] == '':
+            parts = parts[1:]
     
-    # Split the path into its components
-    # parts = first_path_to_content.split(os.path.sep)
-
     # Check if we have a valid transcription index
-    if transcription_index is None:
+    if transcription_index is None or transcription_index >= len(parts):
         raise ValueError("Transcription index is not found in the path")
-
-    # If the first part of the path is not absolute, handle the macOS case
-    if platform.system() == 'Darwin':
-        print(f'Running on Darwin (MacOS)')
-        add_prefix = True
-        # On Windows, prepend BASE_PATH if needed (or do nothing if paths are absolute)
 
     # Construct the SAVE_DIR from the path
     save_dir = os.path.join(drive, *parts[:transcription_index + 1])
     
-    if add_prefix:
-        save_dir = f'/{save_dir}'
+    # macOS-specific adjustment: prepend '/' to make sure the path is absolute
+    if platform.system() == 'Darwin':
+        print(f"     Adding leading / for macOS")
+        print(f"     --> {save_dir}")
+        save_dir = os.path.join('/', save_dir)  # Ensure the path is absolute
+        print(f"     --> {save_dir}")
 
     # Ensure the directory exists, create it if it doesn't
     if not os.path.exists(save_dir):
