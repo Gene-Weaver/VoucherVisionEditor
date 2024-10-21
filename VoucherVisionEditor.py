@@ -578,33 +578,20 @@ def find_available_project_dir(project_dir_list):
     
     system_platform = platform.system()
 
+    # Handle Windows paths
     if system_platform == 'Windows':
-        
-        resolved_paths = {}
-        
-        # Loop through all paths in project_dir_list
         for directory in project_dir_list:
             resolved_path = resolve_actual_path(directory)
             
-            # If we find a duplicate resolved path, use the first occurrence
-            if resolved_path in resolved_paths:
-                return resolved_paths[resolved_path]
-            
-            # If the directory exists, store it
+            # If the resolved path exists, return it
             if os.path.exists(resolved_path):
-                resolved_paths[resolved_path] = directory
+                return resolved_path
+            
 
-        # If no matching paths found, raise an error
-        if not resolved_paths:
-            raise FileNotFoundError("No valid project directories found in the list.")
-        
-        # Return the first valid directory found
-        return next(iter(resolved_paths.values()))
-
-    elif system_platform == 'Darwin':  # macOS
-        # Get mounted volumes
+    # Handle macOS paths
+    elif system_platform == 'Darwin':
         mounted_volumes = get_mounted_volumes()
-        
+
         # Try replacing "S:" with each mounted volume and check if path exists
         for directory in project_dir_list:
             for volume in mounted_volumes:
@@ -616,10 +603,10 @@ def find_available_project_dir(project_dir_list):
                 print(f"     Possible Mappings: {possible_mappings}")
                 for path in possible_mappings:
                     if os.path.exists(path):
-                        return os.path.realpath(path)
+                        return os.path.realpath(path)  # Return the resolved path directly
 
     # If none of the paths resolve, raise an error
-    raise FileNotFoundError(f"Cannot resolve the actual path for: {project_dir_list}")
+    return None
 
 
 
