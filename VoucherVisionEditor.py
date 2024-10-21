@@ -608,11 +608,12 @@ def find_available_project_dir(project_dir_list):
         # Try replacing "S:" with each mounted volume and check if path exists
         for directory in project_dir_list:
             for volume in mounted_volumes:
+                print(f"Mounted Volume: {volume}, DIR: {directory}")
                 possible_mappings = [
                     directory.replace("S:", volume),
                     directory.replace("Curatorial Projects/VoucherVision", "VoucherVision").replace("S:", volume)
                 ]
-                
+                print(f"     Possible Mappings: {possible_mappings}")
                 for path in possible_mappings:
                     if os.path.exists(path):
                         return os.path.realpath(path)
