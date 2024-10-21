@@ -852,14 +852,17 @@ def create_save_dir(transcription_index, add_prefix = False):
         raise ValueError("Transcription index is not found in the path")
 
     # Construct the SAVE_DIR from the path
-    save_dir = os.path.join(drive, *parts[:transcription_index + 1])
+    if platform.system() == 'Darwin':
+        save_dir = os.path.join('/', *parts[:transcription_index + 2])
+    else:
+        save_dir = os.path.join(drive, *parts[:transcription_index + 1])
     
     # macOS-specific adjustment: prepend '/' to make sure the path is absolute
-    if platform.system() == 'Darwin':
-        print(f"     Adding leading / for macOS")
-        print(f"     --> {save_dir}")
-        save_dir = os.path.join('/', save_dir)  # Ensure the path is absolute
-        print(f"     --> {save_dir}")
+    # if platform.system() == 'Darwin':
+    #     print(f"     Adding leading / for macOS")
+    #     print(f"     --> {save_dir}")
+    #     save_dir = os.path.join('/', save_dir)  # Ensure the path is absolute
+    #     print(f"     --> {save_dir}")
 
     # Ensure the directory exists, create it if it doesn't
     if not os.path.exists(save_dir):
@@ -869,7 +872,7 @@ def create_save_dir(transcription_index, add_prefix = False):
     st.session_state.SAVE_DIR = save_dir
 
     # For debugging: print the final save directory
-    print(f"Save directory: {st.session_state.SAVE_DIR}")
+    print(f"Save directory --> {st.session_state.SAVE_DIR}")
 
 def get_current_datetime():
     # Get the current date and time
