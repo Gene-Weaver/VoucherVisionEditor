@@ -642,6 +642,8 @@ def upload_and_unzip():
             if available_project_dir is None:
                 # If no directories are found, raise an error and disable remote usage
                 raise FileNotFoundError("None of the project directories are accessible")
+            else:
+                project_dir_list = [available_project_dir]
 
             # if platform.system() == 'Darwin':
                 # raise NotImplementedError("macOS (Darwin) handling is not implemented yet")
