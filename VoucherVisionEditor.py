@@ -235,6 +235,10 @@ if 'set_map_height' not in st.session_state:
     
 if 'user_uniqname' not in st.session_state:
     st.session_state.user_uniqname = ''
+
+if 'user_uniqname_key' not in st.session_state:
+    st.session_state.user_uniqname_key = 6787987987
+    
 if 'dialog_closed' not in st.session_state:
     st.session_state.dialog_closed = False
 
@@ -610,145 +614,174 @@ def find_available_project_dir(project_dir_list):
 
 
 
+@st.dialog("Add new user")
+def add_new_user():
+    st.warning(f"Do you want to add {st.session_state.user_uniqname} as a new user?")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button(f"No"):
+            st.session_state.user_uniqname = ''
+            st.session_state.project_dir = ''
+            st.session_state.user_uniqname_key +=1
+            st.rerun()
+    with c2:
+        if st.button(f"Add :violet-background[{st.session_state.user_uniqname}]"):
+            if st.session_state.USE_REMOTE:
+                st.session_state.project_dir = os.path.join(st.session_state.BASE_PATH_MANUAL, st.session_state.user_uniqname)
+            else:
+                st.session_state.project_dir = os.path.join(st.session_state.dir_home, 'projects', st.session_state.user_uniqname)
+
+            os.makedirs(st.session_state.project_dir, exist_ok=True)
+            st.rerun()
+    
 
 def upload_and_unzip():
     file_path = os.path.join(st.session_state.dir_home, 'settings', 'default.yaml')
 
-    # Load existing settings
-    st.session_state.settings = load_yaml_settings(file_path)
-    if st.session_state.settings is None:
-        st.session_state.settings = {
-            'editor': {
-                'hide_fields': [],
-                'add_fields': {},
+    c_left, c_right = st.columns([8,2])
+
+    with c_right:
+        st.markdown(""":violet-background[NOTE:]\n\n- Refreshing your browser will restart VoucherVisionEditor from this page and reset all settings\n\n- In the Editor, every change you make is immediately saved to the session's .xlsx file""")
+
+    with c_left:
+
+        # Load existing settings
+        st.session_state.settings = load_yaml_settings(file_path)
+        if st.session_state.settings is None:
+            st.session_state.settings = {
+                'editor': {
+                    'hide_fields': [],
+                    'add_fields': {},
+                }
+                ,'locations': {
+                    'project_dir': 'local',
+                }
             }
-            ,'locations': {
-                'project_dir': 'local',
-            }
-        }
-        # save_yaml_settings(file_path, st.session_state.settings)
+            # save_yaml_settings(file_path, st.session_state.settings)
 
-    project_dir_list = st.session_state.settings['locations']['project_dir']
+        project_dir_list = st.session_state.settings['locations']['project_dir']
 
-    if st.session_state.settings['locations']['project_dir'] != "local":
-        try:
-            st.session_state.USE_REMOTE = True
+        if st.session_state.settings['locations']['project_dir'] != "local":
+            try:
+                st.session_state.USE_REMOTE = True
 
-            # Check for the first available directory in the list
-            available_project_dir = None
+                # Check for the first available directory in the list
+                available_project_dir = None
 
-            available_project_dir = find_available_project_dir(project_dir_list)
+                available_project_dir = find_available_project_dir(project_dir_list)
 
-            if available_project_dir is None:
-                # If no directories are found, raise an error and disable remote usage
-                raise FileNotFoundError("None of the project directories are accessible")
-            else:
-                project_dir_list = [available_project_dir]
+                if available_project_dir is None:
+                    # If no directories are found, raise an error and disable remote usage
+                    raise FileNotFoundError("None of the project directories are accessible")
+                else:
+                    project_dir_list = [available_project_dir]
 
-            # if platform.system() == 'Darwin':
-                # raise NotImplementedError("macOS (Darwin) handling is not implemented yet")
+                # if platform.system() == 'Darwin':
+                    # raise NotImplementedError("macOS (Darwin) handling is not implemented yet")
 
-        except Exception as e:
+            except Exception as e:
+                st.session_state.USE_REMOTE = False
+                # if platform.system() == 'Darwin':
+                    # raise NotImplementedError("macOS (Darwin) handling is not implemented yet")
+
+                st.error(f"The settings/default.yaml file location for the project_dir is set to {project_dir_list} but none are accessible. VoucherVisionEditor will default to loading/storing data locally within VoucherVisionEditor/projects/")
+                st.error(str(e))
+        else:
             st.session_state.USE_REMOTE = False
-            # if platform.system() == 'Darwin':
-                # raise NotImplementedError("macOS (Darwin) handling is not implemented yet")
 
-            st.error(f"The settings/default.yaml file location for the project_dir is set to {project_dir_list} but none are accessible. VoucherVisionEditor will default to loading/storing data locally within VoucherVisionEditor/projects/")
-            st.error(str(e))
-    else:
-        st.session_state.USE_REMOTE = False
-
-    # Remote file handling
-    if st.session_state.USE_REMOTE:
-        if isinstance(project_dir_list, str):
-            project_dir_list = [project_dir_list]
-        st.session_state.BASE_PATH_MANUAL = st.selectbox("Set Project Directory", options=project_dir_list, index=project_dir_list.index(available_project_dir), disabled=True)
-        
-        if st.session_state.BASE_PATH_MANUAL is not None:
-            st.session_state.user_uniqname = st.text_input("Set Uniqname")
+        # Remote file handling
+        if st.session_state.USE_REMOTE:
+            if isinstance(project_dir_list, str):
+                project_dir_list = [project_dir_list]
+            st.session_state.BASE_PATH_MANUAL = st.selectbox("Set Project Directory", options=project_dir_list, index=project_dir_list.index(available_project_dir), disabled=True)
+            
+            if st.session_state.BASE_PATH_MANUAL is not None:
+                st.session_state.user_uniqname = st.text_input("Set Uniqname", value=st.session_state.user_uniqname, key=st.session_state.user_uniqname_key)
+                if st.session_state.user_uniqname == '':
+                    st.warning("Uniqname cannot be empty. Please enter your Uniqname.")
+                else:
+                    if not os.path.exists(os.path.join(st.session_state.BASE_PATH_MANUAL, st.session_state.user_uniqname)):
+                        add_new_user()
+                    else:
+                        st.session_state.project_dir = os.path.join(st.session_state.BASE_PATH_MANUAL, st.session_state.user_uniqname)
+                        
+        # Local file handling
+        else:
+            st.session_state.user_uniqname = st.text_input("Set Uniqname", value=st.session_state.user_uniqname, key=st.session_state.user_uniqname_key)
             if st.session_state.user_uniqname == '':
                 st.warning("Uniqname cannot be empty. Please enter your Uniqname.")
             else:
-                st.session_state.project_dir = os.path.join(st.session_state.BASE_PATH_MANUAL, st.session_state.user_uniqname)
-                if not os.path.exists(st.session_state.project_dir):
-                    os.makedirs(st.session_state.project_dir, exist_ok=True)
-                    
-    # Local file handling
-    else:
-        st.session_state.user_uniqname = st.text_input("Set Uniqname")
-        if st.session_state.user_uniqname == '':
-            st.warning("Uniqname cannot be empty. Please enter your Uniqname.")
-        else:
-            st.session_state.project_dir = os.path.join(st.session_state.dir_home, 'projects', st.session_state.user_uniqname)
-            if not os.path.exists(st.session_state.project_dir):
-                os.makedirs(st.session_state.project_dir, exist_ok=True)
+                if not os.path.exists(os.path.join(st.session_state.dir_home, 'projects', st.session_state.user_uniqname)):
+                    add_new_user()
+                else:
+                    st.session_state.project_dir = os.path.join(st.session_state.dir_home, 'projects', st.session_state.user_uniqname)
 
-        
-    if st.session_state.project_dir != '':
-
-        uploaded_file = st.file_uploader("Add a .zip file to the projects folder. Once added, you can select the project and then choose a transcription file to edit.", 
-                                        type='zip', accept_multiple_files=False)
-        # Initialize an indicator for a newly uploaded project
-        new_project_added = False
-
-        if uploaded_file is not None:
-            # Construct the target directory path
-            filename_zip = uploaded_file.name
-            base_filename = filename_zip.rsplit('.', 1)[0]  # Remove the .zip extension
-            target_dir = os.path.join(st.session_state.project_dir, base_filename)
             
-            if not os.path.exists(target_dir):
-                os.makedirs(target_dir, exist_ok=True)  # Create target directory if it doesn't exist
-                # Unzip and set up the path
-                unzip_and_setup_path(uploaded_file, target_dir)
-                uploaded_file = None
+        if st.session_state.project_dir != '' and st.session_state.user_uniqname != '':
 
-            # Indicate a new project has been added to update BASE_PATH later
-            new_project_added = True
-            print(f"BASE = {target_dir}")
-        
+            uploaded_file = st.file_uploader("Add a .zip file to the projects folder. Once added, you can select the project and then choose a transcription file to edit.", 
+                                            type='zip', accept_multiple_files=False)
+            # Initialize an indicator for a newly uploaded project
+            new_project_added = False
 
-        # Initialize an empty list to store subdirectories
-        subdirs = []
-        # Iterate through all items in the project directory
-        for item in os.listdir(st.session_state.project_dir):
-            # Create the full path of the item
-            item_path = os.path.join(st.session_state.project_dir, item)
+            if uploaded_file is not None:
+                # Construct the target directory path
+                filename_zip = uploaded_file.name
+                base_filename = filename_zip.rsplit('.', 1)[0]  # Remove the .zip extension
+                target_dir = os.path.join(st.session_state.project_dir, base_filename)
+                
+                if not os.path.exists(target_dir):
+                    os.makedirs(target_dir, exist_ok=True)  # Create target directory if it doesn't exist
+                    # Unzip and set up the path
+                    unzip_and_setup_path(uploaded_file, target_dir)
+                    uploaded_file = None
+
+                # Indicate a new project has been added to update BASE_PATH later
+                new_project_added = True
+                print(f"BASE = {target_dir}")
             
-            # Check if the item is a directory and not named "CONFIG"
-            if os.path.isdir(item_path) and item != "CONFIG":
-                # If it's a valid subdirectory, add it to the subdirs list
-                subdirs.append(item)
-        
-        # Create a select box for choosing a subdirectory
-        selected_subdir = st.selectbox("Select a project:", subdirs)
 
-        
+            # Initialize an empty list to store subdirectories
+            subdirs = []
+            # Iterate through all items in the project directory
+            for item in os.listdir(st.session_state.project_dir):
+                # Create the full path of the item
+                item_path = os.path.join(st.session_state.project_dir, item)
+                
+                # Check if the item is a directory and not named "CONFIG"
+                if os.path.isdir(item_path) and item != "CONFIG":
+                    # If it's a valid subdirectory, add it to the subdirs list
+                    subdirs.append(item)
+            
+            # Create a select box for choosing a subdirectory
+            selected_subdir = st.selectbox("Select a project:", subdirs)
 
-        # # Update BASE_PATH based on the user's actions
-        # if new_project_added:
-        #     # If a new project was uploaded, use its path
-        #     st.session_state.BASE_PATH = target_dir
-        # elif selected_subdir:
-        #     # Otherwise, update BASE_PATH to the selected subdirectory
-        #     st.session_state.BASE_PATH = os.path.join(project_dir, selected_subdir)
+            
 
-        #     st.info(f"Working from: {st.session_state.BASE_PATH}")
-        # else:
-        #     pass
+            # # Update BASE_PATH based on the user's actions
+            # if new_project_added:
+            #     # If a new project was uploaded, use its path
+            #     st.session_state.BASE_PATH = target_dir
+            # elif selected_subdir:
+            #     # Otherwise, update BASE_PATH to the selected subdirectory
+            #     st.session_state.BASE_PATH = os.path.join(project_dir, selected_subdir)
+
+            #     st.info(f"Working from: {st.session_state.BASE_PATH}")
+            # else:
+            #     pass
 
 
-        # Update BASE_PATH based on the user's actions
-        if new_project_added:
-            # If a new project was uploaded, use its path
-            st.session_state.BASE_PATH = os.path.join(st.session_state.project_dir, selected_subdir)
-        elif selected_subdir:
-            # Otherwise, update BASE_PATH to the selected subdirectory
-            st.session_state.BASE_PATH = os.path.join(st.session_state.project_dir, selected_subdir)
+            # Update BASE_PATH based on the user's actions
+            if new_project_added:
+                # If a new project was uploaded, use its path
+                st.session_state.BASE_PATH = os.path.join(st.session_state.project_dir, selected_subdir)
+            elif selected_subdir:
+                # Otherwise, update BASE_PATH to the selected subdirectory
+                st.session_state.BASE_PATH = os.path.join(st.session_state.project_dir, selected_subdir)
 
-            st.info(f"Working from: {st.session_state.BASE_PATH}")
-        else:
-            pass
+                st.info(f"Working from: {st.session_state.BASE_PATH}")
+            else:
+                pass
 
 
     
@@ -3132,7 +3165,7 @@ def edit_mapping():
 def show_settings_selection():
     st.write('---')
     st.subheader('Load VVE Configuration File')
-    c1, c2 = st.columns([2, 1])
+    c1, c2 = st.columns([3, 2])
     with c1:
         # show the settings files
         subfiles_settings = [f for f in os.listdir(st.session_state.dir_settings) if os.path.isfile(os.path.join(st.session_state.dir_settings, f))]
@@ -3141,14 +3174,17 @@ def show_settings_selection():
             st.session_state.settings_file = os.path.join(st.session_state.dir_settings, selected_settings_file)
 
         st.write(HelpText.splash_config_explain_1)
-        st.write(HelpText.splash_config_explain_2)
+        st.markdown(HelpText.splash_config_explain_2)
 
-        st.subheader("Edit the default.yaml file")
-        edit_default_settings_yaml()
+        # st.subheader("Edit the default.yaml file")
+        # edit_default_settings_yaml()
         # edit_mapping()
     with c2:
-        st.write("Example configuration .yaml file format")
+        st.write(":violet-background[Example configuration `default.yaml` file format for ***mapped*** network drives]")
         st.text(HelpText.splash_config_json_str)
+
+        st.write(":violet-background[Example configuration `default.yaml` file format for saving locally to your computer in the `VoucherVisionEditor/projects/USER/` directory]")
+        st.text(HelpText.splash_config_json_str2)
 ###############################################################
 ####################                    #######################
 ####################    Welcome Page    #######################

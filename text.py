@@ -1,7 +1,20 @@
 class HelpText():
     splash_config = "This is a .yaml file located in the 'VoucherVisionEditor/settings' folder. Use the template to hide fields, or add new fields for manual data entry."
     splash_config_explain_1 = "You can use the `VoucherVisionEditor/settings/example.yaml` as a template to create a VoucherVisionEditor configuration file. Some of the fields that VoucherVision extracts may not be relevant or require manual revision. Those field names can be added as a list in the `hide_fields` key. The `example.yaml` file shows how to hide the 'order' and 'family' fields."
-    splash_config_explain_2 = "We can also add fields that VoucherVision was not instructed to transcribe. Added fields might be those that always require manual entry, or fields that VoucherVision is not capable of transcribing. The `example.yaml` file shows how to add 3 new fields into 2 different categories. Here, `TAXONOMY` is the category and we will add `['forma','variety']` to the existing fields within `TAXONOMY`. The category can be a new name, it does not have to match the categories set in the prompt .yaml file (e.g. `SLTPvA_long.yaml`). The category `NEW_CATEGORY` will appear as a new tab in the Editor and contain only a single field called `anotherFieldName`."
+    splash_config_explain_2 = """We can also add fields that VoucherVision was not instructed to transcribe. 
+    Added fields might be those that always require manual entry, or fields that VoucherVision is not capable of transcribing. 
+    The `example.yaml` file shows how to add 3 new fields into 2 different categories. 
+    Here, `TAXONOMY` is the category and we will add `['subspecies','variety', 'forma']` to the bottom of the existing fields within `TAXONOMY`. 
+\n\nThe category can be a new name, it does not have to match the categories set in the prompt .yaml file (e.g. `SLTPvA_long.yaml`). 
+    The category `NEW_CATEGORY` will appear as a new tab in the Editor by specifying the Tab name like this:\n\n
+
+\n\n     editor:
+        add_fields:
+            NEW_CATEGORY:
+            - subspecies
+            - variety
+            - forma
+These three new fields will be found in the 'NEW_CATEGORY' Tab instead of the 'TAXONOMY' Tab."""
     splash_config_json = {
         'editor': {
             'hide_fields': ['order', 'family',],
@@ -10,13 +23,37 @@ class HelpText():
                 'NEW_CATEGORY': ['anotherFieldName']}
             }
         }
-    splash_config_json_str = """{'editor': 
-    {'hide_fields': ['order', 'family',],
-    'add_fields': {
-        'TAXONOMY': ['forma','variety'],
-        'NEW_CATEGORY': ['anotherFieldName']}
-    }
-}"""
+    splash_config_json_str = """editor:
+  add_fields:
+    TAXONOMY:
+    - subspecies
+    - variety
+    - forma
+  hide_fields:
+  - order
+  - family
+  - scientificName
+  - speciesNameAuthorship
+  - identificationHistory
+locations:
+  # Edited files will live somewhere like this: S:/VoucherVision/Transcription/UNIQNAME/WORKBENCH_NAME/Transcription/transcribed__edited__2024_10_08T16_40_31.xlsx
+  project_dir: ["S:/Curatorial Projects/VoucherVision/Transcription","S:/VoucherVision/Transcription" ]
+"""
+    splash_config_json_str2 = """editor:
+  add_fields:
+    TAXONOMY:
+    - subspecies
+    - variety
+    - forma
+  hide_fields:
+  - order
+  - family
+  - scientificName
+  - speciesNameAuthorship
+  - identificationHistory
+locations:
+  project_dir: 'local'
+"""
     
 
     help_btns = """
