@@ -559,32 +559,69 @@ def unzip_and_setup_path(uploaded_file, target_dir):
 def resolve_actual_path(directory):
     """Resolve the actual path to handle different mappings."""
     return os.path.realpath(directory)
+
+def get_mounted_volumes():
+    """Returns a list of currently mounted volumes on macOS."""
+    volumes = []
+    
+    if platform.system() == 'Darwin':  # macOS
+        volumes_dir = '/Volumes/'
+        if os.path.exists(volumes_dir):
+            volumes = [os.path.join(volumes_dir, d) for d in os.listdir(volumes_dir) if os.path.isdir(os.path.join(volumes_dir, d))]
+    
+    return volumes
     
 def find_available_project_dir(project_dir_list):
     """Find the available project directory from a list of paths."""
     if not project_dir_list:
-        raise ValueError("The project directory list is empty.")
+            raise ValueError("The project directory list is empty.")
     
-    resolved_paths = {}
-    
-    # Loop through all paths in project_dir_list
-    for directory in project_dir_list:
-        resolved_path = resolve_actual_path(directory)
-        
-        # If we find a duplicate resolved path, use the first occurrence
-        if resolved_path in resolved_paths:
-            return resolved_paths[resolved_path]
-        
-        # If the directory exists, store it
-        if os.path.exists(resolved_path):
-            resolved_paths[resolved_path] = directory
+    system_platform = platform.system()
 
-    # If no matching paths found, raise an error
-    if not resolved_paths:
-        raise FileNotFoundError("No valid project directories found in the list.")
-    
-    # Return the first valid directory found
-    return next(iter(resolved_paths.values()))
+    if system_platform == 'Windows':
+        
+        resolved_paths = {}
+        
+        # Loop through all paths in project_dir_list
+        for directory in project_dir_list:
+            resolved_path = resolve_actual_path(directory)
+            
+            # If we find a duplicate resolved path, use the first occurrence
+            if resolved_path in resolved_paths:
+                return resolved_paths[resolved_path]
+            
+            # If the directory exists, store it
+            if os.path.exists(resolved_path):
+                resolved_paths[resolved_path] = directory
+
+        # If no matching paths found, raise an error
+        if not resolved_paths:
+            raise FileNotFoundError("No valid project directories found in the list.")
+        
+        # Return the first valid directory found
+        return next(iter(resolved_paths.values()))
+
+    elif system_platform == 'Darwin':  # macOS
+        # Get mounted volumes
+        mounted_volumes = get_mounted_volumes()
+        
+        # Try replacing "S:" with each mounted volume and check if path exists
+        for directory in project_dir_list:
+            for volume in mounted_volumes:
+                possible_mappings = [
+                    directory.replace("S:", volume),
+                    directory.replace("Curatorial Projects/VoucherVision", "VoucherVision").replace("S:", volume)
+                ]
+                
+                for path in possible_mappings:
+                    if os.path.exists(path):
+                        return os.path.realpath(path)
+
+    # If none of the paths resolve, raise an error
+    raise FileNotFoundError(f"Cannot resolve the actual path for: {project_dir_list}")
+
+
+
 
 def upload_and_unzip():
     file_path = os.path.join(st.session_state.dir_home, 'settings', 'default.yaml')
@@ -618,13 +655,13 @@ def upload_and_unzip():
                 # If no directories are found, raise an error and disable remote usage
                 raise FileNotFoundError("None of the project directories are accessible")
 
-            if platform.system() == 'Darwin':
-                raise NotImplementedError("macOS (Darwin) handling is not implemented yet")
+            # if platform.system() == 'Darwin':
+                # raise NotImplementedError("macOS (Darwin) handling is not implemented yet")
 
         except Exception as e:
             st.session_state.USE_REMOTE = False
-            if platform.system() == 'Darwin':
-                raise NotImplementedError("macOS (Darwin) handling is not implemented yet")
+            # if platform.system() == 'Darwin':
+                # raise NotImplementedError("macOS (Darwin) handling is not implemented yet")
 
             st.error(f"The settings/default.yaml file location for the project_dir is set to {project_dir_list} but none are accessible. VoucherVisionEditor will default to loading/storing data locally within VoucherVisionEditor/projects/")
             st.error(str(e))
