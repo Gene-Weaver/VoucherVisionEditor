@@ -248,6 +248,7 @@ if 'group_options_tracker' not in st.session_state:
     
 if 'tool_access' not in st.session_state:
     st.session_state.tool_access = {
+        'show_skip_specimen': True,
         'form': True, #ALWAYS TRUE
         'arrow': True,
         'hints': True,
@@ -839,6 +840,35 @@ def image_to_base64(img):
 #         print(f"Saved (XLSX) {file_path}")
 #     else:
 #         st.error('Unknown file format.')
+def save_data_skipped(new_skipped_data):
+    try:
+        # st.session_state.data = pd.read_excel(st.session_state.BASE_PATH_transcription_LLM, dtype=str)
+        file_path = os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name_skipped)
+        # Check if skipped file already exists
+        if os.path.exists(file_path):
+            # Load existing skipped data
+            existing_data = pd.read_excel(file_path, dtype=str)
+            
+            # Check for duplicate based on the first column value
+            first_column = existing_data.columns[0]
+            if new_skipped_data[first_column].iloc[0] not in existing_data[first_column].values:
+                # Append if no duplicate
+                updated_data = pd.concat([existing_data, new_skipped_data], ignore_index=True)
+                updated_data.to_excel(file_path, index=False)
+                print(f"Appended to existing file (XLSX) {file_path}")
+            else:
+                print(f"Duplicate row based on {first_column}, skipping save.")
+        else:
+            # Save initial headers and first row if file does not exist
+            new_skipped_data.to_excel(file_path, index=False)
+            print(f"Created new file and saved (XLSX) {file_path}")
+            
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        st.error(f'Error saving the file: {e}')
+
+
+
 def save_data():
     # Check the file extension and save to the appropriate format
     # if st.session_state.file_name.endswith('.csv'):
@@ -1012,6 +1042,9 @@ def load_data():
                         print("OPT2")
                         st.session_state.file_name = f"{st.session_state.working_file.split('.')[0]}{tracker}{st.session_state.current_time}.xlsx"
 
+                    # Name for transcribed_skipped.xlsx
+                    st.session_state.file_name_skipped = "transcribed_skipped.xlsx"
+                    
                     # If BASE_PATH is provided, replace old base paths in the dataframe
                     if st.session_state.BASE_PATH != '':
                         st.session_state.data['path_to_crop'] = st.session_state.data['path_to_crop'].apply(lambda old_path: replace_base_path(old_path, st.session_state.BASE_PATH, 'crop'))
@@ -1449,6 +1482,7 @@ def show_header_main():
                 # st.session_state.form_width = st.session_state.form_width_1
                 st.session_state.tool_access['arrow'] = st.checkbox("Display move arrow button for form hints :arrow_forward:",value=st.session_state.tool_access.get('arrow'),disabled=False)
 
+            st.session_state.tool_access['show_skip_specimen'] = st.checkbox("Display button to skip specimen and add it to transcribed_skipped.xlsx",value=st.session_state.tool_access.get('show_skip_specimen'))
             st.session_state.tool_access['ocr'] = st.checkbox("Display button to view OCR image",value=st.session_state.tool_access.get('ocr'))
             st.session_state.tool_access['wfo_badge'] = st.checkbox("Display WFO badge",value=st.session_state.tool_access.get('wfo_badge'))
             st.session_state.tool_access['taxa_links'] = st.checkbox("Display buttons for Wikipedia (taxonomy), POWO, GRIN",value=st.session_state.tool_access.get('taxa_links'))
@@ -1514,6 +1548,22 @@ def load_json_helper_files():
 ###############################################################
 ####################### Button Press ##########################
 ###############################################################
+def on_press_skip_specimen():
+    st.session_state.data_edited.loc[st.session_state.row_to_edit, "country"] = "X"
+    st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_view"] = 'True'
+
+    new_skipped_data = st.session_state.data.loc[[st.session_state.row_to_edit]]
+    print(new_skipped_data)
+    save_data_skipped(new_skipped_data)
+
+    group_options = list(st.session_state.grouping.keys()) + ["ALL"]
+    finished_options = group_options[0]
+    for option in group_options[1:]:
+        finished_options += "," + option
+    st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"] = finished_options
+    save_data()
+
+
 def on_press_previous():
     """
     Handle actions when the "Previous" button is pressed.
@@ -2004,7 +2054,6 @@ def display_layout_with_helpers(group_option):
 
 
 
-
 def form_layout(group_option, col, c_form):
     with c_form:
         # Determine columns to show
@@ -2134,7 +2183,14 @@ def handle_column_input(col, unique_key, color):
     # st.session_state.user_input[col] = input_type(colored_label, value, key=unique_key)
     # update_data_if_changed(col, value)
     # Get user input and replace newline characters with spaces
-    user_input = input_type(colored_label, value, key=unique_key)
+    if st.session_state.data_edited.loc[st.session_state.row_to_edit, 'country'] == "X":
+        is_skipped_specimen = True
+    elif col == 'catalogNumber':
+        is_skipped_specimen = True
+    else:
+        is_skipped_specimen = False
+
+    user_input = input_type(colored_label, value, key=unique_key, disabled=is_skipped_specimen)
     if isinstance(user_input, str):  # Ensure the input is a string
         user_input = user_input.replace("\n", " ")
         # Ensure only single spaces, no consecutive spaces
@@ -2355,6 +2411,42 @@ def display_prompt_template():
             st.json(prompt_json)
 
 
+
+def display_conversion_calculator():
+    with st.expander("Conversion Calculator", expanded=True):
+        c_calc_1, c_calc_2 = st.columns(2)
+        
+        # Initialize session state values if they don't exist
+        if 'feet' not in st.session_state:
+            st.session_state.feet = '0'
+        if 'meters' not in st.session_state:
+            st.session_state.meters = '0'
+
+        # Conversion factors
+        feet_to_meters_factor = 0.3048
+        meters_to_feet_factor = 1 / feet_to_meters_factor
+
+        # Function to update meters when feet changes
+        def update_meters():
+            try:
+                feet_value = float(st.session_state.feet)
+                st.session_state.meters = str(int(round(feet_value * feet_to_meters_factor, 0)))
+            except ValueError:
+                st.session_state.meters = "Invalid input"
+
+        # Function to update feet when meters changes
+        def update_feet():
+            try:
+                meters_value = float(st.session_state.meters)
+                st.session_state.feet = str(int(round(meters_value * meters_to_feet_factor, 0)))
+            except ValueError:
+                st.session_state.feet = "Invalid input"
+
+        # Input fields for feet and meters with callback functions
+        with c_calc_1:
+            st.text_input("Feet", key="feet", on_change=update_meters)
+        with c_calc_2:
+            st.text_input("Meters", key="meters", on_change=update_feet)
 
 
 def display_json_helper_text():
@@ -3185,6 +3277,13 @@ def show_settings_selection():
 
         st.write(":violet-background[Example configuration `default.yaml` file format for saving locally to your computer in the `VoucherVisionEditor/projects/USER/` directory]")
         st.text(HelpText.splash_config_json_str2)
+
+def display_skip_specimen_button():
+    if st.session_state.tool_access['show_skip_specimen']:
+        st.title('')
+        st.markdown('If this specimen is not part of the current transcription workflow, then press the button below. This will mark this specimen as a "skip", place an "X" in the country field, and add it to the "transcribed_skipped.xlsx" file. This cannot be undone.')
+        st.button('Skip this specimen and enter no information',key=f"skip_specimen_{group_option}", use_container_width=True, type="secondary",on_click=on_press_skip_specimen)
+
 ###############################################################
 ####################                    #######################
 ####################    Welcome Page    #######################
@@ -3326,6 +3425,7 @@ if st.session_state.start_editing:
                 st.button('Skip ahead',key=f"Skip_to_last_viewed2", use_container_width=True, on_click=on_press_skip_to_bookmark)
 
             display_layout_with_helpers(group_option)
+            display_skip_specimen_button()
 
         # Update the track_view column for the current row
         if st.session_state.access_option != 'Admin': # ONLY add views if in the label tab
@@ -3394,6 +3494,8 @@ if st.session_state.start_editing:
             # display_WFO_partial_match()
             
             # display_wiki_taxa_summary()
+
+            display_conversion_calculator()
             
             display_json_helper_text()
 
@@ -3468,6 +3570,8 @@ if st.session_state.start_editing:
         # display_WFO_partial_match()
         
         # display_wiki_taxa_summary()
+
+        display_conversion_calculator()
         
         display_json_helper_text()
 
