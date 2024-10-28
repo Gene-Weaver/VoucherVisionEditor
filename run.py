@@ -6,24 +6,20 @@
 # pip install protobuf==3.20.0
 
 import streamlit.web.cli as stcli
-import os, sys
+import os, sys, random, time
 import socket
 
-def find_available_port(start_port, max_attempts=1000):
-    port = start_port
-    attempts = 0
-    while attempts < max_attempts:
+def find_available_port(start_port, end_port):
+    ports = list(range(start_port, end_port + 1))
+    random.shuffle(ports)
+    for port in ports:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
-                s.bind(('127.0.0.1', port))
-                # If successful, return the current port
+                s.bind(("127.0.0.1", port))
                 return port
             except socket.error:
-                # If the port is in use, increment the port number and try again
-                port += 1
-                attempts += 1
-    # Optional: Return None or raise an exception if no port is found within the attempts limit
-    raise ValueError(f'Could not find an available port within {max_attempts} attempts starting from port {start_port}.')
+                print(f"Port {port} is in use, trying another port...")
+    raise ValueError(f"Could not find an available port in the range {start_port}-{end_port}.")
 
 
 def resolve_path(path):
@@ -32,9 +28,13 @@ def resolve_path(path):
 
 
 if __name__ == '__main__':
-    start_port = 8589
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
+    start_port = 8501
+    end_port = 8599
+    retry_count = 0
+
     try:
-        free_port = find_available_port(start_port)
+        free_port = find_available_port(start_port, end_port)
         sys.argv = [
             'streamlit',
             'run',
@@ -53,9 +53,12 @@ if __name__ == '__main__':
 
 
     except ValueError as e:
-        print(e)
-        
-        
+        print(f"Error: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+    else:
+        print("Failed to start the application after multiple attempts.")
+
 # https://ploomber.io/blog/streamlit_exe/
 
 # https://medium.com/@sathiyamurthi239/how-to-create-a-streamlit-executable-python-to-exe-3bcb8eed9b16
