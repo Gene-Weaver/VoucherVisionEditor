@@ -3533,7 +3533,6 @@ if st.session_state.start_editing:
         con_image = st.container()
 
 
-
         # Add the image to the local server for the zoom functionality
 
         # Two options for the image viewing buttons
@@ -3542,13 +3541,11 @@ if st.session_state.start_editing:
         else:
             display_image_options_buttons(st.session_state.relative_path_to_static, zoom_1, zoom_2, zoom_3, zoom_4=None)
             
-
         # Display the configurable image viewer
         display_scrollable_image(con_image)
 
         display_image_rotation_buttons(r1, r2, r3, r4)
         # relative_path_to_static = image_to_server()
-
 
     table_layout('bottom')
 
