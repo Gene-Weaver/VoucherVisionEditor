@@ -6,8 +6,21 @@
 # pip install protobuf==3.20.0
 
 import streamlit.web.cli as stcli
-import os, sys, random, time
+import os, sys, random, time, subprocess
 import socket
+
+def update_repository():
+    try:
+        # Run 'git pull' to update the repository
+        result = subprocess.run(["git", "pull"], capture_output=True, text=True, check=True)
+        print(result.stdout)
+        if result.returncode == 0:
+            print("Repository updated successfully.")
+        else:
+            print("Failed to update the repository.")
+    except subprocess.CalledProcessError as e:
+        print(f"Error updating repository: {e.stderr}")
+        sys.exit(1)
 
 def find_available_port(start_port, end_port):
     ports = list(range(start_port, end_port + 1))
@@ -32,6 +45,8 @@ if __name__ == '__main__':
     start_port = 8501
     end_port = 8599
     retry_count = 0
+
+    update_repository()
 
     try:
         free_port = find_available_port(start_port, end_port)
