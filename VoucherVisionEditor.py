@@ -1334,13 +1334,13 @@ def update_progress_bar():
 
 def update_progress_bar_overall():
     # Get the index of the last True value in "track_view"
-    last_true_index = st.session_state.data_edited[st.session_state.data_edited["track_view"] == 'True'].index.max()
+    last_true_index = st.session_state.data_edited[st.session_state.data_edited["track_view"] == 'True'].index.max() + 1
 
     # Get total number of rows
     total_rows = len(st.session_state.data_edited)
 
     # Find the last row where "track_edit" has all group options
-    last_full_view_index = st.session_state.data_edited[st.session_state.data_edited["track_edit"].apply(lambda x: set(group_options).issubset(set(x.split(','))))].index.max()
+    last_full_view_index = st.session_state.data_edited[st.session_state.data_edited["track_edit"].apply(lambda x: set(group_options).issubset(set(x.split(','))))].index.max() + 1
     # Handle NaN last_full_view_index
     if pd.isnull(last_full_view_index):
         last_full_view_index = 0
@@ -1350,12 +1350,13 @@ def update_progress_bar_overall():
     # print(progress_overall_fraction)
     # Display the progress_overall information
     # st.write(f"When 'Admin' is enabled, the following progress metrics will not update, but edits can still  be made.")
-    st.progress(progress_overall_fraction)
-    # st.write(f"Last viewed image: {last_true_index} -- Last completed image: {last_full_view_index}")
-    st.write(f"Viewed *{last_true_index}* of *{total_rows}* images")
+
+    # st.progress(progress_overall_fraction)
+    # st.write(f"Viewed *{last_true_index}* of *{total_rows}* images")
+
     # st.write(f"Completed *{last_full_view_index}* of *{total_rows}* images")
     # Display the progress bar with text
-    return last_true_index, last_full_view_index
+    return last_true_index-1, last_full_view_index-1, progress_overall_fraction, total_rows
 
 
 
@@ -1619,7 +1620,7 @@ def on_press_next(group_options):
         # st.info("Please confirm all categories before moving to next image")
 
 def on_press_skip_to_bookmark():
-    last_true_index, last_fully_viewed = update_progress_bar_overall()
+    last_true_index, last_fully_viewed, progress_overall_fraction, total_rows = update_progress_bar_overall()
     st.session_state.row_to_edit = int(last_true_index)
 
 def on_press_confirm_content(group_option, group_options):
@@ -1689,7 +1690,7 @@ def highlight_text_in_table(table, text_query, entries_per_page, DIS_CLASSES):
 def table_layout(t_location):
     DIS_CLASSES = "display nowrap compact cell-border"
 
-    entries_per_page = st.selectbox('Entries per page:', [10, 20, 50, 100], index=0,key=f'Entries per page{t_location}')  # Default is 10
+    entries_per_page = st.selectbox('Entries per page:', [10, 20, 50, 100], index=2,key=f'Entries per page{t_location}')  # Default is 10
     if entries_per_page is None:
         entries_per_page = 10
 
@@ -3585,7 +3586,9 @@ if st.session_state.start_editing:
     if st.session_state.tool_access.get('additional_info'):
         st.header('Project Progress')
         # col_low_1, col_low_2, col_low_3, col_low_4, col_low_5, col_low_6, col_low_7, col_low_8,  = st.columns([1,1,1,1,1,1,1,1])
-        last_true_index, last_fully_viewed = update_progress_bar_overall()
+        last_true_index, last_fully_viewed, progress_overall_fraction, total_rows = update_progress_bar_overall()
+        st.progress(progress_overall_fraction)
+        st.write(f"Viewed *{last_true_index+1}* of *{total_rows}* images")
         
         st.header("Additional Project Information")
         display_prompt_template()
