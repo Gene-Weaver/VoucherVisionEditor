@@ -1688,6 +1688,10 @@ def highlight_text_in_table(table, text_query, entries_per_page, DIS_CLASSES):
 
 
 def table_layout(t_location):
+    current_project_name = os.path.basename(os.path.dirname(os.path.dirname(os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name))))
+    st.markdown(f"**Current Project:** :green[{current_project_name}]", help="This is the name of the current project")
+    st.markdown(f"**Current Transcription File:** :green[{st.session_state.file_name}]", help="This is the name of the transcribed_edited__DATETTIME.xlsx file")
+
     DIS_CLASSES = "display nowrap compact cell-border"
 
     entries_per_page = st.selectbox('Entries per page:', [10, 20, 50, 100], index=2,key=f'Entries per page{t_location}')  # Default is 10
