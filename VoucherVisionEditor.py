@@ -1397,7 +1397,7 @@ def show_header_welcome():
     h1, h2, h3 = st.columns([2,1,2])
     # Use the second (middle) column for the logo
     with h2:
-        # st.image("img/logo.png", use_column_width=True)
+        # st.image("img/logo.png", use_container_width=True)
         st.markdown(f'<a href="https://github.com/Gene-Weaver/VoucherVisionEditor"><img src="http://localhost:8000/{st.session_state.logo_path}" width="200"></a>', unsafe_allow_html=True)
         hide_img_fs = '''
         <style>
@@ -1412,7 +1412,7 @@ def show_header_main():
         # Logo and Title
         h1, h2, h3 = st.columns([1,6,1])
         with h2:
-            st.image(f"http://localhost:8000/{st.session_state.logo_path}", use_column_width=True)
+            st.image(f"http://localhost:8000/{st.session_state.logo_path}", use_container_width=True)
             # st.markdown("<h1 style='text-align: center;'>VoucherVision Editor</h1>", unsafe_allow_html=True)
             # Use the first column for the logo and the second for the title
             # st.image("img/logo.png", width=200)  # adjust width as needed
@@ -2549,7 +2549,7 @@ def display_wiki_taxa_main_links():
 
             with c_help_left:
                 if wiki_taxa_page_title and wiki_taxa_page_link:
-                    st.link_button(label=f":blue[:information_source: {wiki_taxa_page_title}]",url=wiki_taxa_page_link)
+                    st.link_button(label=f":violet[:information_source: {wiki_taxa_page_title}]",url=wiki_taxa_page_link)
 
             with c_help_right:
                 if wiki_taxa_data:
@@ -3014,7 +3014,7 @@ def display_scrollable_image_method():
 
     # Determine the desired width based on st.session_state.set_image_size
     if st.session_state.set_image_size == "Auto Width":
-        st.image(st.session_state['image'], caption=st.session_state['image_path'], use_column_width=True)
+        st.image(st.session_state['image'], caption=st.session_state['image_path'], use_container_width=True)
         return
 
     if st.session_state.set_image_size == "Custom":
@@ -3028,7 +3028,7 @@ def display_scrollable_image_method():
     elif st.session_state.set_image_size == "Fitted":
         image_width = 600
     else:
-        image_width = st.session_state.set_image_size_px  # For use_column_width=True
+        image_width = st.session_state.set_image_size_px  # For use_container_width=True
 
     # Convert the image to base64
     base64_image = image_to_base64(st.session_state['image'])

@@ -1,4 +1,4 @@
-streamlit>=1.39.0
+streamlit>=1.40.0
 st-annotated-text
 pyyaml
 duckduckgo-search
