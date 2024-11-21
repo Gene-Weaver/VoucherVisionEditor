@@ -1609,6 +1609,7 @@ def on_press_next(group_options):
 
         if st.session_state.row_to_edit == st.session_state.data_edited.index[-1]:
             st.session_state.row_to_edit = st.session_state.data_edited.index[0]
+            st.balloons()
         else:
             st.session_state.row_to_edit += 1
 
