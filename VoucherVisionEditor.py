@@ -2056,7 +2056,7 @@ def display_layout_with_helpers(group_option):
 
 
     
-    st.button('Confirm Content',key=f"Confirm_Content_{group_option}", use_container_width=True, type="primary",on_click=on_press_confirm_content,args=[group_option, group_options]) 
+    st.button('Unlock Next Category :unlock:',key=f"Confirm_Content_{group_option}", use_container_width=True, type="primary",on_click=on_press_confirm_content,args=[group_option, group_options]) 
 
 
 
