@@ -10,7 +10,7 @@ import os, sys, random, time, subprocess
 import socket
 from pathlib import Path
 import git
-import pkg_resources
+from importlib.metadata import distribution
 
 # def update_repository():
 #     try:
@@ -36,23 +36,34 @@ def update_setuptools():
         
 def check_and_fix_requirements(requirements_file):
     """
-    Checks if installed packages in the virtual environment satisfy the requirements.
-    :param requirements_file: Path to the requirements.txt file.
-    :return: List of missing or incompatible packages.
+    Checks if installed packages in the virtual environment satisfy the requirements specified
+    in the requirements.txt file and fixes them if they do not.
     """
+    # Retrieve installed distributions as a dict with lower-case package names as keys
+    installed_distributions = {dist.metadata['Name'].lower(): dist.version for dist in distribution()}
+
     missing_or_incompatible = []
     
     with open(requirements_file, 'r') as req_file:
         requirements = req_file.readlines()
 
+    # Check each requirement in the file
     for req in requirements:
         req = req.strip()
         if not req or req.startswith('#'):
             continue  # Skip empty lines and comments
-        try:
-            pkg_resources.require(req)
-        except (pkg_resources.DistributionNotFound, pkg_resources.VersionConflict) as e:
-            missing_or_incompatible.append(str(e))
+        # Assume simple 'pkg==version' format for requirements
+        if '==' in req:
+            pkg_name, required_version = req.split('==')
+        else:
+            pkg_name = req
+            required_version = None
+        
+        if pkg_name.lower() not in installed_distributions:
+            missing_or_incompatible.append(f"{pkg_name} is not installed")
+        elif required_version and installed_distributions[pkg_name.lower()] != required_version:
+            installed_version = installed_distributions[pkg_name.lower()]
+            missing_or_incompatible.append(f"{pkg_name}=={installed_version} does not satisfy {req}")
 
     if missing_or_incompatible:
         print("The following packages are missing or incompatible:")
@@ -61,12 +72,13 @@ def check_and_fix_requirements(requirements_file):
         
         print("Attempting to fix the package issues by running 'pip install -r requirements.txt'...")
         try:
-            subprocess.run(["pip", "install", "-r", requirements_file], check=True)
+            subprocess.run([sys.executable, "-m", "pip", "install", "-r", requirements_file], check=True)
             print("Packages have been successfully updated.")
         except subprocess.CalledProcessError as e:
             print("Failed to install packages:", e)
     else:
         print("All requirements are satisfied.")
+
 
 def find_github_desktop_git():
     """Search for the most recent GitHub Desktop Git installation."""
