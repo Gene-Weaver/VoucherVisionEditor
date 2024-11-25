@@ -248,7 +248,7 @@ if 'group_options_tracker' not in st.session_state:
     
 if 'tool_access' not in st.session_state:
     st.session_state.tool_access = {
-        'show_skip_specimen': True,
+        'show_skip_specimen': False,
         'form': True, #ALWAYS TRUE
         'arrow': True,
         'hints': True,
@@ -1457,6 +1457,7 @@ def show_header_main():
         
         st.session_state.google_search_new_window = st.sidebar.checkbox("Open Google search in new browser tab", value=st.session_state.google_search_new_window)
 
+        st.session_state.tool_access['show_skip_specimen'] = st.sidebar.checkbox("Show the 'skip specimen' button", value=st.session_state.tool_access['show_skip_specimen'])
 
         ######## Additional Options ################
         st.sidebar.header('Options') #,help='Visible as Admin')
@@ -2159,7 +2160,23 @@ def display_helper_input(col, c_help, c_move, move_arrow):
 
 def get_columns_to_show(group_option):
     #"""Return the columns to be shown based on the group option."""
-    return st.session_state.data_edited.columns if group_option == "ALL" else st.session_state.grouping[group_option]
+    # return st.session_state.data_edited.columns if group_option == "ALL" else st.session_state.grouping[group_option]
+    exclude_columns = [
+        'WFO_override_OCR', 'WFO_exact_match', 'WFO_exact_match_name', 'WFO_best_match', 'WFO_candidate_names',
+        'WFO_placement', 'GEO_override_OCR', 'GEO_method', 'GEO_formatted_full_string', 'GEO_decimal_lat',
+        'GEO_decimal_long', 'GEO_city', 'GEO_county', 'GEO_state', 'GEO_state_code', 'GEO_country',
+        'GEO_country_code', 'GEO_continent', 'current_time', 'inference_time_s', 'tool_time_s', 'max_cpu',
+        'max_ram_gb', 'n_gpus', 'max_gpu_load', 'max_gpu_vram_gb', 'total_gpu_vram_gb', 'capability_score',
+        'run_name', 'prompt', 'LLM', 'tokens_in', 'tokens_out', 'LM2_collage', 'OCR_method', 'OCR_double', 'OCR_trOCR',
+        'path_to_crop', 'path_to_original', 'path_to_content', 'path_to_helper', 'track_view',
+        'track_edit', 'track_issues', 'user_uniqname', 'user_time_of_edit', 
+    ]
+    if group_option == "ALL":
+        # Exclude the specified columns if any
+        return [col for col in st.session_state.data_edited.columns if col not in exclude_columns]
+    else:
+        # Return the specific group of columns based on the group_option
+        return st.session_state.grouping[group_option]
 
 def prepare_column(col):
     #"""Prepare unique key and color for the given column."""

@@ -9,9 +9,24 @@ import streamlit.web.cli as stcli
 import os, sys, random, time, subprocess
 import socket
 
+# def update_repository():
+#     try:
+#         # Run 'git pull' to update the repository
+#         result = subprocess.run(["git", "pull"], capture_output=True, text=True, check=True)
+#         print(result.stdout)
+#         if result.returncode == 0:
+#             print("Repository updated successfully.")
+#         else:
+#             print("Failed to update the repository.")
+#     except subprocess.CalledProcessError as e:
+#         print(f"Error updating repository: {e.stderr}")
+#         sys.exit(1)
 def update_repository():
+    # Get the username dynamically
+    username = os.getlogin()
+
+    # First attempt to run git pull using the default path
     try:
-        # Run 'git pull' to update the repository
         result = subprocess.run(["git", "pull"], capture_output=True, text=True, check=True)
         print(result.stdout)
         if result.returncode == 0:
@@ -20,7 +35,19 @@ def update_repository():
             print("Failed to update the repository.")
     except subprocess.CalledProcessError as e:
         print(f"Error updating repository: {e.stderr}")
-        sys.exit(1)
+        # Fallback: use GitHub Desktop's Git executable
+        try:
+            # Construct the path to GitHub Desktop's Git using the dynamic username
+            git_desktop_path = f"C:\\Users\\{username}\\AppData\\Local\\GitHubDesktop\\app-3.4.9\\resources\\app\\git\\cmd\\git"
+            result = subprocess.run([git_desktop_path, "pull"], capture_output=True, text=True, check=True)
+            print(result.stdout)
+            if result.returncode == 0:
+                print("Repository updated successfully using GitHub Desktop Git.")
+            else:
+                print("Failed to update the repository using GitHub Desktop Git.")
+        except subprocess.CalledProcessError as e:
+            print(f"Error updating repository with GitHub Desktop Git: {e.stderr}")
+            sys.exit(1)
 
 def find_available_port(start_port, end_port):
     ports = list(range(start_port, end_port + 1))
