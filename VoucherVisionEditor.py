@@ -1627,38 +1627,44 @@ def on_press_skip_to_bookmark():
 
 def on_press_confirm_content(group_option, group_options):
     print(st.session_state.group_options_tracker)
-    if st.session_state.group_options_tracker[group_option] == 0:
-        # Increase the progress index
+
+    # Check if the current group_option is unlocked (1) and ensure the next group_option is locked (0).
+    if (
+        st.session_state.group_options_tracker[group_option] == 0
+        and st.session_state.progress_index < len(group_options)
+        and st.session_state.group_options_tracker[group_options[st.session_state.progress_index]] == 0
+    ):
+        # Advance the progress index
         st.session_state.progress_index += 1
-        # Mark the group as processed by setting it to 1
+        # Mark the current group_option as processed
         st.session_state.group_options_tracker[group_option] = 1
 
-
+    # Iterate through group options to determine which button to enable
     for i, option in enumerate(group_options):
         if i == st.session_state.progress_index:
-            # group_option_cols[i].button(option, use_container_width=True, disabled=do_disable_btn)
-            
             st.session_state["group_option"] = option
             group_option = option
 
             if "track_edit" not in st.session_state.data_edited.columns:
-                st.session_state.data_edited["track_edit"] = [[group_options[0]] if group_options[0] else [] for _ in range(len(st.session_state.data_edited))]
-                # st.session_state.data["track_edit"] = [[group_options[0]] if group_options[0] else [] for _ in range(len(st.session_state.data))]
+                st.session_state.data_edited["track_edit"] = [
+                    [group_options[0]] if group_options[0] else [] for _ in range(len(st.session_state.data_edited))
+                ]
 
-            if st.session_state.access_option != 'Admin': 
-                if option not in st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"].split(","):
-                    current_edit_track = st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"]
-                    if current_edit_track:
-                        new_edit_track = current_edit_track + "," + option
-                    else:
-                        new_edit_track = option
+            # Update the "track_edit" column only for non-admin users
+            if st.session_state.access_option != "Admin":
+                current_edit_track = st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"]
+                if option not in current_edit_track.split(","):
+                    new_edit_track = current_edit_track + "," + option if current_edit_track else option
                     st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"] = new_edit_track
 
+                    # Add the default option if not present
                     add_default_option_if_not_present()
 
+    # Clear helper input keys
     for col in st.session_state.prompt_mapping:
         helper_input_key = f"helper_{col}"
         st.session_state[helper_input_key] = None
+
 
     save_data()
 
