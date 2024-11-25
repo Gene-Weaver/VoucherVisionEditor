@@ -42,31 +42,31 @@ def find_github_desktop_git():
     return None
 
 def update_repository():
-    # """Attempts to update the repository using the system's git or GitHub Desktop's git."""
-    # try:
-    #     # Try using the system's git command
-    #     result = subprocess.run(["git", "pull"], capture_output=True, text=True, check=True)
-    #     print(result.stdout)
-    #     if result.returncode == 0:
-    #         print("Repository updated successfully.")
-    # except Exception as e:
-    print(f"Error updating repository with system Git: ")#{e}")
-    # Fallback: use GitHub Desktop's Git executable
-    git_desktop_path = find_github_desktop_git()
-    if git_desktop_path:
-        try:
-            result = subprocess.run([git_desktop_path, "pull"], capture_output=True, text=True, check=True)
-            print(result.stdout)
-            if result.returncode == 0:
-                print("Repository updated successfully using GitHub Desktop Git.")
-            else:
-                print("Failed to update the repository using GitHub Desktop Git.")
-        except Exception as e:
-            print(f"Error updating repository with GitHub Desktop Git: {e}")
+    """Attempts to update the repository using the system's git or GitHub Desktop's git."""
+    try:
+        # Try using the system's git command
+        result = subprocess.run(["git", "pull"], capture_output=True, text=True, check=True)
+        print(result.stdout)
+        if result.returncode == 0:
+            print("Repository updated successfully.")
+    except Exception as e:
+        print(f"Error updating repository with system Git: {e}")
+        # Fallback: use GitHub Desktop's Git executable
+        git_desktop_path = find_github_desktop_git()
+        if git_desktop_path:
+            try:
+                result = subprocess.run([git_desktop_path, "pull"], capture_output=True, text=True, check=True)
+                print(result.stdout)
+                if result.returncode == 0:
+                    print("Repository updated successfully using GitHub Desktop Git.")
+                else:
+                    print("Failed to update the repository using GitHub Desktop Git.")
+            except Exception as e:
+                print(f"Error updating repository with GitHub Desktop Git: {e}")
+                sys.exit(1)
+        else:
+            print("GitHub Desktop Git executable not found.")
             sys.exit(1)
-    else:
-        print("GitHub Desktop Git executable not found.")
-        sys.exit(1)
 
 def find_available_port(start_port, end_port):
     ports = list(range(start_port, end_port + 1))
