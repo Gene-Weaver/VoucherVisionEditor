@@ -156,6 +156,9 @@ if __name__ == '__main__':
         print(f"Could not update VVE using git pull.")
         print(f"Make sure that 'Git' is installed and can be accessed by this user account.")
 
+    # Update again in case the pull introduced a new package
+    check_and_fix_requirements(resolve_path(os.path.join(os.path.dirname(__file__),'requirements.txt')))
+
     try:
         free_port = find_available_port(start_port, end_port)
         sys.argv = [
