@@ -10,7 +10,7 @@ import os, sys, random, time, subprocess
 import socket
 from pathlib import Path
 import git
-from importlib.metadata import distribution
+from importlib.metadata import distributions
 
 # def update_repository():
 #     try:
@@ -40,7 +40,7 @@ def check_and_fix_requirements(requirements_file):
     in the requirements.txt file and fixes them if they do not.
     """
     # Retrieve installed distributions as a dict with lower-case package names as keys
-    installed_distributions = {dist.metadata['Name'].lower(): dist.version for dist in distribution()}
+    installed_distributions = {dist.metadata['Name'].lower(): dist.version for dist in distributions()}
 
     missing_or_incompatible = []
     
