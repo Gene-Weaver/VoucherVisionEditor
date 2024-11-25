@@ -24,13 +24,15 @@ import pkg_resources
 #     except subprocess.CalledProcessError as e:
 #         print(f"Error updating repository: {e.stderr}")
 #         sys.exit(1)
-def install_package(package):
-    """Install or update the specified package using pip."""
+def update_setuptools():
+    """Update the setuptools package using pip."""
+    print("Updating setuptools to avoid compatibility issues...")
     try:
-        subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", package], check=True)
-        print(f"{package} has been updated successfully.")
+        subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "setuptools"], check=True)
+        print("setuptools updated successfully.")
     except subprocess.CalledProcessError as e:
-        print(f"Failed to install {package}: {e}")
+        print("Failed to update setuptools:", e)
+        sys.exit(1)  # Exit if setuptools can't be updated
         
 def check_and_fix_requirements(requirements_file):
     """
@@ -143,6 +145,8 @@ if __name__ == '__main__':
     retry_count = 0
     repo_path = resolve_path(os.path.dirname(__file__))
     print(f"repo_path: {repo_path}")
+
+    update_setuptools()
     requirements_file = 'requirements.txt'
     check_and_fix_requirements(resolve_path(os.path.join(os.path.dirname(__file__),'requirements.txt')))
 
