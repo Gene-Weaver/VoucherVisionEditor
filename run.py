@@ -11,6 +11,8 @@ import socket
 from pathlib import Path
 import git
 from importlib.metadata import distributions
+from packaging.requirements import Requirement
+from packaging import version
 
 # def update_repository():
 #     try:
@@ -34,36 +36,34 @@ def update_setuptools():
         print("Failed to update setuptools:", e)
         sys.exit(1)  # Exit if setuptools can't be updated
         
+
+def normalize_package_name(name):
+    """Normalize package names to match the naming convention used in distributions."""
+    return name.lower().replace('-', '_').replace(' ', '')
+
+def get_installed_distributions():
+    """Retrieve installed distributions as a dict with normalized package names as keys."""
+    return {normalize_package_name(dist.metadata['Name']): dist.version for dist in distributions()}
+
 def check_and_fix_requirements(requirements_file):
     """
     Checks if installed packages in the virtual environment satisfy the requirements specified
     in the requirements.txt file and fixes them if they do not.
     """
-    # Retrieve installed distributions as a dict with lower-case package names as keys
-    installed_distributions = {dist.metadata['Name'].lower(): dist.version for dist in distributions()}
-
+    installed_distributions = get_installed_distributions()
     missing_or_incompatible = []
     
     with open(requirements_file, 'r') as req_file:
-        requirements = req_file.readlines()
+        requirements = [Requirement(line.strip()) for line in req_file if line.strip() and not line.startswith('#')]
 
-    # Check each requirement in the file
     for req in requirements:
-        req = req.strip()
-        if not req or req.startswith('#'):
-            continue  # Skip empty lines and comments
-        # Assume simple 'pkg==version' format for requirements
-        if '==' in req:
-            pkg_name, required_version = req.split('==')
-        else:
-            pkg_name = req
-            required_version = None
-        
-        if pkg_name.lower() not in installed_distributions:
-            missing_or_incompatible.append(f"{pkg_name} is not installed")
-        elif required_version and installed_distributions[pkg_name.lower()] != required_version:
-            installed_version = installed_distributions[pkg_name.lower()]
-            missing_or_incompatible.append(f"{pkg_name}=={installed_version} does not satisfy {req}")
+        pkg_name = normalize_package_name(req.name)
+        if pkg_name not in installed_distributions:
+            missing_or_incompatible.append(f"{req} is not installed")
+        elif req.specifier:
+            installed_ver = version.parse(installed_distributions[pkg_name])
+            if installed_ver not in req.specifier:
+                missing_or_incompatible.append(f"{pkg_name}=={installed_distributions[pkg_name]} does not satisfy {req}")
 
     if missing_or_incompatible:
         print("The following packages are missing or incompatible:")
