@@ -46,7 +46,11 @@ if __name__ == '__main__':
     end_port = 8599
     retry_count = 0
 
-    update_repository()
+    try:
+        update_repository()
+    except:
+        print(f"Could not update VVE using git pull.")
+        print(f"Make sure that 'Git' is installed and can be accessed by this user account.")
 
     try:
         free_port = find_available_port(start_port, end_port)
