@@ -28,13 +28,23 @@ def find_github_desktop_git():
     base_path = Path(f"C:/Users/{os.getlogin()}/AppData/Local/GitHubDesktop/")
     print(f"base_path: {base_path}")
 
-    # Searching recursively for git.exe inside any 'app-*' version directory
-    versions = sorted(base_path.glob('app-*/resources/app/git/cmd/git.exe'), reverse=True)  # Adjusted glob for direct path
-    print(f"versions: {versions}")
+    # # Searching recursively for git.exe inside any 'app-*' version directory
+    # versions = sorted(base_path.glob('app-*/resources/app/git/cmd/git.exe'), reverse=True)  # Adjusted glob for direct path
+    # print(f"versions: {versions}")
 
+    # for git_path in versions:
+    #     print(f"git_path: {git_path}")
+    #     if git_path.exists():
+    #         print(f"git_path_exists: TRUE")
+    #         return str(git_path)
+
+    # print(f"git_path_exists: FALSE")
+    # return None
+    # Searching recursively for git.exe within any directories under the base path
+    versions = sorted(base_path.rglob('git.exe'), key=lambda x: x.parent, reverse=True)
     for git_path in versions:
         print(f"git_path: {git_path}")
-        if git_path.exists():
+        if "app-" in str(git_path.parent):  # Ensuring it's in an 'app-' directory if that's still relevant
             print(f"git_path_exists: TRUE")
             return str(git_path)
 
