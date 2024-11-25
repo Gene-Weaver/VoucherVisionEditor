@@ -9,6 +9,7 @@ import streamlit.web.cli as stcli
 import os, sys, random, time, subprocess
 import socket
 from pathlib import Path
+import git
 
 # def update_repository():
 #     try:
@@ -28,18 +29,6 @@ def find_github_desktop_git():
     base_path = Path(f"C:/Users/{os.getlogin()}/AppData/Local/GitHubDesktop/")
     print(f"base_path: {base_path}")
 
-    # # Searching recursively for git.exe inside any 'app-*' version directory
-    # versions = sorted(base_path.glob('app-*/resources/app/git/cmd/git.exe'), reverse=True)  # Adjusted glob for direct path
-    # print(f"versions: {versions}")
-
-    # for git_path in versions:
-    #     print(f"git_path: {git_path}")
-    #     if git_path.exists():
-    #         print(f"git_path_exists: TRUE")
-    #         return str(git_path)
-
-    # print(f"git_path_exists: FALSE")
-    # return None
     # Searching recursively for git.exe within any directories under the base path
     versions = sorted(base_path.rglob('git.exe'), key=lambda x: x.parent, reverse=True)
     for git_path in versions:
@@ -56,31 +45,35 @@ def update_repository(repo_path):
     os.chdir(repo_path)
     print(f"changed to: {repo_path}")
 
-    """Attempts to update the repository using the system's git or GitHub Desktop's git."""
-    try:
-        # Try using the system's git command
-        result = subprocess.run(["git", "pull"], capture_output=True, text=True, check=True)
-        print(result.stdout)
-        if result.returncode == 0:
-            print("Repository updated successfully.")
-    except Exception as e:
-        print(f"Error updating repository with system Git: {e}")
+    # """Attempts to update the repository using the system's git or GitHub Desktop's git."""
+    # try:
+    #     # Try using the system's git command
+    #     result = subprocess.run(["git", "pull"], capture_output=True, text=True, check=True)
+    #     print(result.stdout)
+    #     if result.returncode == 0:
+    #         print("Repository updated successfully.")
+    # except Exception as e:
+    #     print(f"Error updating repository with system Git: {e}")
         # Fallback: use GitHub Desktop's Git executable
-        git_desktop_path = find_github_desktop_git()
-        if git_desktop_path:
-            try:
-                result = subprocess.run([git_desktop_path, "pull"], capture_output=True, text=True, check=True)
-                print(result.stdout)
-                if result.returncode == 0:
-                    print("Repository updated successfully using GitHub Desktop Git.")
-                else:
-                    print("Failed to update the repository using GitHub Desktop Git.")
-            except Exception as e:
-                print(f"Error updating repository with GitHub Desktop Git: {e}")
-                sys.exit(1)
+    try:
+        # Open the existing repository at the specified path
+        repo = git.Repo(repo_path)
+        # Check for the current working branch
+        current_branch = repo.active_branch
+        print(f"Updating repository on branch: {current_branch.name}")
+
+        # Pulls updates for the current branch
+        origin = repo.remotes.origin
+        result = origin.pull()
+
+        # Check if the pull was successful
+        if result[0].flags > 0:
+            print("Repository updated successfully.")
         else:
-            print("GitHub Desktop Git executable not found.")
-            sys.exit(1)
+            print("No updates were available.")
+                
+    except Exception as e:
+        print(f"Error while updating repository: {e}")
 
 def find_available_port(start_port, end_port):
     ports = list(range(start_port, end_port + 1))
