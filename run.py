@@ -8,6 +8,7 @@
 import streamlit.web.cli as stcli
 import os, sys, random, time, subprocess
 import socket
+from pathlib import Path
 
 # def update_repository():
 #     try:
@@ -21,32 +22,41 @@ import socket
 #     except subprocess.CalledProcessError as e:
 #         print(f"Error updating repository: {e.stderr}")
 #         sys.exit(1)
-def update_repository():
-    # Get the username dynamically
-    username = os.getlogin()
+def find_github_desktop_git():
+    """Search for the most recent GitHub Desktop Git installation."""
+    base_path = Path(f"C:/Users/{os.getlogin()}/AppData/Local/GitHubDesktop/app-")
+    versions = sorted(base_path.parent.glob('app-*'), reverse=True)  # Sort to find the newest version
+    for version in versions:
+        git_path = version / "resources/app/git/cmd/git.exe"
+        if git_path.exists():
+            return str(git_path)
+    return None
 
-    # First attempt to run git pull using the default path
+def update_repository():
+    """Attempts to update the repository using the system's git or GitHub Desktop's git."""
     try:
+        # Try using the system's git command
         result = subprocess.run(["git", "pull"], capture_output=True, text=True, check=True)
         print(result.stdout)
         if result.returncode == 0:
             print("Repository updated successfully.")
-        else:
-            print("Failed to update the repository.")
     except Exception as e:
-        print(f"Error updating repository: {e.stderr}")
+        print(f"Error updating repository with system Git: {e}")
         # Fallback: use GitHub Desktop's Git executable
-        try:
-            # Construct the path to GitHub Desktop's Git using the dynamic username
-            git_desktop_path = f"C:\\Users\\{username}\\AppData\\Local\\GitHubDesktop\\app-3.4.9\\resources\\app\\git\\cmd\\git"
-            result = subprocess.run([git_desktop_path, "pull"], capture_output=True, text=True, check=True)
-            print(result.stdout)
-            if result.returncode == 0:
-                print("Repository updated successfully using GitHub Desktop Git.")
-            else:
-                print("Failed to update the repository using GitHub Desktop Git.")
-        except Exception as e:
-            print(f"Error updating repository with GitHub Desktop Git: {e}")
+        git_desktop_path = find_github_desktop_git()
+        if git_desktop_path:
+            try:
+                result = subprocess.run([git_desktop_path, "pull"], capture_output=True, text=True, check=True)
+                print(result.stdout)
+                if result.returncode == 0:
+                    print("Repository updated successfully using GitHub Desktop Git.")
+                else:
+                    print("Failed to update the repository using GitHub Desktop Git.")
+            except Exception as e:
+                print(f"Error updating repository with GitHub Desktop Git: {e}")
+                sys.exit(1)
+        else:
+            print("GitHub Desktop Git executable not found.")
             sys.exit(1)
 
 def find_available_port(start_port, end_port):
