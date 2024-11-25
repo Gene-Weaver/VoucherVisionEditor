@@ -1669,6 +1669,22 @@ def calculate_table_height(entries_per_page, base_height=420):
     """Calculate table height dynamically based on entries per page."""
     return base_height * (entries_per_page // 10)
 
+def style_dataframe_with_issues(df):
+    """
+    Apply Pandas Styler to highlight rows where 'track_issues' is True.
+    """
+    # Ensure the index is unique
+    df = df.reset_index(drop=True)
+
+    def highlight_issues(row):
+        if row.get("track_issues") == "True":  # Use .get() to avoid key errors
+            return ['background-color: lightcoral'] * len(row)
+        return [''] * len(row)
+
+    # Apply the styling to the DataFrame
+    styled_df = df.style.apply(highlight_issues, axis=1)
+    return styled_df
+
 def highlight_text_in_table(table, text_query, entries_per_page, DIS_CLASSES):
     """
     Highlight the text_query in the table by wrapping it with a <span> that has red color.
@@ -1687,6 +1703,7 @@ def highlight_text_in_table(table, text_query, entries_per_page, DIS_CLASSES):
     column_defs = [{"targets": "_all", "render": highlight_js}]
     
     return to_html_datatable(table, classes="display nowrap compact cell-border", columnDefs=column_defs, lengthMenu=[entries_per_page])
+
 
 
 def table_layout(t_location):
@@ -1713,20 +1730,24 @@ def table_layout(t_location):
     table['Img'] = table.index
 
     # Reorder columns to show 'Index' first
-    cols = ['Img'] + [col for col in table.columns if col != 'Index']
+    cols = ['Img'] + [col for col in table.columns if col not in ['Img', 'Index']]
     table = table[cols]
 
     # Get text query from user input
     text_query = "Carex"
+    # duplicate_columns = [col for col in table.columns if list(table.columns).count(col) > 1]
+    # print(duplicate_columns)
 
-    # table_html = to_html_datatable(table, classes="display nowrap compact cell-border", lengthMenu=[entries_per_page])
-    # html(HelpText.TABLECSS + table_html, height=table_height)
+    assert table.columns.is_unique, "DataFrame has non-unique column names."
+
+    table = style_dataframe_with_issues(table)
+
     # Highlight the query in the table
     if text_query:
         table_html = highlight_text_in_table(table, text_query, entries_per_page, DIS_CLASSES)
     else:
         table_html = to_html_datatable(table, classes=DIS_CLASSES, lengthMenu=[entries_per_page])
-    
+
     # Render the table with custom CSS and dynamic height
     html(HelpText.TABLECSS + table_html, height=table_height)
 

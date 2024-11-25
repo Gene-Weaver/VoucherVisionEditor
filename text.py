@@ -166,7 +166,9 @@ All edits will be stored in a transcribed__DATE.xlsx file."""
     .dataTables_wrapper .dataTables_filter label {
         color: #f5f5f5;
     }
-
+    .row-highlight {
+        background-color: lightcoral !important;
+    }
     /* Minimize/collapse the index column */
     th:first-child, td:first-child {
         width: 40px !important;
