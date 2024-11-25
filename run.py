@@ -25,11 +25,16 @@ from pathlib import Path
 def find_github_desktop_git():
     """Search for the most recent GitHub Desktop Git installation."""
     base_path = Path(f"C:/Users/{os.getlogin()}/AppData/Local/GitHubDesktop/app-")
-    versions = sorted(base_path.parent.glob('app-*'), reverse=True)  # Sort to find the newest version
+    print(f"base_path: {base_path}")
+    versions = sorted(base_path.glob('app-*'), reverse=True)  # Sort to find the newest version
+    print(f"versions: {versions}")
     for version in versions:
         git_path = version / "resources/app/git/cmd/git.exe"
+        print(f"git_path: {git_path}")
         if git_path.exists():
+            print(f"git_path_exists: TRUE")
             return str(git_path)
+    print(f"git_path_exists: FALSE")
     return None
 
 def update_repository():
