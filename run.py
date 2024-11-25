@@ -24,16 +24,20 @@ from pathlib import Path
 #         sys.exit(1)
 def find_github_desktop_git():
     """Search for the most recent GitHub Desktop Git installation."""
-    base_path = Path(f"C:/Users/{os.getlogin()}/AppData/Local/GitHubDesktop/app-")
+    # Base path where GitHub Desktop versions are located
+    base_path = Path(f"C:/Users/{os.getlogin()}/AppData/Local/GitHubDesktop/")
     print(f"base_path: {base_path}")
-    versions = sorted(base_path.glob('app-*'), reverse=True)  # Sort to find the newest version
+
+    # Searching recursively for git.exe inside any 'app-*' version directory
+    versions = sorted(base_path.glob('app-*/resources/app/git/cmd/git.exe'), reverse=True)  # Adjusted glob for direct path
     print(f"versions: {versions}")
-    for version in versions:
-        git_path = version / "resources/app/git/cmd/git.exe"
+
+    for git_path in versions:
         print(f"git_path: {git_path}")
         if git_path.exists():
             print(f"git_path_exists: TRUE")
             return str(git_path)
+
     print(f"git_path_exists: FALSE")
     return None
 
