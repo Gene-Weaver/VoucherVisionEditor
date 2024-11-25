@@ -33,7 +33,7 @@ def update_repository():
             print("Repository updated successfully.")
         else:
             print("Failed to update the repository.")
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         print(f"Error updating repository: {e.stderr}")
         # Fallback: use GitHub Desktop's Git executable
         try:
@@ -45,8 +45,8 @@ def update_repository():
                 print("Repository updated successfully using GitHub Desktop Git.")
             else:
                 print("Failed to update the repository using GitHub Desktop Git.")
-        except subprocess.CalledProcessError as e:
-            print(f"Error updating repository with GitHub Desktop Git: {e.stderr}")
+        except Exception as e:
+            print(f"Error updating repository with GitHub Desktop Git: {e}")
             sys.exit(1)
 
 def find_available_port(start_port, end_port):
