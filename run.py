@@ -46,7 +46,7 @@ def update_repository():
     #     if result.returncode == 0:
     #         print("Repository updated successfully.")
     # except Exception as e:
-    print(f"Error updating repository with system Git: {e}")
+    print(f"Error updating repository with system Git: ")#{e}")
     # Fallback: use GitHub Desktop's Git executable
     git_desktop_path = find_github_desktop_git()
     if git_desktop_path:
