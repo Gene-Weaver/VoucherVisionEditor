@@ -10,6 +10,7 @@ import os, sys, random, time, subprocess
 import socket
 from pathlib import Path
 import git
+import pkg_resources
 
 # def update_repository():
 #     try:
@@ -23,6 +24,40 @@ import git
 #     except subprocess.CalledProcessError as e:
 #         print(f"Error updating repository: {e.stderr}")
 #         sys.exit(1)
+def check_and_fix_requirements(requirements_file):
+    """
+    Checks if installed packages in the virtual environment satisfy the requirements.
+    :param requirements_file: Path to the requirements.txt file.
+    :return: List of missing or incompatible packages.
+    """
+    missing_or_incompatible = []
+    
+    with open(requirements_file, 'r') as req_file:
+        requirements = req_file.readlines()
+
+    for req in requirements:
+        req = req.strip()
+        if not req or req.startswith('#'):
+            continue  # Skip empty lines and comments
+        try:
+            pkg_resources.require(req)
+        except (pkg_resources.DistributionNotFound, pkg_resources.VersionConflict) as e:
+            missing_or_incompatible.append(str(e))
+
+    if missing_or_incompatible:
+        print("The following packages are missing or incompatible:")
+        for issue in missing_or_incompatible:
+            print(f"  - {issue}")
+        
+        print("Attempting to fix the package issues by running 'pip install -r requirements.txt'...")
+        try:
+            subprocess.run(["pip", "install", "-r", requirements_file], check=True)
+            print("Packages have been successfully updated.")
+        except subprocess.CalledProcessError as e:
+            print("Failed to install packages:", e)
+    else:
+        print("All requirements are satisfied.")
+
 def find_github_desktop_git():
     """Search for the most recent GitHub Desktop Git installation."""
     # Base path where GitHub Desktop versions are located
@@ -100,6 +135,8 @@ if __name__ == '__main__':
     retry_count = 0
     repo_path = resolve_path(os.path.dirname(__file__))
     print(f"repo_path: {repo_path}")
+    requirements_file = 'requirements.txt'
+    check_and_fix_requirements(resolve_path(os.path.join(os.path.dirname(__file__),'requirements.txt')))
 
     try:
         update_repository(repo_path)
