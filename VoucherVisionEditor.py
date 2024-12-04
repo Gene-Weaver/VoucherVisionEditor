@@ -2057,7 +2057,7 @@ def display_layout_with_helpers(group_option):
                             st.markdown(move_arrow)
                     if st.session_state.tool_access.get('hints'):
                         with c_help:
-                            st.text("LLM Text")
+                            st.text("AI Text")
                     if st.session_state.tool_access.get('cap'):
                         with c_cap:
                             st.text("Cap")
@@ -3003,13 +3003,13 @@ def display_image_options_buttons(relative_path_to_static, zoom_1, zoom_2, zoom_
                     st.session_state.image_option = 'Cropped'
     else:
         with zoom_1:
-            if st.button('Original', use_container_width=True):
+            if st.button('Original', use_container_width=True, help="View the full specimen image"):
                 st.session_state.image_option = 'Original'
         with zoom_2:
-            if st.button('Zoom', use_container_width=True):
+            if st.button('Zoom', use_container_width=True, help="Open the current image in a new tab. Can zoom in."):
                 webbrowser.open_new_tab(link)
         with zoom_3:
-            if st.button('Collage', use_container_width=True):
+            if st.button('Collage', use_container_width=True, help="View the LeafMachine2 label collage. Shows all text ONLY."):
                 st.session_state.image_option = 'Cropped'
         if st.session_state.tool_access.get('ocr'):
             with zoom_4:
@@ -3409,15 +3409,15 @@ if st.session_state.start_editing:
             # Create the Previous and Next buttons, define 4 sub columns
             c_index, c_skip ,c_prev, c_next = st.columns([4,4,4,4])
             with c_prev:
-                st.button("Previous Img",  use_container_width=True, on_click=on_press_previous)
+                st.button("Previous Img", help="Go back to the previous image",  use_container_width=True, on_click=on_press_previous)
 
             with c_next:
                 # Count the number of group options that have been selected
                 # Only enable the 'Next' button if all group options have been selected
                 if st.session_state.progress == len(group_options) or st.session_state.access_option == 'Admin':
-                    st.button("Next Img", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options])
+                    st.button("Next Img", help="Cannot move to next image until all categories are unlocked", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options])
                 else:
-                    st.button("Next Img", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options],disabled=True)
+                    st.button("Next Img", help="Cannot move to next image until all categories are unlocked", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options],disabled=True)
                     # st.info("Please confirm all categories before moving to next image")
 
             group_option_cols = c_left.columns(len(group_options))
@@ -3445,7 +3445,11 @@ if st.session_state.start_editing:
                         st.rerun()
             # Create the skip to bookmark button
             with c_skip:
-                st.button('Skip ahead',key=f"Skip_to_last_viewed2", use_container_width=True, on_click=on_press_skip_to_bookmark)
+                st.button('Skip ahead',
+                          key=f"Skip_to_last_viewed2", 
+                          help="Continue from the last processed image in this project",
+                          use_container_width=True, 
+                          on_click=on_press_skip_to_bookmark)
 
             display_layout_with_helpers(group_option)
             display_skip_specimen_button()
@@ -3503,7 +3507,7 @@ if st.session_state.start_editing:
     # for finished images
     if 'ALL' in st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"].split(","):
         for i, option in enumerate(group_options):
-            if group_option_cols[i].button(option, use_container_width=True):
+            if group_option_cols[i].button(option, use_container_width=True, help="Category"):
                 st.session_state["group_option"] = option
                 group_option = option
     #For in progess images
