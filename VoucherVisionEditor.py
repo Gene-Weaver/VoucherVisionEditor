@@ -159,7 +159,7 @@ if 'set_image_size_px' not in st.session_state:
         st.session_state.set_image_size_px = 500
 
 if 'set_image_size_pxh' not in st.session_state:
-    st.session_state.set_image_size_pxh = 200
+    st.session_state.set_image_size_pxh = 80
 
 if 'set_map_height_pxh' not in st.session_state:
     st.session_state.set_map_height_pxh = 200
@@ -1713,6 +1713,7 @@ def highlight_text_in_table(table, text_query, entries_per_page, DIS_CLASSES):
 
 
 def table_layout(t_location):
+    st.title('')
     current_project_name = os.path.basename(os.path.dirname(os.path.dirname(os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name))))
     st.markdown(f"**Current Project:** :green[{current_project_name}]", help="This is the name of the current project")
     st.markdown(f"**Current Transcription File:** :green[{st.session_state.file_name}]", help="This is the name of the transcribed_edited__DATETTIME.xlsx file")
@@ -2552,7 +2553,10 @@ def display_issues():
 
 def display_notes():
     with st.expander("Notes", expanded=True):
-        new_notes = st.text_area("session notes", label_visibility='collapsed', value=st.session_state.notes_data['NOTES'])
+        new_notes = st.text_area("session notes", 
+                                 label_visibility='collapsed', 
+                                 value=st.session_state.notes_data['NOTES'], 
+                                 height=238)
         if new_notes != st.session_state.notes_data['NOTES']:
             st.session_state.notes_data['NOTES'] = new_notes
             save_notes(st.session_state.notes_data['NOTES'])
@@ -3391,41 +3395,7 @@ if st.session_state.start_editing:
     # Organize the text groupings
     group_options = list(st.session_state.grouping.keys()) + ["ALL"]
     group_option = st.session_state.get("group_option", group_options[0])
-    group_option_cols = c_left.columns(len(group_options))
-    
 
-    # Init tracker
-    if st.session_state.group_options_tracker == {}:
-        for i, option in enumerate(group_options):
-            st.session_state.group_options_tracker[option] = 0
-
-    # for finished images
-    if 'ALL' in st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"].split(","):
-        for i, option in enumerate(group_options):
-            if group_option_cols[i].button(option, use_container_width=True):
-                st.session_state["group_option"] = option
-                group_option = option
-    #For in progess images
-    else:
-        # Create a button for each category group, used for tracking
-        for i, option in enumerate(group_options):
-            if st.session_state.group_options_tracker[option] == 1:
-                if group_option_cols[i].button(option, use_container_width=True):
-                    st.session_state["group_option"] = option
-                    group_option = option
-                
-            elif all_but_one_is_one(st.session_state.group_options_tracker):
-                if group_option_cols[i].button(option, use_container_width=True):
-                    st.session_state["group_option"] = option
-                    group_option = option
-                    st.session_state.progress_index += 1
-            else:
-                group_option_cols[i].button(option, use_container_width=True, disabled=True)
-
-        
-    # Display a progress bar showing how many of the group_options are present in track_edit
-    with c_left:
-        update_progress_bar()
 
     # Layout for Form View (alternative is Spreadsheet View)
     if st.session_state.view_option == "Form View":
@@ -3439,18 +3409,21 @@ if st.session_state.start_editing:
             # Create the Previous and Next buttons, define 4 sub columns
             c_index, c_skip ,c_prev, c_next = st.columns([4,4,4,4])
             with c_prev:
-                st.button("Previous",  use_container_width=True, on_click=on_press_previous)
+                st.button("Previous Img",  use_container_width=True, on_click=on_press_previous)
 
             with c_next:
                 # Count the number of group options that have been selected
                 # Only enable the 'Next' button if all group options have been selected
                 if st.session_state.progress == len(group_options) or st.session_state.access_option == 'Admin':
-                    st.button("Next", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options])
+                    st.button("Next Img", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options])
                 else:
-                    st.button("Next", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options],disabled=True)
+                    st.button("Next Img", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options],disabled=True)
                     # st.info("Please confirm all categories before moving to next image")
 
-
+            group_option_cols = c_left.columns(len(group_options))
+            # Display a progress bar showing how many of the group_options are present in track_edit
+            with c_left:
+                update_progress_bar()
                         
             # Get the current row from the spreadsheet, show the index
             n_rows = len(st.session_state.data_edited)
@@ -3517,6 +3490,43 @@ if st.session_state.start_editing:
                 n_rows = len(st.session_state.data_edited)-1
                 st.write(f"**Showing image for row {st.session_state.row_to_edit} / {n_rows}**")
             # c_gps, c_form = st.columns([4,4])
+
+
+
+    
+
+    # Init tracker
+    if st.session_state.group_options_tracker == {}:
+        for i, option in enumerate(group_options):
+            st.session_state.group_options_tracker[option] = 0
+
+    # for finished images
+    if 'ALL' in st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"].split(","):
+        for i, option in enumerate(group_options):
+            if group_option_cols[i].button(option, use_container_width=True):
+                st.session_state["group_option"] = option
+                group_option = option
+    #For in progess images
+    else:
+        # Create a button for each category group, used for tracking
+        for i, option in enumerate(group_options):
+            if st.session_state.group_options_tracker[option] == 1:
+                if group_option_cols[i].button(option, use_container_width=True):
+                    st.session_state["group_option"] = option
+                    group_option = option
+                
+            elif all_but_one_is_one(st.session_state.group_options_tracker):
+                if group_option_cols[i].button(option, use_container_width=True):
+                    st.session_state["group_option"] = option
+                    group_option = option
+                    st.session_state.progress_index += 1
+            else:
+                group_option_cols[i].button(option, use_container_width=True, disabled=True)
+
+        
+
+
+    
 
 
     # check if the row_to_edit has changed
