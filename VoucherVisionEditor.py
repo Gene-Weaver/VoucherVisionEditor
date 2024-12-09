@@ -1595,7 +1595,7 @@ def on_press_next(group_options):
     for i, option in enumerate(group_options):
         st.session_state.group_options_tracker[option] = 0
 
-    if st.session_state.progress == len(group_options) or st.session_state.access_option == 'Admin':
+    if st.session_state.progress >= len(group_options) or st.session_state.access_option == 'Admin':
         if st.session_state.data_edited.loc[st.session_state.row_to_edit, "user_time_of_edit"] == "":
             st.session_state.data_edited.loc[st.session_state.row_to_edit, "user_time_of_edit"] = get_current_datetime()
             save_data()
@@ -3396,110 +3396,13 @@ if st.session_state.start_editing:
     group_options = list(st.session_state.grouping.keys()) + ["ALL"]
     group_option = st.session_state.get("group_option", group_options[0])
 
+    group_option_cols = c_left.columns(len(group_options))
+
 
     # Layout for Form View (alternative is Spreadsheet View)
-    if st.session_state.view_option == "Form View":
+    # if st.session_state.view_option == "Form View":
 
-        with c_left:
-            if (st.session_state.progress == 0) and group_options[0] not in st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"]: 
-                # Add default option if "track_edit" is empty and doesn't contain the default option already
-                add_default_option_if_not_present()
-                st.rerun()
-            
-            # Create the Previous and Next buttons, define 4 sub columns
-            c_index, c_skip ,c_prev, c_next = st.columns([4,4,4,4])
-            with c_prev:
-                st.button("Previous Img", help="Go back to the previous image",  use_container_width=True, on_click=on_press_previous)
-
-            with c_next:
-                # Count the number of group options that have been selected
-                # Only enable the 'Next' button if all group options have been selected
-                if st.session_state.progress == len(group_options) or st.session_state.access_option == 'Admin':
-                    st.button("Next Img", help="Cannot move to next image until all categories are unlocked", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options])
-                else:
-                    st.button("Next Img", help="Cannot move to next image until all categories are unlocked", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options],disabled=True)
-                    # st.info("Please confirm all categories before moving to next image")
-
-            group_option_cols = c_left.columns(len(group_options))
-            # Display a progress bar showing how many of the group_options are present in track_edit
-            with c_left:
-                update_progress_bar()
-                        
-            # Get the current row from the spreadsheet, show the index
-            n_rows = len(st.session_state.data_edited)
-            with c_index:
-                # st.write(f"**Image {st.session_state.row_to_edit+1} / {n_rows}**")
-                last_true_index_max = st.session_state.data_edited[st.session_state.data_edited["track_view"] == 'True'].index.max() + 1
-                if pd.isna(last_true_index_max):
-                    last_true_index_max = 1
-                    current_image = 1
-                    set_value = 1
-                else:
-                    current_image = st.session_state.row_to_edit+1
-                    set_value = st.session_state.row_to_edit+1
-                    last_true_index_max = last_true_index_max + 1
-                skip_to_manual = st.number_input(f"**Image {current_image} / {n_rows}**",key=f"skip to index{st.session_state.row_to_edit}", label_visibility='visible', step=1, value=set_value, min_value=1, max_value=last_true_index_max)
-                if skip_to_manual:
-                    if skip_to_manual != st.session_state.row_to_edit+1:
-                        st.session_state.row_to_edit = skip_to_manual-1
-                        st.rerun()
-            # Create the skip to bookmark button
-            with c_skip:
-                st.button('Skip ahead',
-                          key=f"Skip_to_last_viewed2", 
-                          help="Continue from the last processed image in this project",
-                          use_container_width=True, 
-                          on_click=on_press_skip_to_bookmark)
-
-            display_layout_with_helpers(group_option)
-            display_skip_specimen_button()
-
-        # Update the track_view column for the current row
-        if st.session_state.access_option != 'Admin': # ONLY add views if in the label tab
-            st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_view"] = 'True'
-            if st.session_state.data_edited.loc[st.session_state.row_to_edit, "user_uniqname"] == "":
-                st.session_state.data_edited.loc[st.session_state.row_to_edit, "user_uniqname"] = st.session_state.user_uniqname
-
-    ### Show the spreadsheet layout
-    elif st.session_state.view_option == "Data Editor":
-        with c_left:
-            st.write("Skipping ahead (editing in the 'Form View' out of order) will cause issues if all 5 groups are selected while skipping ahead.")
-            st.write("If skipping ahead, only use the 'ALL' option until returning to sequential editing.")
-            # Reorder the columns to have "track_view" and "track_edit" at the beginning
-            reordered_columns = ['user_uniqname', 'user_time_of_edit', 'track_view', 'track_edit', 'track_issues'] + [col for col in st.session_state.data_edited.columns if col not in ['user_uniqname', 'user_time_of_edit', 'track_view', 'track_edit', 'track_issues']]
-            st.session_state.data_edited = st.session_state.data_edited[reordered_columns]
-
-            # If the view option is "Data Editor", create a new full-width container for the editor
-            with st.container():
-                edited_data = st.data_editor(st.session_state.data_edited)
-                b_color = "black"
-                b_text = "Save Edits"
-                b_label = f":{b_color}[{b_text}]"
-                if st.button(label=b_label, type="primary", use_container_width=True):
-                    # Save the edited data back to the session state data
-                    st.session_state.data_edited = edited_data
-                    save_data()
-
-                # Slider or number input to select the row
-                # Only display the slider if there are 2 or more rows
-                if len(st.session_state.data_edited) >= 2:
-                    slider_value = st.slider("Select a row to display its image", min_value=st.session_state.data_edited.index[0], max_value=st.session_state.data_edited.index[-1], value=int(st.session_state.row_to_edit))
-
-                    # Only update the row_to_edit if slider value changes
-                    if slider_value != st.session_state.row_to_edit:
-                        st.session_state.row_to_edit = slider_value
-                    save_data()
-                    
-                # Display the current row
-                n_rows = len(st.session_state.data_edited)-1
-                st.write(f"**Showing image for row {st.session_state.row_to_edit} / {n_rows}**")
-            # c_gps, c_form = st.columns([4,4])
-
-
-
-    
-
-    # Init tracker
+        # Init tracker
     if st.session_state.group_options_tracker == {}:
         for i, option in enumerate(group_options):
             st.session_state.group_options_tracker[option] = 0
@@ -3515,17 +3418,143 @@ if st.session_state.start_editing:
         # Create a button for each category group, used for tracking
         for i, option in enumerate(group_options):
             if st.session_state.group_options_tracker[option] == 1:
-                if group_option_cols[i].button(option, use_container_width=True):
+                if group_option_cols[i].button(option, use_container_width=True, help="Category"):
+                    st.session_state["group_option"] = option
+                    group_option = option
+
+            elif i <= st.session_state.progress_index:
+                if group_option_cols[i].button(option, use_container_width=True, help="Category"):
                     st.session_state["group_option"] = option
                     group_option = option
                 
-            elif all_but_one_is_one(st.session_state.group_options_tracker):
-                if group_option_cols[i].button(option, use_container_width=True):
-                    st.session_state["group_option"] = option
-                    group_option = option
-                    st.session_state.progress_index += 1
+            # elif all_but_one_is_one(st.session_state.group_options_tracker):
+            #     if group_option_cols[i].button(option, use_container_width=True):
+            #         st.session_state["group_option"] = option
+            #         group_option = option
+            #         st.session_state.progress_index += 1
             else:
-                group_option_cols[i].button(option, use_container_width=True, disabled=True)
+                group_option_cols[i].button(option, use_container_width=True, disabled=True, help="Category")
+
+
+
+    with c_left:
+        update_progress_bar()
+        if (st.session_state.progress == 0) and group_options[0] not in st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"]: 
+            # Add default option if "track_edit" is empty and doesn't contain the default option already
+            add_default_option_if_not_present()
+            st.rerun()
+        
+        # Create the Previous and Next buttons, define 4 sub columns
+        c_index, c_skip ,c_prev, c_next = st.columns([4,4,4,4])
+        with c_prev:
+            st.button("Previous Img", help="Go back to the previous image",  use_container_width=True, on_click=on_press_previous)
+
+        with c_next:
+            # Count the number of group options that have been selected
+            # Only enable the 'Next' button if all group options have been selected
+            if st.session_state.progress == len(group_options) or st.session_state.access_option == 'Admin':
+                st.button("Next Img", help="Cannot move to next image until all categories are unlocked", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options])
+            else:
+                st.button("Next Img", help="Cannot move to next image until all categories are unlocked", type="primary", use_container_width=True, on_click=on_press_next, args=[group_options],disabled=True)
+                # st.info("Please confirm all categories before moving to next image")
+
+        # group_option_cols = c_left.columns(len(group_options))
+        # Display a progress bar showing how many of the group_options are present in track_edit
+        
+                    
+        # Get the current row from the spreadsheet, show the index
+        n_rows = len(st.session_state.data_edited)
+        with c_index:
+            # st.write(f"**Image {st.session_state.row_to_edit+1} / {n_rows}**")
+            last_true_index_max = st.session_state.data_edited[st.session_state.data_edited["track_view"] == 'True'].index.max() + 1
+            if pd.isna(last_true_index_max):
+                last_true_index_max = 1
+                current_image = 1
+                set_value = 1
+            else:
+                current_image = st.session_state.row_to_edit+1
+                set_value = st.session_state.row_to_edit+1
+                last_true_index_max = last_true_index_max + 1
+            last_true_index_max = int(last_true_index_max)
+            try:
+                last_val = min([last_true_index_max-1, n_rows])
+                skip_to_manual = st.number_input(f"**Image {current_image} / {n_rows}**",
+                                                key=f"skip to index{st.session_state.row_to_edit}", 
+                                                label_visibility='visible', 
+                                                step=1, 
+                                                value=set_value, 
+                                                min_value=1, 
+                                                max_value=last_val)
+            except:
+                last_val = min([last_true_index_max, n_rows])
+                skip_to_manual = st.number_input(f"**Image {current_image} / {n_rows}**",
+                                                key=f"skip to index{st.session_state.row_to_edit}1", 
+                                                label_visibility='visible', 
+                                                step=1, 
+                                                value=set_value, 
+                                                min_value=1, 
+                                                max_value=last_val)
+            if skip_to_manual:
+                if skip_to_manual != st.session_state.row_to_edit+1:
+                    st.session_state.row_to_edit = skip_to_manual-1
+                    st.rerun()
+        # Create the skip to bookmark button
+        with c_skip:
+            st.button('Skip ahead',
+                        key=f"Skip_to_last_viewed2", 
+                        help="Continue from the last processed image in this project",
+                        use_container_width=True, 
+                        on_click=on_press_skip_to_bookmark)
+
+        display_layout_with_helpers(group_option)
+        display_skip_specimen_button()
+
+    # Update the track_view column for the current row
+    if st.session_state.access_option != 'Admin': # ONLY add views if in the label tab
+        st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_view"] = 'True'
+        if st.session_state.data_edited.loc[st.session_state.row_to_edit, "user_uniqname"] == "":
+            st.session_state.data_edited.loc[st.session_state.row_to_edit, "user_uniqname"] = st.session_state.user_uniqname
+
+    ### Show the spreadsheet layout
+    # elif st.session_state.view_option == "Data Editor":
+        # with c_left:
+        #     st.write("Skipping ahead (editing in the 'Form View' out of order) will cause issues if all 5 groups are selected while skipping ahead.")
+        #     st.write("If skipping ahead, only use the 'ALL' option until returning to sequential editing.")
+        #     # Reorder the columns to have "track_view" and "track_edit" at the beginning
+        #     reordered_columns = ['user_uniqname', 'user_time_of_edit', 'track_view', 'track_edit', 'track_issues'] + [col for col in st.session_state.data_edited.columns if col not in ['user_uniqname', 'user_time_of_edit', 'track_view', 'track_edit', 'track_issues']]
+        #     st.session_state.data_edited = st.session_state.data_edited[reordered_columns]
+
+        #     # If the view option is "Data Editor", create a new full-width container for the editor
+        #     with st.container():
+        #         edited_data = st.data_editor(st.session_state.data_edited)
+        #         b_color = "black"
+        #         b_text = "Save Edits"
+        #         b_label = f":{b_color}[{b_text}]"
+        #         if st.button(label=b_label, type="primary", use_container_width=True):
+        #             # Save the edited data back to the session state data
+        #             st.session_state.data_edited = edited_data
+        #             save_data()
+
+        #         # Slider or number input to select the row
+        #         # Only display the slider if there are 2 or more rows
+        #         if len(st.session_state.data_edited) >= 2:
+        #             slider_value = st.slider("Select a row to display its image", min_value=st.session_state.data_edited.index[0], max_value=st.session_state.data_edited.index[-1], value=int(st.session_state.row_to_edit))
+
+        #             # Only update the row_to_edit if slider value changes
+        #             if slider_value != st.session_state.row_to_edit:
+        #                 st.session_state.row_to_edit = slider_value
+        #             save_data()
+                    
+        #         # Display the current row
+        #         n_rows = len(st.session_state.data_edited)-1
+        #         st.write(f"**Showing image for row {st.session_state.row_to_edit} / {n_rows}**")
+            # c_gps, c_form = st.columns([4,4])
+
+
+
+    
+
+
 
         
 
