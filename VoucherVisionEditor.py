@@ -918,8 +918,7 @@ def create_save_dir(transcription_index, add_prefix = False):
     if platform.system() == 'Darwin':
         save_dir = os.path.join('/', *parts[:transcription_index + 3])
     else:
-        save_dir = os.path.join(drive, *parts[:transcription_index + 1])
-    
+        save_dir = os.path.join(drive + os.path.sep, *parts[:transcription_index + 1])
     # macOS-specific adjustment: prepend '/' to make sure the path is absolute
     # if platform.system() == 'Darwin':
     #     print(f"     Adding leading / for macOS")
