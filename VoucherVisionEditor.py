@@ -916,7 +916,7 @@ def create_save_dir(transcription_index, add_prefix = False):
 
     # Construct the SAVE_DIR from the path
     if platform.system() == 'Darwin':
-        save_dir = os.path.join('/', *parts[:transcription_index + 3])
+        save_dir = os.path.join('/', *parts[:transcription_index ])#+ 3])                                   ### TODO check to see if it works for brad still
     else:
         save_dir = os.path.join(drive + os.path.sep, *parts[:transcription_index + 1])
     # macOS-specific adjustment: prepend '/' to make sure the path is absolute
