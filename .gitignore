@@ -3,6 +3,7 @@ static/
 projects/*
 .streamlit2/
 img/hidden/
+.DS_Store
 
 *.app
 *.applescript
