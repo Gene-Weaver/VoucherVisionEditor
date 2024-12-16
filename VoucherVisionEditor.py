@@ -244,6 +244,12 @@ if 'dialog_closed' not in st.session_state:
 
 if 'group_options_tracker' not in st.session_state:
     st.session_state.group_options_tracker = {}
+
+if 'n_manual_data' not in st.session_state:
+    st.session_state.n_manual_data = 0   
+
+if 'n_total_data' not in st.session_state:
+    st.session_state.n_total_data = 0   
     
     
 if 'tool_access' not in st.session_state:
@@ -980,9 +986,9 @@ def load_data():
         if st.session_state.BASE_PATH:
             st.session_state.BASE_PATH_transcription = os.path.join(st.session_state.BASE_PATH, 'Transcription')
             st.session_state.BASE_PATH_transcription_LLM = os.path.join(st.session_state.BASE_PATH, 'Transcription', 'transcribed.xlsx')
+            st.session_state.BASE_PATH_transcription_LLM_prior = os.path.join(st.session_state.BASE_PATH, 'Transcription', 'transcribed_prior_to_subsetting.xlsx')
             st.session_state.BASE_PATH_notes = os.path.join(st.session_state.BASE_PATH, 'Transcription', 'notes.json')
             load_notes()
-
 
             xlsx_LLM = [st.session_state.BASE_PATH_transcription_LLM]
             xlsx_files = [file for file in os.listdir(st.session_state.BASE_PATH_transcription) if file.endswith('.xlsx')]
@@ -1025,6 +1031,12 @@ def load_data():
                         st.session_state.prompt_mapping = st.session_state.prompt_json['mapping']
 
                     st.session_state.data = pd.read_excel(st.session_state.BASE_PATH_transcription_LLM, dtype=str)
+                    st.session_state.n_total_data = st.session_state.data.shape[0]
+
+                    # Exclude rows where 'country' contains 'X' or 'x' (case-insensitive)
+                    # BUT WE NEED TO HIDE IT, NOT REMOVE THE ROW
+                    manual_data = st.session_state.data[~st.session_state.data['country'].str.strip().str.lower().eq('x')]
+                    st.session_state.n_manual_data = manual_data.shape[0]
 
                     st.session_state.n_columns = st.session_state.data.shape[1]
 
@@ -1043,6 +1055,7 @@ def load_data():
 
                     # Name for transcribed_skipped.xlsx
                     st.session_state.file_name_skipped = "transcribed_skipped.xlsx"
+                    st.session_state.file_name_prior_to_subsetting = "transcribed_prior_to_subsetting.xlsx"
                     
                     # If BASE_PATH is provided, replace old base paths in the dataframe
                     if st.session_state.BASE_PATH != '':
@@ -1101,14 +1114,19 @@ def load_data():
                         # st.session_state.data_edited['path_to_helper'] = st.session_state.data['path_to_helper']
                         # st.session_state.data_edited['path_to_content'] = st.session_state.data['path_to_content']
 
-                        
+                        always_keep_data_for = ['catalogNumber', 'additionalText']
+                        always_keep_data_for = list(set(st.session_state.hide_fields + always_keep_data_for))
+
                         for col in st.session_state.data.columns:
-                            if col != 'catalogNumber' and col != 'additionalText' and st.session_state.data.columns.get_loc(col) < st.session_state.data.columns.get_loc('filename'):
+                            if col not in always_keep_data_for and st.session_state.data.columns.get_loc(col) < st.session_state.data.columns.get_loc('filename'):
+                            # if col != 'catalogNumber' and col != 'additionalText' and st.session_state.data.columns.get_loc(col) < st.session_state.data.columns.get_loc('filename'):
                                 st.session_state.data_edited[col] = [''] * len(st.session_state.data)
                             else:
                                 # Retain the values for 'filename' and subsequent columns
                                 st.session_state.data_edited[col] = st.session_state.data[col]
-                        
+
+                    elif st.session_state.BASE_PATH_transcription_LLM_prior == st.session_state.fullpath_working_file:
+                        raise ValueError("We only support editing files called 'transcribed.xlsx' and the '__edited__' files that result. If you want to look at 'transcribed_prior_to_subsetting.xlsx', then rename it to 'transcribed.xlsx'.")
                         
                     else:
                         st.session_state.data_edited = pd.read_excel(st.session_state.fullpath_working_file, dtype=str)
@@ -1581,6 +1599,9 @@ def on_press_previous():
             st.session_state.row_to_edit = st.session_state.data_edited.index[-1]
     else:
         st.session_state.row_to_edit -= 1
+        while st.session_state.row_to_edit in st.session_state.data_edited.index and \
+            st.session_state.data.loc[st.session_state.row_to_edit, 'country'].strip().lower() == 'x':
+            st.session_state.row_to_edit -= 1
 
     # st.session_state["group_option"] = group_options[0]  # Reset the group_option
     if st.session_state.default_to_original:
@@ -1612,6 +1633,21 @@ def on_press_next(group_options):
             st.balloons()
         else:
             st.session_state.row_to_edit += 1
+            print(st.session_state.data.loc[st.session_state.row_to_edit, 'country'].strip().lower())
+            # **Skip rows where 'country' is 'X' or 'x'**
+            while st.session_state.row_to_edit in st.session_state.data_edited.index and \
+                  st.session_state.data.loc[st.session_state.row_to_edit, 'country'].strip().lower() == 'x':
+                if st.session_state.row_to_edit == st.session_state.data_edited.index[-1]:
+                    st.session_state.row_to_edit = st.session_state.data_edited.index[0]  # Loop back to start
+                else:
+                    st.session_state.data_edited.loc[st.session_state.row_to_edit, 'track_view'] = 'True'
+                    st.session_state.data_edited.loc[st.session_state.row_to_edit, 'country'] = 'X'
+                    for option in group_options:
+                        current_edit_track = st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"]
+                        if option not in current_edit_track.split(","):
+                            new_edit_track = current_edit_track + "," + option if current_edit_track else option
+                            st.session_state.data_edited.loc[st.session_state.row_to_edit, "track_edit"] = new_edit_track
+                    st.session_state.row_to_edit += 1
 
         st.session_state["group_option"] = group_options[0]  # Reset the group_option
         if st.session_state.default_to_original:
@@ -1716,6 +1752,8 @@ def table_layout(t_location):
     current_project_name = os.path.basename(os.path.dirname(os.path.dirname(os.path.join(st.session_state.SAVE_DIR, st.session_state.file_name))))
     st.markdown(f"**Current Project:** :green[{current_project_name}]", help="This is the name of the current project")
     st.markdown(f"**Current Transcription File:** :green[{st.session_state.file_name}]", help="This is the name of the transcribed_edited__DATETTIME.xlsx file")
+    st.markdown(f"**Total Number of Images in Project:** :green[{st.session_state.n_total_data}]", help="Number of images in the whole project, includes images that are outside the current geographic bounds.")
+    st.markdown(f"**Number of Images to Review:** :green[{st.session_state.n_manual_data}]", help="Number of images that you will actually edit that fall within the geographic bounds of this project")
 
     DIS_CLASSES = "display nowrap compact cell-border"
 
