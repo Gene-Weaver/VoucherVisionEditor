@@ -6,12 +6,14 @@ from importlib.metadata import distributions
 from packaging.requirements import Requirement
 from packaging import version
 
+
 # https://ploomber.io/blog/streamlit_exe/
 
 # https://medium.com/@sathiyamurthi239/how-to-create-a-streamlit-executable-python-to-exe-3bcb8eed9b16
 # pip install --upgrade cx_Freeze
 # cxfreeze -c run.py 
 # pip install protobuf==3.20.0
+
 
 def update_repository_via_zip(repo_path, zip_url="https://github.com/Gene-Weaver/VoucherVisionEditor/archive/refs/heads/main.zip"):
     """
