@@ -1,5 +1,3 @@
-
-
 import streamlit.web.cli as stcli
 import os, sys
 from utils_update import resolve_path, update_setuptools, update_repository, check_and_fix_requirements, find_available_port
