@@ -187,21 +187,22 @@ def find_github_desktop_git():
 
 def update_repository(repo_path):
     """Attempts to update the repository using the system's git or GitHub Desktop's git."""
-    try:
-        repo = git.Repo(repo_path)
-        current_branch = repo.active_branch
-        print(f"Updating repository on branch: {current_branch.name}")
+    # try:
+    #     repo = git.Repo(repo_path)
+    #     current_branch = repo.active_branch
+    #     print(f"Updating repository on branch: {current_branch.name}")
         
-        origin = repo.remotes.origin
-        result = origin.pull()
+    #     origin = repo.remotes.origin
+    #     result = origin.pull()
 
-        if result[0].flags > 0:
-            print("Repository updated successfully.")
-        else:
-            print("No updates were available.")
-    except Exception as e:
-        print(f"Error while updating repository: {e}")
-        update_repository_via_zip(repo_path)
+    #     if result[0].flags > 0:
+    #         print("Repository updated successfully.")
+    #     else:
+    #         print("No updates were available.")
+    # except Exception as e:
+    #     print(f"Error while updating repository: {e}")
+    #     update_repository_via_zip(repo_path)
+    update_repository_via_zip(repo_path)
 
 def find_available_port(start_port, end_port):
     ports = list(range(start_port, end_port + 1))
