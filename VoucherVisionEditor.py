@@ -52,7 +52,7 @@ st.set_page_config(layout="wide",
                    menu_items={"Report a Bug": "https://forms.gle/kP8imC9JQTPLrXgg8","About":"VoucherVision was created and is maintained by William Weaver, University of Michigan. Please see doi:10.1002/ajb2.16256 for more information."},
                    initial_sidebar_state="expanded",)
 
-
+LAST_UPDATED = "Dec 17, 2024"
 ###########################################################################################################################
 ######## If true, this will let you host the project remotely
 ######## Otherwise all project info will be hosted inside VoucherVisionEditor/ on the local machine
@@ -649,7 +649,7 @@ def upload_and_unzip():
 
     with c_right:
         st.markdown(""":violet-background[NOTE:]\n\n- Refreshing your browser will restart VoucherVisionEditor from this page and reset all settings\n\n- In the Editor, every change you make is immediately saved to the session's .xlsx file""")
-
+        st.markdown(f"Last Updated: {LAST_UPDATED}")
     with c_left:
 
         # Load existing settings
