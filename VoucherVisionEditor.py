@@ -649,6 +649,7 @@ def upload_and_unzip():
 
     with c_right:
         st.markdown(""":violet-background[NOTE:]\n\n- Refreshing your browser will restart VoucherVisionEditor from this page and reset all settings\n\n- In the Editor, every change you make is immediately saved to the session's .xlsx file""")
+        st.markdown(""":violet-background[NOTE:]\n\n- Refreshing your browser will restart VoucherVisionEditor from this page and reset all settings\n\n- In the Editor, every change you make is immediately saved to the session's .xlsx file""")
 
     with c_left:
 
