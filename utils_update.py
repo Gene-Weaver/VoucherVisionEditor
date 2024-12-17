@@ -1,4 +1,4 @@
-import os, sys, random, subprocess, requests, shutil, zipfile
+import os, sys, random, subprocess, requests, shutil, zipfile, tempfile
 import socket
 from pathlib import Path
 import git
@@ -13,7 +13,7 @@ from packaging import version
 # cxfreeze -c run.py 
 # pip install protobuf==3.20.0
 
-def update_repository_via_zip(repo_path, zip_url="https://github.com/username/repo/archive/refs/heads/main.zip"):
+def update_repository_via_zip(repo_path, zip_url="https://github.com/Gene-Weaver/VoucherVisionEditor/archive/refs/heads/main.zip"):
     """
     Fallback method to update the repository by downloading and extracting a .zip file from GitHub.
     
@@ -23,44 +23,49 @@ def update_repository_via_zip(repo_path, zip_url="https://github.com/username/re
     """
     print("Attempting to update repository via .zip file...")
     try:
-        zip_path = os.path.join(repo_path, "repo.zip")
-        
-        # Download the zip file from the provided URL
-        print(f"Downloading {zip_url}...")
-        response = requests.get(zip_url, stream=True)
-        with open(zip_path, 'wb') as zip_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp_zip_file:
+            zip_path = tmp_zip_file.name
+            
+            # Download the zip file from the provided URL
+            print(f"Downloading {zip_url}...")
+            response = requests.get(zip_url, stream=True)
+            response.raise_for_status()  # Raise an error if the request failed
             for chunk in response.iter_content(chunk_size=8192):
-                zip_file.write(chunk)
-        print("Download complete.")
+                tmp_zip_file.write(chunk)
+            print("Download complete.")
         
         # Extract the zip file contents
         print("Extracting files...")
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            extract_path = os.path.join(repo_path, "_temp_repo")
-            zip_ref.extractall(extract_path)
-        
-        # Move extracted files to the main repo path, overwriting existing files
-        extracted_folder_name = os.listdir(extract_path)[0]  # Assuming only one folder inside the extracted zip
-        extracted_folder_path = os.path.join(extract_path, extracted_folder_name)
-        
-        for item in os.listdir(extracted_folder_path):
-            source_path = os.path.join(extracted_folder_path, item)
-            destination_path = os.path.join(repo_path, item)
+        if zipfile.is_zipfile(zip_path):
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                extract_path = os.path.join(repo_path, "_temp_repo")
+                zip_ref.extractall(extract_path)
             
-            if os.path.isdir(source_path):
-                if os.path.exists(destination_path):
-                    shutil.rmtree(destination_path)
-                shutil.move(source_path, destination_path)
-            else:
-                shutil.move(source_path, destination_path)
-        
-        print("Repository files updated successfully via .zip file.")
+            # Move extracted files to the main repo path, overwriting existing files
+            extracted_folder_name = os.listdir(extract_path)[0]  # Assuming only one folder inside the extracted zip
+            extracted_folder_path = os.path.join(extract_path, extracted_folder_name)
+            
+            for item in os.listdir(extracted_folder_path):
+                source_path = os.path.join(extracted_folder_path, item)
+                destination_path = os.path.join(repo_path, item)
+                
+                if os.path.isdir(source_path):
+                    if os.path.exists(destination_path):
+                        shutil.rmtree(destination_path)
+                    shutil.move(source_path, destination_path)
+                else:
+                    shutil.move(source_path, destination_path)
+            
+            print("Repository files updated successfully via .zip file.")
+        else:
+            print("The downloaded file is not a valid zip file.")
     except Exception as e:
         print(f"Failed to update repository via .zip file: {e}")
     finally:
         # Clean up temporary files
         if os.path.exists(zip_path):
             os.remove(zip_path)
+        extract_path = os.path.join(repo_path, "_temp_repo")
         if os.path.exists(extract_path):
             shutil.rmtree(extract_path)
 
@@ -183,7 +188,6 @@ def find_github_desktop_git():
 #     except subprocess.CalledProcessError as e:
 #         print(f"Error updating repository: {e.stderr}")
 #         sys.exit(1)
-
 
 def update_repository(repo_path):
     """Attempts to update the repository using the system's git or GitHub Desktop's git."""
