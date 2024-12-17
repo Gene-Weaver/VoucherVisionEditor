@@ -1118,7 +1118,13 @@ def load_data():
                         always_keep_data_for = list(set(st.session_state.hide_fields + always_keep_data_for))
 
                         for col in st.session_state.data.columns:
-                            if col not in always_keep_data_for and st.session_state.data.columns.get_loc(col) < st.session_state.data.columns.get_loc('filename'):
+                            if col == "country":
+                                # Set all values to "" except where the value is "X" (case-insensitive)
+                                st.session_state.data_edited[col] = st.session_state.data[col].str.strip().str.upper().where(
+                                    st.session_state.data[col].str.strip().str.upper() == 'X', 
+                                    other=''
+                                )
+                            elif col not in always_keep_data_for and st.session_state.data.columns.get_loc(col) < st.session_state.data.columns.get_loc('filename'):
                             # if col != 'catalogNumber' and col != 'additionalText' and st.session_state.data.columns.get_loc(col) < st.session_state.data.columns.get_loc('filename'):
                                 st.session_state.data_edited[col] = [''] * len(st.session_state.data)
                             else:
@@ -1466,6 +1472,10 @@ def show_header_main():
         st.session_state.form_width = st.select_slider('Text wrapping length for form values', options=wrap_len, value=20)
         # Location of the form record TRUTH
 
+        st.session_state.color_table_viewed = st.color_picker("Color of Viewed Records in the Table", "#009ec4")
+        st.session_state.color_table_issue = st.color_picker("Color of Bookmarked Records in the Table", "#F08080")
+        st.session_state.color_table_ignored = st.color_picker("Color of Ignored Records in the Table", "#000000")
+
         # Location of the Google Search
         if st.session_state.image_fill == "Small Screen":
             st.session_state.location_google_search = st.sidebar.selectbox("Location of Google Search - Small Screen", ["Top", "Bottom"])
@@ -1712,19 +1722,50 @@ def calculate_table_height(entries_per_page, base_height=420):
 
 def style_dataframe_with_issues(df):
     """
-    Apply Pandas Styler to highlight rows where 'track_issues' is True.
+    Apply Pandas Styler to highlight rows with multiple rules for 'track_issues', 'country', and 'track_view'.
     """
     # Ensure the index is unique
     df = df.reset_index(drop=True)
 
     def highlight_issues(row):
+        """Highlight the row if 'track_issues' is True."""
+        styles = [''] * len(row)
         if row.get("track_issues") == "True":  # Use .get() to avoid key errors
-            return ['background-color: lightcoral'] * len(row)
-        return [''] * len(row)
+            print(f'background-color: #{st.session_state.color_table_issue}')
+            styles = [f'background-color: {st.session_state.color_table_issue}' for _ in row]
+        return styles
+
+    def highlight_x(row):
+        """Highlight the row if 'country' is 'X'."""
+        styles = [''] * len(row)
+        if row.get("country") == "X":  # Use .get() to avoid key errors
+            for i in range(len(styles)):
+                styles[i] += f'background-color: {st.session_state.color_table_ignored};'
+        return styles
+    def highlight_viewed(row):
+        """Highlight the row if 'track_view' is True."""
+        styles = [''] * len(row)
+        if row.get("track_view") == "True":  # Use .get() to avoid key errors
+            for i in range(len(styles)):
+                styles[i] += f'background-color: {st.session_state.color_table_viewed};'
+        return styles
 
     # Apply the styling to the DataFrame
-    styled_df = df.style.apply(highlight_issues, axis=1)
+    styled_df = df.style.apply(
+        lambda row: [
+            f"{issue}{x}{finished}" 
+            for issue, x, finished in zip(
+                highlight_x(row), 
+                highlight_viewed(row),
+                highlight_issues(row), 
+            )
+        ], 
+        axis=1
+    )
+
     return styled_df
+
+
 
 def highlight_text_in_table(table, text_query, entries_per_page, DIS_CLASSES):
     """
@@ -1757,7 +1798,9 @@ def table_layout(t_location):
 
     DIS_CLASSES = "display nowrap compact cell-border"
 
-    entries_per_page = st.selectbox('Entries per page:', [10, 20, 50, 100], index=2,key=f'Entries per page{t_location}')  # Default is 10
+    c_entries, c_entries_2 = st.columns([2,10])
+    with c_entries:
+        entries_per_page = st.selectbox('Entries per page:', [10, 20, 50, 100], index=2,key=f'Entries per page{t_location}')  # Default is 10
     if entries_per_page is None:
         entries_per_page = 10
 
