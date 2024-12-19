@@ -1,7 +1,6 @@
 import os, sys, random, subprocess, requests, shutil, zipfile, tempfile
 import socket
 from pathlib import Path
-import git
 from importlib.metadata import distributions
 from packaging.requirements import Requirement
 from packaging import version
@@ -194,6 +193,7 @@ def find_github_desktop_git():
 def update_repository(repo_path):
     """Attempts to update the repository using the system's git or GitHub Desktop's git."""
     # try:
+    #     import git
     #     repo = git.Repo(repo_path)
     #     current_branch = repo.active_branch
     #     print(f"Updating repository on branch: {current_branch.name}")
