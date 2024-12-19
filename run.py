@@ -41,7 +41,6 @@ if __name__ == '__main__':
         ]
         sys.exit(stcli.main())
 
-
     except ValueError as e:
         print(f"Error: {e}")
     except Exception as e:
