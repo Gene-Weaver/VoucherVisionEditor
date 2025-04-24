@@ -3,6 +3,7 @@ static/
 projects/*
 .streamlit2/
 img/hidden/
+settings/streamlit_port.txt
 .DS_Store
 
 *.app
