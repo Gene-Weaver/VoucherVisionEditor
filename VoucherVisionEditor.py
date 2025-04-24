@@ -3023,7 +3023,7 @@ def should_zoom_out(lat1, lon1, lat2, lon2):
 ###############################################################
 ###################### Image Handling #########################
 ###############################################################
-def safe_open_image(image_path, fallback_path=os.path.join(WORKING_DIR, 'img', 'logo.png')):
+def safe_open_image(image_path, fallback_path=os.path.join(WORKING_DIR, 'img', 'icon.jpg')):
     try:
         return Image.open(image_path)
     except (FileNotFoundError, Image.UnidentifiedImageError, IOError, ValueError):
