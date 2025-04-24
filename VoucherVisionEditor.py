@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
-import json, os, argparse, shutil, re, toml, math, yaml, tempfile, zipfile, base64, webbrowser, threading, subprocess, platform
+import json, os, sys, argparse, shutil, re, toml, math, yaml, tempfile, zipfile, base64, webbrowser, threading, subprocess, platform
 
 from PIL import Image
 from utils import *
@@ -196,7 +196,10 @@ if 'form_hint_location' not in st.session_state:
 
 if 'search_term' not in st.session_state:
     st.session_state.search_term = ''
-    
+
+if 'http_server_port' not in st.session_state:
+    st.session_state.http_server_port = 8000
+
 if 'color_map_order' not in st.session_state:
     st.session_state.color_map_order = ["#7fbfff", "#f6a14f", "#48ca48", "#bf7fbf", "#ff3333" , "#787878", "#ff00fb"]
 
@@ -1248,6 +1251,18 @@ def start_editing_btn():
 
 
 def start_server():
+    streamlit_port = None
+    for arg in sys.argv:
+        if arg.startswith('--server.port='):
+            streamlit_port = int(arg.split('=')[1])
+            break
+    
+    if streamlit_port is None:
+        streamlit_port = 8000
+
+    st.session_state.http_server_port = streamlit_port - 1000
+    print(f"Starting HTTP server for Zoom images on port {st.session_state.http_server_port}")
+
     current_dir = os.path.dirname(os.path.abspath(__file__))
         # Create the path to the new 'static' directory
     static_folder_path = os.path.join(current_dir, 'static')
@@ -1255,7 +1270,7 @@ def start_server():
     os.makedirs(static_folder_path, exist_ok=True)
     # Ensure the server is run in a separate thread so it doesn't block the Streamlit app
     def target():
-        subprocess.run(["python", "-m", "http.server"], cwd=static_folder_path, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["python", "-m", "http.server", str(st.session_state.http_server_port)], cwd=static_folder_path, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     threading.Thread(target=target).start()
 
@@ -1424,7 +1439,7 @@ def show_header_welcome():
     # Use the second (middle) column for the logo
     with h2:
         # st.image("img/logo.png", use_container_width=True)
-        st.markdown(f'<a href="https://github.com/Gene-Weaver/VoucherVisionEditor"><img src="http://localhost:8000/{st.session_state.logo_path}" width="200"></a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="https://github.com/Gene-Weaver/VoucherVisionEditor"><img src="http://localhost:{st.session_state.http_server_port}/{st.session_state.logo_path}" width="200"></a>', unsafe_allow_html=True)
         hide_img_fs = '''
         <style>
         button[title="View fullscreen"]{
@@ -1438,7 +1453,7 @@ def show_header_main():
         # Logo and Title
         h1, h2, h3 = st.columns([1,6,1])
         with h2:
-            st.image(f"http://localhost:8000/{st.session_state.logo_path}", use_container_width=True)
+            st.image(f"http://localhost:{st.session_state.http_server_port}/{st.session_state.logo_path}", use_container_width=True)
             # st.markdown("<h1 style='text-align: center;'>VoucherVision Editor</h1>", unsafe_allow_html=True)
             # Use the first column for the logo and the second for the title
             # st.image("img/logo.png", width=200)  # adjust width as needed
@@ -3125,7 +3140,7 @@ def display_image_options_buttons(relative_path_to_static, zoom_1, zoom_2, zoom_
     The number and type of buttons displayed depends on st.session_state.use_extra_image_options.
     """
     # Define the Zoom link
-    link = f'http://localhost:8000/{relative_path_to_static}'
+    link = f'http://localhost:{st.session_state.http_server_port}/{relative_path_to_static}'
     
     current_image = st.session_state.image_option
     if st.session_state.use_extra_image_options:
