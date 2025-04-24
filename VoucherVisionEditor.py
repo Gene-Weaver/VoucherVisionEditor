@@ -1268,10 +1268,10 @@ def start_server():
         # Create 'static' directory
     os.makedirs(static_folder_path, exist_ok=True)
     # Ensure the server is run in a separate thread so it doesn't block the Streamlit app
-    def target():
-        subprocess.run(["python", "-m", "http.server", str(st.session_state.http_server_port)], cwd=static_folder_path, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    def target(http_server_port):
+        subprocess.run(["python", "-m", "http.server", str(http_server_port)], cwd=static_folder_path, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    threading.Thread(target=target).start()
+    threading.Thread(target=target, args=(st.session_state.http_server_port,)).start()
 
     # Get the directory of the current file 
     st.session_state.current_dir = os.path.dirname(os.path.abspath(__file__))
