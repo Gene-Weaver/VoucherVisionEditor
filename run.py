@@ -29,7 +29,7 @@ if __name__ == '__main__':
             'streamlit',
             'run',
             resolve_path(os.path.join(os.path.dirname(__file__),'VoucherVisionEditor.py')),
-            '--global.developmentMode=true',
+            '--global.developmentMode=false',
             f'--server.maxUploadSize=51200',
             f'--server.enableStaticServing=true',
             f'--server.runOnSave=true',
