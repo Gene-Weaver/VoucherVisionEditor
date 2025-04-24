@@ -3240,8 +3240,6 @@ def display_scrollable_image_method():
         image_width = st.session_state.set_image_size_px  # For use_container_width=True
 
     # Convert the image to base64
-    print(st.session_state['image'])
-
     if isinstance(st.session_state['image'], str):
         st.session_state['image'], st.session_state['image_path'] = safe_open_image(st.session_state['image'])
 
