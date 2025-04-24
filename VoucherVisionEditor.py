@@ -3025,13 +3025,13 @@ def should_zoom_out(lat1, lon1, lat2, lon2):
 ###############################################################
 def safe_open_image(image_path, fallback_path=os.path.join(WORKING_DIR, 'img', 'icon.jpg')):
     try:
-        return Image.open(image_path)
-    except (FileNotFoundError, Image.UnidentifiedImageError, IOError, ValueError):
+        return Image.open(image_path), image_path
+    except Exception as e:
+        print(e)
+        print(f"Using fallback image {fallback_path}")
         # Handle various possible errors when opening an image
-        return Image.open(fallback_path)
+        return Image.open(fallback_path), fallback_path
 
-# Replace your existing code with:
-st.session_state['image'] = safe_open_image(st.session_state['image_path'])
 def image_path_and_load():
     # Check if the current row or image option has changed
     if ((st.session_state['last_row_to_edit'] != st.session_state.row_to_edit) or 
@@ -3051,19 +3051,19 @@ def image_path_and_load():
 
         # Update the image path based on the selected image option
         if st.session_state.image_option == 'Original':
-            st.session_state['image_path'] = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_original"]
+            # st.session_state['image_path'] = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_original"]
             # st.session_state['image'] = Image.open(st.session_state['image_path'])
-            st.session_state['image'] = safe_open_image(st.session_state['image_path'])
+            st.session_state['image'], st.session_state['image_path'] = safe_open_image(st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_original"])
             st.session_state.relative_path_to_static = image_to_server()
         elif st.session_state.image_option == 'Cropped':
-            st.session_state['image_path'] = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_crop"]
+            # st.session_state['image_path'] = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_crop"]
             # st.session_state['image'] = Image.open(st.session_state['image_path'])
-            st.session_state['image'] = safe_open_image(st.session_state['image_path'])
+            st.session_state['image'], st.session_state['image_path'] = safe_open_image(st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_crop"])
             st.session_state.relative_path_to_static = image_to_server()
         elif st.session_state.image_option == 'Helper':
-            st.session_state['image_path'] = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_helper"]
+            # st.session_state['image_path'] = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_helper"]
             # st.session_state['image'] = Image.open(st.session_state['image_path'])
-            st.session_state['image'] = safe_open_image(st.session_state['image_path'])
+            st.session_state['image'], st.session_state['image_path'] = safe_open_image(st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_helper"])
             st.session_state.relative_path_to_static = image_to_server()
 
         # Load the image if the image path is not null
@@ -3091,12 +3091,12 @@ def apply_image_rotation(image):
     
 def image_to_server():
 
-    image_path = st.session_state['image_path']
-    print(image_path)
+    # image_path = st.session_state['image_path']
+    # print(image_path)
     if 'image_rotation' in st.session_state and st.session_state.image_rotation in ['left', 'right', '180']:
 
         # Save the rotated image to a temporary file
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(image_path)[1])
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(st.session_state['image_path'])[1])
         st.session_state['image'].save(temp_file.name)
         image_path = temp_file.name  # Update image_path to point to the rotated image
         st.session_state['image_path'] = image_path
@@ -3104,14 +3104,14 @@ def image_to_server():
     
     # Continue with the existing logic to determine the destination path
     if st.session_state.image_option == 'Original':
-        static_image_path = os.path.join('static_og', os.path.basename(image_path))
-        shutil.copy(image_path, os.path.join(st.session_state.static_folder_path_o, os.path.basename(image_path)))
+        static_image_path = os.path.join('static_og', os.path.basename(st.session_state['image_path']))
+        shutil.copy(st.session_state['image_path'], os.path.join(st.session_state.static_folder_path_o, os.path.basename(st.session_state['image_path'])))
     elif st.session_state.image_option == 'Cropped':
-        static_image_path = os.path.join('static_cr', os.path.basename(image_path))
-        shutil.copy(image_path, os.path.join(st.session_state.static_folder_path_c, os.path.basename(image_path)))
+        static_image_path = os.path.join('static_cr', os.path.basename(st.session_state['image_path']))
+        shutil.copy(st.session_state['image_path'], os.path.join(st.session_state.static_folder_path_c, os.path.basename(st.session_state['image_path'])))
     elif st.session_state.image_option == 'Helper':
-        static_image_path = os.path.join('static_h', os.path.basename(image_path))
-        shutil.copy(image_path, os.path.join(st.session_state.static_folder_path_h, os.path.basename(image_path)))
+        static_image_path = os.path.join('static_h', os.path.basename(st.session_state['image_path']))
+        shutil.copy(st.session_state['image_path'], os.path.join(st.session_state.static_folder_path_h, os.path.basename(st.session_state['image_path'])))
     
     # Generate and print the relative path to the static directory
     relative_path_to_static = os.path.relpath(static_image_path, st.session_state.current_dir).replace('\\', '/')
@@ -3226,7 +3226,13 @@ def display_scrollable_image_method():
         image_width = st.session_state.set_image_size_px  # For use_container_width=True
 
     # Convert the image to base64
+    print(st.session_state['image'])
+
+    if isinstance(st.session_state['image'], str):
+        st.session_state['image'], st.session_state['image_path'] = safe_open_image(st.session_state['image'])
+
     base64_image = image_to_base64(st.session_state['image'])
+
 
     # Embed the image with the determined width in the custom div
     img_html = f"""
