@@ -2665,44 +2665,58 @@ def on_press_show_helper_text():
             st.session_state.show_helper_text = True
 
 def display_wiki_taxa_main_links():
-    if st.session_state.tool_access.get('taxa_links'):
-        fname = st.session_state.data_edited['filename'][st.session_state.row_to_edit]
-        wiki_json_path = st.session_state.wiki_file_dict[fname]
+    if not st.session_state.tool_access.get('taxa_links'):
+        return  # Exit if taxa_links tool access is not granted
+    
+    try:
+        if st.session_state.tool_access.get('taxa_links'):
+            fname = st.session_state.data_edited['filename'][st.session_state.row_to_edit]
 
-        if wiki_json_path:
-            with open(wiki_json_path, "r") as file:
-                wiki_json = json.load(file)
+            if fname not in st.session_state.wiki_file_dict:
+                return  # Exit gracefully if fname key doesn't exist
+            
+            wiki_json_path = st.session_state.wiki_file_dict[fname]
 
-            wiki_taxa = wiki_json.get('WIKI_TAXA', None)
-            wiki_taxa_data = wiki_taxa.get('DATA', None)
-            wiki_taxa_page_title = wiki_taxa.get('PAGE_TITLE', None)
-            wiki_taxa_page_link = wiki_taxa.get('PAGE_LINK', None)
+            if wiki_json_path:
+                try:
+                    with open(wiki_json_path, "r") as file:
+                        wiki_json = json.load(file)
+                except (FileNotFoundError, json.JSONDecodeError, IOError):
+                    # Handle file not found, invalid JSON, or other IO errors
+                    return
 
-            c_help_left, c_help_right = st.columns([1,1])
+                wiki_taxa = wiki_json.get('WIKI_TAXA', None)
+                wiki_taxa_data = wiki_taxa.get('DATA', None)
+                wiki_taxa_page_title = wiki_taxa.get('PAGE_TITLE', None)
+                wiki_taxa_page_link = wiki_taxa.get('PAGE_LINK', None)
 
-            with c_help_left:
-                if wiki_taxa_page_title and wiki_taxa_page_link:
-                    st.link_button(label=f":violet[:information_source: {wiki_taxa_page_title}]",url=wiki_taxa_page_link)
+                c_help_left, c_help_right = st.columns([1,1])
 
-            with c_help_right:
-                if wiki_taxa_data:
-                    if 'GRIN' in wiki_taxa_data:
-                        if wiki_taxa_data.get('GRIN',None):
-                            st.link_button(label=f"{get_color('scientificName')}[GRIN]",url=wiki_taxa_data.get('GRIN', None))
-            c_help_left, c_help_right = st.columns([1,1])
+                with c_help_left:
+                    if wiki_taxa_page_title and wiki_taxa_page_link:
+                        st.link_button(label=f":violet[:information_source: {wiki_taxa_page_title}]",url=wiki_taxa_page_link)
 
-            with c_help_left:
-                if wiki_taxa_data:
-                    if 'POWOID' in wiki_taxa_data:
-                        if wiki_taxa_data.get('POWOID',None):
-                            st.link_button(label=f"{get_color('scientificName')}[POWO]",url=wiki_taxa_data.get('POWOID', None))
+                with c_help_right:
+                    if wiki_taxa_data:
+                        if 'GRIN' in wiki_taxa_data:
+                            if wiki_taxa_data.get('GRIN',None):
+                                st.link_button(label=f"{get_color('scientificName')}[GRIN]",url=wiki_taxa_data.get('GRIN', None))
+                c_help_left, c_help_right = st.columns([1,1])
 
-            # with c_help_right:
-            #     if wiki_taxa_data:
-            #         if 'POWOID_syn' in wiki_taxa_data:
-            #             if wiki_taxa_data.get('POWOID_syn',None):
-            #                 st.link_button(label=f"{get_color('scientificName')}[POWO Syn.]",url=wiki_taxa_data.get('POWOID_syn', None))
-  
+                with c_help_left:
+                    if wiki_taxa_data:
+                        if 'POWOID' in wiki_taxa_data:
+                            if wiki_taxa_data.get('POWOID',None):
+                                st.link_button(label=f"{get_color('scientificName')}[POWO]",url=wiki_taxa_data.get('POWOID', None))
+
+                # with c_help_right:
+                #     if wiki_taxa_data:
+                #         if 'POWOID_syn' in wiki_taxa_data:
+                #             if wiki_taxa_data.get('POWOID_syn',None):
+                #                 st.link_button(label=f"{get_color('scientificName')}[POWO Syn.]",url=wiki_taxa_data.get('POWOID_syn', None))
+    except Exception as e:
+        print(e)
+        return
 
 @st.cache_data
 def display_wiki_taxa_sub_links():
