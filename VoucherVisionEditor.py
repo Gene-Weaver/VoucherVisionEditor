@@ -1251,15 +1251,14 @@ def start_editing_btn():
 
 
 def start_server():
-    streamlit_port = None
-    for arg in sys.argv:
-        if arg.startswith('--server.port='):
-            streamlit_port = int(arg.split('=')[1])
-            break
+    # Try to read the port from the file
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings", "streamlit_port.txt"), "r") as f:
+            streamlit_port = int(f.read().strip())
+    except:
+        # Default port if file read fails
+        streamlit_port = 8501
     
-    if streamlit_port is None:
-        streamlit_port = 8000
-
     st.session_state.http_server_port = streamlit_port - 1000
     print(f"Starting HTTP server for Zoom images on port {st.session_state.http_server_port}")
 

@@ -25,6 +25,10 @@ if __name__ == '__main__':
 
     try:
         free_port = find_available_port(start_port, end_port)
+        # Write the port to a file that can be read by the application
+        with open(os.path.join(repo_path, "settings", "streamlit_port.txt"), "w") as f:
+            f.write(str(free_port))
+
         sys.argv = [
             'streamlit',
             'run',
