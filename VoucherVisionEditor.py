@@ -46,7 +46,7 @@ opt.maxColumns = 0  # No limit on number of columns
 # --base-path D:/Dropbox/LM2_Env/VoucherVision_Datasets/POC_chatGPT__2022_09_07_thru12_S3_jacortez_AllAsia/2022_09_07_thru12_S3_jacortez_AllAsia_2023_06_16__02-12-26
 # --save-dir D:/D_Desktop/OUT
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
-print(f"Currnet working dir: {os.getcwd()}")
+print(f"Current working dir: {os.getcwd()}")
 st.set_page_config(layout="wide", 
                    page_icon='img/icon.ico', 
                    page_title='VoucherVision Editor',
