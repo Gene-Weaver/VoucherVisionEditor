@@ -46,6 +46,7 @@ opt.maxColumns = 0  # No limit on number of columns
 # --base-path D:/Dropbox/LM2_Env/VoucherVision_Datasets/POC_chatGPT__2022_09_07_thru12_S3_jacortez_AllAsia/2022_09_07_thru12_S3_jacortez_AllAsia_2023_06_16__02-12-26
 # --save-dir D:/D_Desktop/OUT
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
+print(f"Currnet working dir: {os.getcwd()}")
 st.set_page_config(layout="wide", 
                    page_icon='img/icon.ico', 
                    page_title='VoucherVision Editor',
@@ -1554,6 +1555,9 @@ def load_json_helper_files():
         if JSON_path:
             with open(JSON_path, "r") as file:
                 st.session_state['json_dict'] = json.load(file)
+        else:
+            print(f"Error loading LLM JSON file from PROJECT/Transcription/Individual/...json {JSON_path}: st.session_state['json_dict'] = json.load(file)")
+            st.session_state['json_dict'] = {}
 
         # Load second JSON (OCR)
         original_JSON_path = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_content"]
@@ -1572,6 +1576,9 @@ def load_json_helper_files():
             if os.path.isfile(OCR_JSON_path):
                 with open(OCR_JSON_path, "r") as file:
                     st.session_state['OCR_JSON'] = json.load(file)
+        else:
+            print(f"Error loading OCR_JSON file from PROJECT/Transcription/Individual_OCR/...json --- {JSON_path} --- st.session_state['OCR_JSON'] = json.load(file)")
+            st.session_state['OCR_JSON'] = {}
 
 
 ###############################################################
@@ -2716,74 +2723,95 @@ def display_wiki_taxa_main_links():
                 #                 st.link_button(label=f"{get_color('scientificName')}[POWO Syn.]",url=wiki_taxa_data.get('POWOID_syn', None))
     except Exception as e:
         print(e)
-        return
+        
 
 @st.cache_data
 def display_wiki_taxa_sub_links():
-    fname = st.session_state.data_edited['filename'][st.session_state.row_to_edit]
-    wiki_json_path = st.session_state.wiki_file_dict[fname]
+    try:
+        fname = st.session_state.data_edited['filename'][st.session_state.row_to_edit]
 
-    if wiki_json_path:
-        with open(wiki_json_path, "r") as file:
-            wiki_json = json.load(file)
-
-        wiki_taxa = wiki_json.get('WIKI_TAXA', None)
-        wiki_taxa_links = wiki_taxa.get('LINKS', None)
+        if fname not in st.session_state.wiki_file_dict:
+            return
         
-        if wiki_taxa_links:
-            with st.expander('Top Wikipedia Links'):
-                for label, link in wiki_taxa_links.items():
-                    st.link_button(label=label,url=link)
+        wiki_json_path = st.session_state.wiki_file_dict[fname]
+
+        if wiki_json_path:
+            with open(wiki_json_path, "r") as file:
+                wiki_json = json.load(file)
+
+            wiki_taxa = wiki_json.get('WIKI_TAXA', None)
+            wiki_taxa_links = wiki_taxa.get('LINKS', None)
+            
+            if wiki_taxa_links:
+                with st.expander('Top Wikipedia Links'):
+                    for label, link in wiki_taxa_links.items():
+                        st.link_button(label=label,url=link)
+    except Exception as e:
+        print(e)
+        
 
 
 @st.cache_data
 def display_wiki_taxa_summary():
-    fname = st.session_state.data_edited['filename'][st.session_state.row_to_edit]
-    wiki_json_path = st.session_state.wiki_file_dict[fname]
+    try:
+        fname = st.session_state.data_edited['filename'][st.session_state.row_to_edit]
 
-    if wiki_json_path:
-        with open(wiki_json_path, "r") as file:
-            wiki_json = json.load(file)
+        if fname not in st.session_state.wiki_file_dict:
+            return
+        
+        wiki_json_path = st.session_state.wiki_file_dict[fname]
 
-        wiki_taxa = wiki_json.get('WIKI_TAXA', None)
-        wiki_taxa_summary = wiki_taxa.get('SUMMARY', None)
+        if wiki_json_path:
+            with open(wiki_json_path, "r") as file:
+                wiki_json = json.load(file)
 
-        if wiki_taxa_summary:
-            with st.expander(f"{get_color('scientificName')}[Wikipedia Summary - Taxonomy]"):
-                st.write(wiki_taxa_summary.strip())
+            wiki_taxa = wiki_json.get('WIKI_TAXA', None)
+            wiki_taxa_summary = wiki_taxa.get('SUMMARY', None)
+
+            if wiki_taxa_summary:
+                with st.expander(f"{get_color('scientificName')}[Wikipedia Summary - Taxonomy]"):
+                    st.write(wiki_taxa_summary.strip())
+    except Exception as e:
+        print(e)
         
 
 @st.cache_data
 def display_wiki_geo_main_links():
-    fname = st.session_state.data_edited['filename'][st.session_state.row_to_edit]
-    wiki_json_path = st.session_state.wiki_file_dict[fname]
+    try:
+        fname = st.session_state.data_edited['filename'][st.session_state.row_to_edit]
 
-    if wiki_json_path:
-        with open(wiki_json_path, "r") as file:
-            wiki_json = json.load(file)
-        wiki_geo = wiki_json.get('WIKI_GEO', None)
-        wiki_geo_links = wiki_geo.get('LINKS', None)
-        wiki_geo_data = wiki_geo.get('DATA', None)
-        wiki_geo_summary = wiki_geo.get('SUMMARY', None)
-        wiki_geo_page_link = wiki_geo.get('PAGE_LINK', None)
-        wiki_geo_page_title = wiki_geo.get('PAGE_TITLE', None)
+        if fname not in st.session_state.wiki_file_dict:
+            return
+        
+        wiki_json_path = st.session_state.wiki_file_dict[fname]
 
-        wiki_locality = wiki_json.get('WIKI_LOCALITY', None)
-        wiki_locality_data = wiki_locality.get('DATA', None)
-        wiki_locality_summary = wiki_locality.get('SUMMARY', None)
-        wiki_locality_page_link = wiki_locality.get('PAGE_LINK', None)
-        wiki_locality_page_title = wiki_locality.get('PAGE_TITLE', None)
+        if wiki_json_path:
+            with open(wiki_json_path, "r") as file:
+                wiki_json = json.load(file)
+            wiki_geo = wiki_json.get('WIKI_GEO', None)
+            wiki_geo_links = wiki_geo.get('LINKS', None)
+            wiki_geo_data = wiki_geo.get('DATA', None)
+            wiki_geo_summary = wiki_geo.get('SUMMARY', None)
+            wiki_geo_page_link = wiki_geo.get('PAGE_LINK', None)
+            wiki_geo_page_title = wiki_geo.get('PAGE_TITLE', None)
 
-        c_help_left, c_help_right = st.columns([1,1])
+            wiki_locality = wiki_json.get('WIKI_LOCALITY', None)
+            wiki_locality_data = wiki_locality.get('DATA', None)
+            wiki_locality_summary = wiki_locality.get('SUMMARY', None)
+            wiki_locality_page_link = wiki_locality.get('PAGE_LINK', None)
+            wiki_locality_page_title = wiki_locality.get('PAGE_TITLE', None)
 
-        with c_help_left:
-            if wiki_geo_page_title and wiki_geo_page_link:
-                st.link_button(label=f"{get_color('country')}[:information_source: {wiki_geo_page_title}]",url=wiki_geo_page_link)
+            c_help_left, c_help_right = st.columns([1,1])
 
-        with c_help_right:
-            if wiki_locality_page_title and wiki_locality_page_link:
-                st.link_button(label=f"{get_color('country')}[:information_source: {wiki_locality_page_title}]",url=wiki_locality_page_link)
-    pass
+            with c_help_left:
+                if wiki_geo_page_title and wiki_geo_page_link:
+                    st.link_button(label=f"{get_color('country')}[:information_source: {wiki_geo_page_title}]",url=wiki_geo_page_link)
+
+            with c_help_right:
+                if wiki_locality_page_title and wiki_locality_page_link:
+                    st.link_button(label=f"{get_color('country')}[:information_source: {wiki_locality_page_title}]",url=wiki_locality_page_link)
+    except Exception as e:
+        print(e)
 
 
 def display_search_results():
