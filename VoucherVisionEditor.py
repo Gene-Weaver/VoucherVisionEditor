@@ -45,7 +45,9 @@ opt.maxColumns = 0  # No limit on number of columns
 # streamlit run VoucherVisionEditor.py -- 
 # --base-path D:/Dropbox/LM2_Env/VoucherVision_Datasets/POC_chatGPT__2022_09_07_thru12_S3_jacortez_AllAsia/2022_09_07_thru12_S3_jacortez_AllAsia_2023_06_16__02-12-26
 # --save-dir D:/D_Desktop/OUT
-os.chdir(os.path.dirname(os.path.realpath(__file__)))
+
+WORKING_DIR = os.path.dirname(os.path.realpath(__file__))
+os.chdir(WORKING_DIR)
 print(f"Current working dir: {os.getcwd()}")
 st.set_page_config(layout="wide", 
                    page_icon='img/icon.ico', 
@@ -1549,36 +1551,41 @@ def load_json_helper_files():
     Load related JSON files based on the current row being edited. 
     Updates the st.session_state with 'json_dict' for the helper JSON and 'OCR_JSON' for the OCR data.
     """
-    if st.session_state['last_row_to_edit'] != st.session_state.row_to_edit:
-        JSON_path = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_content"]
+    try:
+        if st.session_state['last_row_to_edit'] != st.session_state.row_to_edit:
+            JSON_path = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_content"]
 
-        if JSON_path:
-            with open(JSON_path, "r") as file:
-                st.session_state['json_dict'] = json.load(file)
-        else:
-            print(f"Error loading LLM JSON file from PROJECT/Transcription/Individual/...json {JSON_path}: st.session_state['json_dict'] = json.load(file)")
-            st.session_state['json_dict'] = {}
+            if JSON_path:
+                with open(JSON_path, "r") as file:
+                    st.session_state['json_dict'] = json.load(file)
+            else:
+                print(f"Error loading LLM JSON file from PROJECT/Transcription/Individual/...json {JSON_path}: st.session_state['json_dict'] = json.load(file)")
+                st.session_state['json_dict'] = {}
 
-        # Load second JSON (OCR)
-        original_JSON_path = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_content"]
-        
-        if original_JSON_path:
-            # Breakdown the path into parts
-            path_parts = original_JSON_path.split(os.path.sep)
+            # Load second JSON (OCR)
+            original_JSON_path = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_content"]
             
-            # Change the last directory name to 'Individual_OCR'
-            path_parts[-2] = 'Individual_OCR'
-            
-            # Combine the parts back together
-            OCR_JSON_path = os.path.sep.join(path_parts)
-            
-            # Check if the file exists
-            if os.path.isfile(OCR_JSON_path):
-                with open(OCR_JSON_path, "r") as file:
-                    st.session_state['OCR_JSON'] = json.load(file)
-        else:
-            print(f"Error loading OCR_JSON file from PROJECT/Transcription/Individual_OCR/...json --- {JSON_path} --- st.session_state['OCR_JSON'] = json.load(file)")
-            st.session_state['OCR_JSON'] = {}
+            if original_JSON_path:
+                # Breakdown the path into parts
+                path_parts = original_JSON_path.split(os.path.sep)
+                
+                # Change the last directory name to 'Individual_OCR'
+                path_parts[-2] = 'Individual_OCR'
+                
+                # Combine the parts back together
+                OCR_JSON_path = os.path.sep.join(path_parts)
+                
+                # Check if the file exists
+                if os.path.isfile(OCR_JSON_path):
+                    with open(OCR_JSON_path, "r") as file:
+                        st.session_state['OCR_JSON'] = json.load(file)
+            else:
+                print(f"Error loading OCR_JSON file from PROJECT/Transcription/Individual_OCR/...json --- {JSON_path} --- st.session_state['OCR_JSON'] = json.load(file)")
+                st.session_state['OCR_JSON'] = {}
+    except Exception as e:
+        print(e)
+        st.session_state['json_dict'] = {}
+        st.session_state['OCR_JSON'] = {}
 
 
 ###############################################################
@@ -3016,6 +3023,15 @@ def should_zoom_out(lat1, lon1, lat2, lon2):
 ###############################################################
 ###################### Image Handling #########################
 ###############################################################
+def safe_open_image(image_path, fallback_path=os.path.join(WORKING_DIR, 'img', 'logo.png')):
+    try:
+        return Image.open(image_path)
+    except (FileNotFoundError, Image.UnidentifiedImageError, IOError, ValueError):
+        # Handle various possible errors when opening an image
+        return Image.open(fallback_path)
+
+# Replace your existing code with:
+st.session_state['image'] = safe_open_image(st.session_state['image_path'])
 def image_path_and_load():
     # Check if the current row or image option has changed
     if ((st.session_state['last_row_to_edit'] != st.session_state.row_to_edit) or 
@@ -3036,15 +3052,18 @@ def image_path_and_load():
         # Update the image path based on the selected image option
         if st.session_state.image_option == 'Original':
             st.session_state['image_path'] = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_original"]
-            st.session_state['image'] = Image.open(st.session_state['image_path'])
+            # st.session_state['image'] = Image.open(st.session_state['image_path'])
+            st.session_state['image'] = safe_open_image(st.session_state['image_path'])
             st.session_state.relative_path_to_static = image_to_server()
         elif st.session_state.image_option == 'Cropped':
             st.session_state['image_path'] = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_crop"]
-            st.session_state['image'] = Image.open(st.session_state['image_path'])
+            # st.session_state['image'] = Image.open(st.session_state['image_path'])
+            st.session_state['image'] = safe_open_image(st.session_state['image_path'])
             st.session_state.relative_path_to_static = image_to_server()
         elif st.session_state.image_option == 'Helper':
             st.session_state['image_path'] = st.session_state.data_edited.loc[st.session_state.row_to_edit, "path_to_helper"]
-            st.session_state['image'] = Image.open(st.session_state['image_path'])
+            # st.session_state['image'] = Image.open(st.session_state['image_path'])
+            st.session_state['image'] = safe_open_image(st.session_state['image_path'])
             st.session_state.relative_path_to_static = image_to_server()
 
         # Load the image if the image path is not null
@@ -3054,7 +3073,8 @@ def image_path_and_load():
                 new_img_path_fname = os.path.basename(new_img_path)
                 print(f'LOADING IMAGE: {new_img_path_fname}')
                 # st.session_state['image_path'] = new_img_path
-                st.session_state['image'] = apply_image_rotation(Image.open(new_img_path))
+                # st.session_state['image'] = apply_image_rotation(Image.open(new_img_path))
+                st.session_state['image'] = apply_image_rotation(new_img_path)
             st.session_state.image_rotation_change = False
             st.session_state.relative_path_to_static = image_to_server()
         
